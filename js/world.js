@@ -309,19 +309,49 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
   }
 }
 
-// Height query helper for collision detection (tunnels supported!)
+// Bilinear density interpolation at a specific grid height (y)
+export function getDensity2DInterpolated(gx, y, gz) {
+  const x0 = Math.floor(gx);
+  const z0 = Math.floor(gz);
+
+  // If coordinates are out of grid bounds, treat it as air (-1.0)
+  if (x0 < 0 || x0 >= world.sizeX - 1 || z0 < 0 || z0 >= world.sizeZ - 1) {
+    return -1.0;
+  }
+
+  const x1 = x0 + 1;
+  const z1 = z0 + 1;
+
+  const tx = gx - x0;
+  const tz = gz - z0;
+
+  const d00 = world.density[x0 * world.sizeY * world.sizeZ + y * world.sizeZ + z0] || 0;
+  const d10 = world.density[x1 * world.sizeY * world.sizeZ + y * world.sizeZ + z0] || 0;
+  const d01 = world.density[x0 * world.sizeY * world.sizeZ + y * world.sizeZ + z1] || 0;
+  const d11 = world.density[x1 * world.sizeY * world.sizeZ + y * world.sizeZ + z1] || 0;
+
+  // Bilinear interpolation
+  const d0 = d00 + tx * (d10 - d00);
+  const d1 = d01 + tx * (d11 - d01);
+  return d0 + tz * (d1 - d0);
+}
+
+// Height query helper for collision detection (smoothly interpolated, tunnels supported!)
 export function getSurfaceHeightNear(px, py, pz) {
   const spacing = world.spacing;
   const gx = px / spacing;
   const gy = py / spacing;
   const gz = pz / spacing;
 
+  // Clamp vertical sweep to active grid limits
+  const startY = Math.max(0, Math.min(Math.floor(gy), world.sizeY - 1));
+
   // Scan downwards from the player's current y height to find solid terrain floor
-  for (let y = Math.floor(gy); y >= 0; y--) {
-    const dens = getDensity(gx, y, gz);
+  for (let y = startY; y >= 0; y--) {
+    const dens = getDensity2DInterpolated(gx, y, gz);
     if (dens >= 0) {
       // Solid found! Interpolate height between y and y+1
-      const densAbove = getDensity(gx, y + 1, gz);
+      const densAbove = getDensity2DInterpolated(gx, y + 1, gz);
       let t = 0.5;
       const diff = dens - densAbove;
       if (Math.abs(diff) > 0.0001) {
