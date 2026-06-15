@@ -280,30 +280,26 @@ export function buildMarchingCubesMesh() {
     }
   }
 
-  // Create or Update BufferGeometry
-  let geometry = null;
-  if (world.terrainMesh) {
-    geometry = world.terrainMesh.geometry;
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    geometry.attributes.position.needsUpdate = true;
-    geometry.attributes.color.needsUpdate = true;
-    geometry.computeVertexNormals();
-  } else {
-    geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    geometry.computeVertexNormals();
+  // Create BufferGeometry
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.computeVertexNormals();
 
+  if (world.terrainMesh) {
+    const oldGeometry = world.terrainMesh.geometry;
+    world.terrainMesh.geometry = geometry;
+    oldGeometry.dispose();
+  } else {
     // Material details: stylized peach-sandy-gold rock
-    // Set color to white to multiply with vertex colors, enable DoubleSide to prevent gaps!
+    // Set color to white to multiply with vertex colors, using FrontSide to prevent self-intersection and visual overlapping.
     world.material = new THREE.MeshStandardMaterial({
       color: 0xffffff,
       roughness: 0.85,
       metalness: 0.05,
       flatShading: true, // Flat shading gives the low-poly look!
       vertexColors: true, // Enable vertex colors!
-      side: THREE.DoubleSide // Render both sides to avoid visual gaps/seeing through terrain!
+      side: THREE.FrontSide
     });
 
     world.terrainMesh = new THREE.Mesh(geometry, world.material);
