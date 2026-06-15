@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SANDBOX - Low-Poly Survival Prototype</title>
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Import maps polyfill if needed -->
+  <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+  <!-- ES Module Import Map for Three.js -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- WebGL Canvas Container -->
+  <div id="canvas-container"></div>
+
+  <!-- Blocker screen (Start Menu / Instructions) -->
+  <div id="blocker">
+    <div id="instructions">
+      <h1>SANDBOX</h1>
+      <p>Un prototipo 3D low-poly di sopravvivenza ed esplorazione al tramonto.</p>
+      
+      <div class="controls-list">
+        <div class="control-item">
+          <span class="key-cap">W</span><span class="key-cap">A</span><span class="key-cap">S</span><span class="key-cap">D</span>
+          <span>Movimento</span>
+        </div>
+        <div class="control-item">
+          <span class="key-cap">MOUSE</span>
+          <span>Guarda in giro</span>
+        </div>
+        <div class="control-item">
+          <span class="key-cap">CLICK SX</span>
+          <span>Usa strumento (Scava/Attacca)</span>
+        </div>
+        <div class="control-item">
+          <span class="key-cap">1</span> - <span class="key-cap">8</span>
+          <span>Cambia strumento</span>
+        </div>
+        <div class="control-item">
+          <span class="key-cap">E</span>
+          <span>Raccogli detriti / minerali</span>
+        </div>
+        <div class="control-item">
+          <span class="key-cap">SPAZIO</span>
+          <span>Salta</span>
+        </div>
+      </div>
+      
+      <button id="start-button">INIZIA A GIOCARE</button>
+    </div>
+  </div>
+
+  <!-- HUD Overlay -->
+  <div id="hud-overlay">
+    
+    <!-- Top Row: Objective, Compass, Distance -->
+    <div class="hud-top-row">
+      <div id="objective-panel" class="glass-panel">
+        <div class="label-small">OBJECTIVE</div>
+        <div id="objective-text">Collect ore for boat repairs</div>
+      </div>
+      
+      <div id="compass-panel" class="glass-panel">
+        <div class="label-small">COMPASS</div>
+        <div class="compass-container">
+          <!-- The compass tape is translated dynamically via JS -->
+          <div class="compass-tape" id="compass-tape">N · · · NE · · · E · · · SE · · · S · · · SW · · · W · · · NW · · · N</div>
+          <div class="compass-marker"></div>
+        </div>
+      </div>
+      
+      <div id="distance-panel" class="glass-panel">
+        <div class="label-small">DISTANCE</div>
+        <div class="value-large" id="distance-value">1810 m</div>
+      </div>
+    </div>
+
+    <!-- Floating Messages (e.g. "+1 Ore") -->
+    <div id="hud-message"></div>
+
+    <!-- Interaction Tooltip ("Press E to collect...") -->
+    <div id="interaction-prompt">PRESS <span style="color: #ffd700; font-weight:800;">E</span> TO HARVEST ORE</div>
+
+    <!-- Center Screen Crosshair -->
+    <div id="crosshair"></div>
+
+    <!-- Bottom Row: Health/Energy Bars & Hotbar -->
+    <div class="hud-bottom-row">
+      
+      <!-- Status Bars -->
+      <div id="status-panel" class="glass-panel">
+        <!-- Health -->
+        <div class="status-bar-group">
+          <div class="status-label-row">
+            <span>HEALTH</span>
+            <span id="health-value">100%</span>
+          </div>
+          <div class="status-bar-bg">
+            <div id="health-fill" class="status-bar-fill" style="width: 100%;"></div>
+          </div>
+        </div>
+        <!-- Energy -->
+        <div class="status-bar-group">
+          <div class="status-label-row">
+            <span>ENERGY</span>
+            <span id="energy-value">100%</span>
+          </div>
+          <div class="status-bar-bg">
+            <div id="energy-fill" class="status-bar-fill" style="width: 100%;"></div>
+          </div>
+        </div>
+        <!-- Hydration -->
+        <div class="status-bar-group">
+          <div class="status-label-row">
+            <span>HYDRATION</span>
+            <span id="hydration-value">100%</span>
+          </div>
+          <div class="status-bar-bg">
+            <div id="hydration-fill" class="status-bar-fill" style="width: 100%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hotbar -->
+      <div id="hotbar-panel">
+        <div class="hotbar-slot" data-slot="0">
+          <span class="slot-number">1</span>
+          <span class="slot-icon">⚔️</span>
+          <span class="slot-label">Spear</span>
+        </div>
+        <div class="hotbar-slot" data-slot="1">
+          <span class="slot-number">2</span>
+          <span class="slot-icon">🪓</span>
+          <span class="slot-label">Axe</span>
+        </div>
+        <div class="hotbar-slot" data-slot="2">
+          <span class="slot-number">3</span>
+          <span class="slot-icon">💧</span>
+          <span class="slot-label">Water</span>
+        </div>
+        <div class="hotbar-slot" data-slot="3">
+          <span class="slot-number">4</span>
+          <span class="slot-icon">🍃</span>
+          <span class="slot-label">Leaves</span>
+          <span class="slot-count">x4</span>
+        </div>
+        <div class="hotbar-slot" data-slot="4">
+          <span class="slot-number">5</span>
+          <span class="slot-icon">🪢</span>
+          <span class="slot-label">Rope</span>
+          <span class="slot-count">x2</span>
+        </div>
+        <div class="hotbar-slot" data-slot="5">
+          <span class="slot-number">6</span>
+          <span class="slot-icon">🪵</span>
+          <span class="slot-label">Wood</span>
+          <span class="slot-count">x5</span>
+        </div>
+        <!-- Pickaxe starting selected -->
+        <div class="hotbar-slot selected" data-slot="6">
+          <span class="slot-number">7</span>
+          <span class="slot-icon">⛏️</span>
+          <span class="slot-label">Pickaxe</span>
+          <span class="slot-count" id="slot-pickaxe-count">x1</span>
+        </div>
+        <div class="hotbar-slot" data-slot="7">
+          <span class="slot-number">8</span>
+          <span class="slot-icon">🪨</span>
+          <span class="slot-label">Stone</span>
+          <span class="slot-count" id="slot-stone-count">x1</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Main JS entry point as an ES Module -->
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>
