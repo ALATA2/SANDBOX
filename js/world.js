@@ -236,13 +236,13 @@ export function buildMarchingCubesMesh() {
         }
 
         // 4. Retrieve triangles from triTable
-        const triRowOffset = cubeIndex * 16;
-        for (let i = 0; i < 16; i += 3) {
-          const e0 = triTable[triRowOffset + i + 0];
-          const e1 = triTable[triRowOffset + i + 1];
-          const e2 = triTable[triRowOffset + i + 2];
+        const triRow = triTable[cubeIndex];
+        for (let i = 0; i < triRow.length; i += 3) {
+          const e0 = triRow[i + 0];
+          const e1 = triRow[i + 1];
+          const e2 = triRow[i + 2];
 
-          if (e0 === -1 || e1 === -1 || e2 === -1) break;
+          if (e0 === undefined || e1 === undefined || e2 === undefined) break;
           if (e0 < 0 || e0 >= 12 || e1 < 0 || e1 >= 12 || e2 < 0 || e2 >= 12) break;
 
           const v0x = vertList[e0 * 3 + 0];
