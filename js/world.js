@@ -201,15 +201,35 @@ export function buildMarchingCubesMesh() {
         // 4. Retrieve triangles from triTable
         const triRowOffset = cubeIndex * 16;
         for (let i = 0; i < 16; i += 3) {
-          if (triTable[triRowOffset + i] === -1) break;
-
           const e0 = triTable[triRowOffset + i + 0];
           const e1 = triTable[triRowOffset + i + 1];
           const e2 = triTable[triRowOffset + i + 2];
 
-          positions.push(vertList[e0 * 3 + 0], vertList[e0 * 3 + 1], vertList[e0 * 3 + 2]);
-          positions.push(vertList[e1 * 3 + 0], vertList[e1 * 3 + 1], vertList[e1 * 3 + 2]);
-          positions.push(vertList[e2 * 3 + 0], vertList[e2 * 3 + 1], vertList[e2 * 3 + 2]);
+          if (e0 === -1 || e1 === -1 || e2 === -1) break;
+          if (e0 < 0 || e0 >= 12 || e1 < 0 || e1 >= 12 || e2 < 0 || e2 >= 12) break;
+
+          const v0x = vertList[e0 * 3 + 0];
+          const v0y = vertList[e0 * 3 + 1];
+          const v0z = vertList[e0 * 3 + 2];
+
+          const v1x = vertList[e1 * 3 + 0];
+          const v1y = vertList[e1 * 3 + 1];
+          const v1z = vertList[e1 * 3 + 2];
+
+          const v2x = vertList[e2 * 3 + 0];
+          const v2y = vertList[e2 * 3 + 1];
+          const v2z = vertList[e2 * 3 + 2];
+
+          // Check for safety against NaNs
+          if (Number.isNaN(v0x) || Number.isNaN(v0y) || Number.isNaN(v0z) ||
+              Number.isNaN(v1x) || Number.isNaN(v1y) || Number.isNaN(v1z) ||
+              Number.isNaN(v2x) || Number.isNaN(v2y) || Number.isNaN(v2z)) {
+            continue;
+          }
+
+          positions.push(v0x, v0y, v0z);
+          positions.push(v1x, v1y, v1z);
+          positions.push(v2x, v2y, v2z);
         }
       }
     }
@@ -321,13 +341,13 @@ export function getDensityInterpolated(px, py, pz) {
   const gy = py / spacing;
   const gz = pz / spacing;
 
-  const x0 = Math.floor(gx);
-  const y0 = Math.floor(gy);
-  const z0 = Math.floor(gz);
+  const x0 = Math.max(0, Math.min(Math.floor(gx), world.sizeX - 1));
+  const y0 = Math.max(0, Math.min(Math.floor(gy), world.sizeY - 1));
+  const z0 = Math.max(0, Math.min(Math.floor(gz), world.sizeZ - 1));
   
-  const x1 = Math.min(x0 + 1, world.sizeX - 1);
-  const y1 = Math.min(y0 + 1, world.sizeY - 1);
-  const z1 = Math.min(z0 + 1, world.sizeZ - 1);
+  const x1 = Math.max(0, Math.min(x0 + 1, world.sizeX - 1));
+  const y1 = Math.max(0, Math.min(y0 + 1, world.sizeY - 1));
+  const z1 = Math.max(0, Math.min(z0 + 1, world.sizeZ - 1));
 
   const tx = gx - x0;
   const ty = gy - y0;
@@ -433,7 +453,7 @@ function spawnScenery() {
       treeGroup.position.set(wx, wy, wz);
       treeGroup.scale.setScalar(0.8 + Math.random() * 0.4);
       game.scene.add(treeGroup);
-      world.sceneryMeshes.push(treeGroup);
+      world.sceneryMeshes.push({ mesh: treeGroup, type: 'tree' });
     }
   }
 
@@ -454,7 +474,7 @@ function spawnScenery() {
       rock.castShadow = true;
       rock.receiveShadow = true;
       game.scene.add(rock);
-      world.sceneryMeshes.push(rock);
+      world.sceneryMeshes.push({ mesh: rock, type: 'rock' });
     }
   }
 
@@ -569,10 +589,28 @@ export function initWorld() {
   spawnScenery();
 }
 
-// Update World Animation (e.g. lighthouse rotation)
+// Update World Animation (e.g. lighthouse rotation, dynamic gravity snap for trees/rocks)
 export function updateWorld(delta) {
   // Rotate the lighthouse beam around Y axis
   if (world.lighthouseBeam) {
     world.lighthouseBeam.rotation.y += 0.8 * delta;
   }
+
+  // Keep trees and rocks snapped to the deformed terrain
+  world.sceneryMeshes.forEach(item => {
+    const pos = item.mesh.position;
+    const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
+    if (item.type === 'tree') {
+      item.mesh.position.y = groundY;
+    } else if (item.type === 'rock') {
+      item.mesh.position.y = groundY - 0.5;
+    }
+  });
+
+  // Keep active ore deposits snapped to deformed terrain
+  world.oreDeposits.forEach(oreGroup => {
+    const pos = oreGroup.position;
+    const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
+    oreGroup.position.y = groundY - 0.2;
+  });
 }
