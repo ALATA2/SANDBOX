@@ -74,6 +74,42 @@ function fbmNoise2D(x, z) {
   return value;
 }
 
+// Calculate original uncarved terrain height at coordinates (vx, vz)
+export function getOriginalHeight(vx, vz) {
+  const spacing = world.spacing;
+  const gx = vx / spacing;
+  const gz = vz / spacing;
+
+  const cx = world.sizeX / 2;
+  const cz = world.sizeZ / 2;
+
+  // Radial falloff math (identical to island generation)
+  const dx = gx - cx;
+  const dz = gz - cz;
+  const dist = Math.sqrt(dx*dx + dz*dz);
+  const maxDist = world.sizeX * 0.48;
+  const radialFactor = Math.max(0, 1.0 - dist / maxDist);
+  
+  const noiseVal = fbmNoise2D(gx * 0.1, gz * 0.1);
+  return (noiseVal * 8.0 + 2.0) * Math.pow(radialFactor, 1.2) * spacing;
+}
+
+// Compute dynamic vertex color based on depth from original surface
+function getVertexColorForDepth(vx, vy, vz) {
+  const H = getOriginalHeight(vx, vz);
+  const depth = H - vy;
+  
+  // Interpolation factor (0 at surface, 1 at 0.5 meters depth)
+  const t = Math.max(0, Math.min(1.0, depth / 0.5));
+  
+  // Sandy peach-gold: #dfb48c -> (0.87, 0.70, 0.55)
+  // Dark earth/clay: #3d2f25 -> (0.24, 0.18, 0.14)
+  const r = 0.87 + t * (0.24 - 0.87);
+  const g = 0.70 + t * (0.18 - 0.70);
+  const b = 0.55 + t * (0.14 - 0.55);
+  return [r, g, b];
+}
+
 // Create the island density grid
 function generateDensityGrid() {
   const size = world.sizeX * world.sizeY * world.sizeZ;
@@ -121,6 +157,7 @@ function generateDensityGrid() {
 // Convert density grid to standard low-poly Mesh using Marching Cubes
 export function buildMarchingCubesMesh() {
   const positions = [];
+  const colors = [];
   
   // Cube vertex index offsets
   const cornerOffsets = [
@@ -230,6 +267,14 @@ export function buildMarchingCubesMesh() {
           positions.push(v0x, v0y, v0z);
           positions.push(v1x, v1y, v1z);
           positions.push(v2x, v2y, v2z);
+
+          const c0 = getVertexColorForDepth(v0x, v0y, v0z);
+          const c1 = getVertexColorForDepth(v1x, v1y, v1z);
+          const c2 = getVertexColorForDepth(v2x, v2y, v2z);
+
+          colors.push(c0[0], c0[1], c0[2]);
+          colors.push(c1[0], c1[1], c1[2]);
+          colors.push(c2[0], c2[1], c2[2]);
         }
       }
     }
@@ -240,21 +285,25 @@ export function buildMarchingCubesMesh() {
   if (world.terrainMesh) {
     geometry = world.terrainMesh.geometry;
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     geometry.attributes.position.needsUpdate = true;
+    geometry.attributes.color.needsUpdate = true;
     geometry.computeVertexNormals();
   } else {
     geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     geometry.computeVertexNormals();
 
     // Material details: stylized peach-sandy-gold rock
-    // Warm tones that react beautifully to sunset light
+    // Set color to white to multiply with vertex colors, enable DoubleSide to prevent gaps!
     world.material = new THREE.MeshStandardMaterial({
-      color: 0xdfb48c, // Sandy/clay gold
+      color: 0xffffff,
       roughness: 0.85,
       metalness: 0.05,
       flatShading: true, // Flat shading gives the low-poly look!
-      vertexColors: false
+      vertexColors: true, // Enable vertex colors!
+      side: THREE.DoubleSide // Render both sides to avoid visual gaps/seeing through terrain!
     });
 
     world.terrainMesh = new THREE.Mesh(geometry, world.material);

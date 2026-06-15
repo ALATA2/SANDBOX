@@ -110,7 +110,7 @@ export function updateControls(delta) {
   // Project vectors horizontally (ignore Y for flat WASD movement)
   const forward = new THREE.Vector3(camDir.x, 0, camDir.z).normalize();
   const right = new THREE.Vector3();
-  right.crossVectors(forward, game.camera.up).negate().normalize();
+  right.crossVectors(forward, game.camera.up).normalize();
 
   // Apply acceleration input
   const moveSpeed = inWater ? 28.0 : 45.0; // Acceleration force
