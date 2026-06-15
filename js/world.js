@@ -314,13 +314,50 @@ export function getSurfaceHeightNear(px, py, pz) {
   return 0.1; // Baseline height
 }
 
-// Density check helper to detect wall collisions
-export function checkCollision(px, py, pz) {
+// Get smooth interpolated density at any world coordinate (Trilinear)
+export function getDensityInterpolated(px, py, pz) {
   const spacing = world.spacing;
   const gx = px / spacing;
   const gy = py / spacing;
   const gz = pz / spacing;
-  return getDensity(gx, gy, gz) > 0.15; // Return true if solid
+
+  const x0 = Math.floor(gx);
+  const y0 = Math.floor(gy);
+  const z0 = Math.floor(gz);
+  
+  const x1 = Math.min(x0 + 1, world.sizeX - 1);
+  const y1 = Math.min(y0 + 1, world.sizeY - 1);
+  const z1 = Math.min(z0 + 1, world.sizeZ - 1);
+
+  const tx = gx - x0;
+  const ty = gy - y0;
+  const tz = gz - z0;
+
+  // Get densities at 8 corners using exact array indices
+  const d000 = world.density[x0 * world.sizeY * world.sizeZ + y0 * world.sizeZ + z0] || 0;
+  const d100 = world.density[x1 * world.sizeY * world.sizeZ + y0 * world.sizeZ + z0] || 0;
+  const d010 = world.density[x0 * world.sizeY * world.sizeZ + y1 * world.sizeZ + z0] || 0;
+  const d110 = world.density[x1 * world.sizeY * world.sizeZ + y1 * world.sizeZ + z0] || 0;
+  const d001 = world.density[x0 * world.sizeY * world.sizeZ + y0 * world.sizeZ + z1] || 0;
+  const d101 = world.density[x1 * world.sizeY * world.sizeZ + y0 * world.sizeZ + z1] || 0;
+  const d011 = world.density[x0 * world.sizeY * world.sizeZ + y1 * world.sizeZ + z1] || 0;
+  const d111 = world.density[x1 * world.sizeY * world.sizeZ + y1 * world.sizeZ + z1] || 0;
+
+  // Trilinear interpolation
+  const d00 = d000 + tx * (d100 - d000);
+  const d10 = d010 + tx * (d110 - d010);
+  const d01 = d001 + tx * (d101 - d001);
+  const d11 = d011 + tx * (d111 - d011);
+
+  const d0 = d00 + ty * (d10 - d00);
+  const d1 = d01 + ty * (d11 - d01);
+
+  return d0 + tz * (d1 - d0);
+}
+
+// Density check helper to detect wall collisions (using smooth trilinear density)
+export function checkCollision(px, py, pz) {
+  return getDensityInterpolated(px, py, pz) > 0.15; // Return true if solid
 }
 
 // Spawns static low-poly island assets

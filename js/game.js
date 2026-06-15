@@ -66,6 +66,7 @@ function init() {
   game.lights.sun.shadow.camera.top = shadowRange;
   game.lights.sun.shadow.camera.bottom = -shadowRange;
   game.lights.sun.shadow.bias = -0.0005;
+  game.lights.sun.shadow.normalBias = 0.08;
   
   game.scene.add(game.lights.sun);
 

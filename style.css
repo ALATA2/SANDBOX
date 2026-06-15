@@ -120,10 +120,10 @@ body, html {
   display: flex;
   position: absolute;
   left: 50%;
-  transform: translateX(-50%);
+  font-family: 'Courier New', Courier, monospace;
   font-weight: 800;
-  font-size: 0.9rem;
-  letter-spacing: 12px;
+  font-size: 0.95rem;
+  letter-spacing: 0.5px;
   transition: transform 0.05s linear;
   white-space: nowrap;
 }

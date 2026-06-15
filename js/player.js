@@ -35,9 +35,9 @@ const targetLoc = new THREE.Vector3(80, -5, -120);
 export function initPlayer() {
   // 1. Create a hand-held group and attach it to the camera
   player.handGroup = new THREE.Group();
-  // Position it in bottom right corner of player screen
-  player.handGroup.position.set(0.3, -0.3, -0.5);
-  player.handGroup.rotation.set(0.1, -0.3, 0.1);
+  // Position it in bottom right corner of player screen, tilted forward/left
+  player.handGroup.position.set(0.25, -0.32, -0.45);
+  player.handGroup.rotation.set(-0.55, -0.65, 0.2);
   game.camera.add(player.handGroup);
   // Ensure camera child is added to scene properly (implicitly camera is in scene)
 
@@ -81,30 +81,27 @@ function buildSpearModel() {
   const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x6e4722, roughness: 0.9, flatShading: true });
   const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xb5c0c9, roughness: 0.2, metalness: 0.9, flatShading: true });
 
-  // Wooden shaft
-  const shaftGeom = new THREE.CylinderGeometry(0.015, 0.015, 1.2, 5);
+  // Wooden shaft (runs straight up along Y)
+  const shaftGeom = new THREE.CylinderGeometry(0.012, 0.012, 1.1, 5);
   const shaft = new THREE.Mesh(shaftGeom, woodMaterial);
-  shaft.rotation.z = Math.PI / 2; // Orient along Z-ish
-  shaft.rotation.y = Math.PI / 2;
+  shaft.position.y = 0.2; // Extends from y = -0.35 to y = 0.75
   player.spearMesh.add(shaft);
 
   // Tip base (connector)
-  const tipBaseGeom = new THREE.CylinderGeometry(0.02, 0.02, 0.08, 5);
+  const tipBaseGeom = new THREE.CylinderGeometry(0.016, 0.016, 0.06, 5);
   const tipBase = new THREE.Mesh(tipBaseGeom, metalMaterial);
-  tipBase.position.set(0, 0, -0.6);
-  tipBase.rotation.x = Math.PI / 2;
+  tipBase.position.y = 0.75;
   player.spearMesh.add(tipBase);
 
   // Sharp metallic point
-  const pointGeom = new THREE.ConeGeometry(0.04, 0.18, 4);
+  const pointGeom = new THREE.ConeGeometry(0.03, 0.15, 4);
   const point = new THREE.Mesh(pointGeom, metalMaterial);
-  point.position.set(0, 0, -0.7);
-  point.rotation.x = -Math.PI / 2; // point forward
+  point.position.y = 0.855; // extends up
   player.spearMesh.add(point);
 
-  // Position spear nicely in hand
-  player.spearMesh.position.set(-0.1, 0, -0.2);
-  player.spearMesh.rotation.set(0.1, -0.1, 0.2);
+  // Slight local adjustments
+  player.spearMesh.position.set(-0.05, 0.05, 0);
+  player.spearMesh.rotation.set(0, 0, -0.05);
   
   player.handGroup.add(player.spearMesh);
   player.spearMesh.visible = false;
@@ -118,54 +115,52 @@ function buildPickaxeModel() {
   const metalMaterial = new THREE.MeshStandardMaterial({ color: 0x57616b, roughness: 0.3, metalness: 0.8, flatShading: true });
   const goldAccentMaterial = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.2, metalness: 0.9, flatShading: true });
 
-  // Handle (shaft)
-  const shaftGeom = new THREE.CylinderGeometry(0.018, 0.018, 0.85, 5);
+  // Handle (shaft - straight up along Y)
+  const shaftGeom = new THREE.CylinderGeometry(0.015, 0.015, 0.65, 6);
   const shaft = new THREE.Mesh(shaftGeom, woodMaterial);
-  shaft.rotation.x = Math.PI / 2; // extend forward
+  shaft.position.y = 0; // Extends from y = -0.325 to y = 0.325
   player.pickaxeMesh.add(shaft);
 
-  // Metal head connector
-  const ringGeom = new THREE.CylinderGeometry(0.024, 0.024, 0.06, 5);
+  // Metal head connector ring
+  const ringGeom = new THREE.CylinderGeometry(0.02, 0.02, 0.05, 6);
   const ring = new THREE.Mesh(ringGeom, goldAccentMaterial);
-  ring.position.set(0, 0, -0.38);
-  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.28;
+  ring.rotation.z = Math.PI / 2;
   player.pickaxeMesh.add(ring);
 
   // Metal Pickaxe curve (T-bar)
-  // Built using 3 segments for a low-poly curved look
   const headGroup = new THREE.Group();
-  headGroup.position.set(0, 0, -0.38);
+  headGroup.position.set(0, 0.28, 0);
 
-  const side1Geom = new THREE.BoxGeometry(0.24, 0.03, 0.03);
+  const side1Geom = new THREE.BoxGeometry(0.18, 0.025, 0.025);
   const side1 = new THREE.Mesh(side1Geom, metalMaterial);
-  side1.rotation.y = 0.15; // angled forward
-  side1.position.x = 0.12;
+  side1.rotation.z = -0.15; // angled downwards
+  side1.position.x = 0.09;
   headGroup.add(side1);
 
-  const side2Geom = new THREE.BoxGeometry(0.24, 0.03, 0.03);
+  const side2Geom = new THREE.BoxGeometry(0.18, 0.025, 0.025);
   const side2 = new THREE.Mesh(side2Geom, metalMaterial);
-  side2.rotation.y = -0.15; // angled forward
-  side2.position.x = -0.12;
+  side2.rotation.z = 0.15; // angled downwards
+  side2.position.x = -0.09;
   headGroup.add(side2);
 
   // Sharp pick tips
-  const tip1Geom = new THREE.ConeGeometry(0.02, 0.08, 4);
+  const tip1Geom = new THREE.ConeGeometry(0.015, 0.06, 4);
   const tip1 = new THREE.Mesh(tip1Geom, metalMaterial);
-  tip1.rotation.z = -Math.PI / 2;
-  tip1.position.set(0.24, 0, 0.02);
+  tip1.rotation.z = -Math.PI / 2 - 0.15;
+  tip1.position.set(0.18, -0.018, 0);
   headGroup.add(tip1);
 
-  const tip2Geom = new THREE.ConeGeometry(0.02, 0.08, 4);
+  const tip2Geom = new THREE.ConeGeometry(0.015, 0.06, 4);
   const tip2 = new THREE.Mesh(tip2Geom, metalMaterial);
-  tip2.rotation.z = Math.PI / 2;
-  tip2.position.set(-0.24, 0, 0.02);
+  tip2.rotation.z = Math.PI / 2 + 0.15;
+  tip2.position.set(-0.18, -0.018, 0);
   headGroup.add(tip2);
 
   player.pickaxeMesh.add(headGroup);
 
-  // Position pickaxe nicely in hand
-  player.pickaxeMesh.position.set(0, 0.05, -0.2);
-  player.pickaxeMesh.rotation.set(-0.15, -0.2, 0.25);
+  // Rotate pickaxe 90 degrees on Y so head points forward/back (Z direction)
+  player.pickaxeMesh.rotation.y = Math.PI / 2;
 
   player.handGroup.add(player.pickaxeMesh);
   player.pickaxeMesh.visible = false;
@@ -216,44 +211,42 @@ export function updatePlayer(delta) {
       player.swingTimer = 0;
     }
 
-    // Swing motion: Rotate tool forward rapidly, then return
+    // Swing motion: Heavy chop down and inward
     const halfDuration = player.swingDuration / 2;
     let progress = 0;
     if (player.swingTimer > halfDuration) {
       // Swing down (progress 0 to 1)
       progress = (player.swingDuration - player.swingTimer) / halfDuration;
-      // Interpolate rotation.x to swing forward
-      player.handGroup.rotation.x = 0.1 - progress * 0.9;
-      player.handGroup.rotation.y = -0.3 + progress * 0.4;
-      player.handGroup.position.z = -0.5 - progress * 0.15;
+      player.handGroup.rotation.x = -0.55 - progress * 0.8;
+      player.handGroup.rotation.y = -0.65 + progress * 0.35;
+      player.handGroup.rotation.z = 0.2 - progress * 0.3;
+      player.handGroup.position.set(0.25 - progress * 0.1, -0.32 - progress * 0.12, -0.45 + progress * 0.05);
     } else {
       // Swing back (progress 1 to 0)
       progress = player.swingTimer / halfDuration;
-      player.handGroup.rotation.x = 0.1 - progress * 0.9;
-      player.handGroup.rotation.y = -0.3 + progress * 0.4;
-      player.handGroup.position.z = -0.5 - progress * 0.15;
+      player.handGroup.rotation.x = -0.55 - progress * 0.8;
+      player.handGroup.rotation.y = -0.65 + progress * 0.35;
+      player.handGroup.rotation.z = 0.2 - progress * 0.3;
+      player.handGroup.position.set(0.25 - progress * 0.1, -0.32 - progress * 0.12, -0.45 + progress * 0.05);
     }
   } else {
     // 2. Idle / Walking Bobbing (breathing animation)
-    // Check if player is moving by reading movement keys (if controls initialized)
     let isMoving = false;
     if (game.controls && game.controls.getObject) {
-      const pObj = game.controls.getObject();
-      // If player is moving, increase speed and amplitude of breathing bobbing
       const keysPressed = document.querySelectorAll('#blocker[style*="display: none"]').length > 0 &&
         (moveForward || moveBackward || moveLeft || moveRight);
-      isMoving = keysPressed; // fallback or query from controls.js state
+      isMoving = keysPressed;
     }
 
     const bobSpeed = isMoving ? 14.0 : 2.5;
     const bobAmountX = isMoving ? 0.02 : 0.005;
     const bobAmountY = isMoving ? 0.035 : 0.01;
 
-    // Reset base hand positioning
-    player.handGroup.position.x = 0.3 + Math.sin(time * bobSpeed * 0.5) * bobAmountX;
-    player.handGroup.position.y = -0.3 + Math.cos(time * bobSpeed) * bobAmountY;
-    player.handGroup.position.z = -0.5;
-    player.handGroup.rotation.set(0.1, -0.3, 0.1);
+    // Reset base hand positioning, tilted forward/left
+    player.handGroup.position.x = 0.25 + Math.sin(time * bobSpeed * 0.5) * bobAmountX;
+    player.handGroup.position.y = -0.32 + Math.cos(time * bobSpeed) * bobAmountY;
+    player.handGroup.position.z = -0.45;
+    player.handGroup.rotation.set(-0.55, -0.65, 0.2);
   }
 
   // 3. Update Player Stats decay (Health, Energy, Hydration)
@@ -299,15 +292,19 @@ export function updatePlayer(delta) {
     // Angle in radians (-PI to PI)
     const angle = Math.atan2(directionVec.x, directionVec.z);
     
-    // Scale and translate the compass tape in pixel equivalents
-    // Total tape length represents 360 degrees. Let's translate by percentage
-    // Map -PI...PI to 0...100%
-    const pct = ((angle + Math.PI) / (Math.PI * 2)) * 100;
-    
-    // Translate the tape. Since the tape wraps, we shift the container transform
-    // Adjust mapping to align with letters
-    const compassOffset = (angle / Math.PI) * 110; // offset factor
-    document.getElementById('compass-tape').style.transform = `translateX(${compassOffset}px)`;
+    const tape = document.getElementById('compass-tape');
+    if (tape) {
+      const oneCycleWidth = tape.offsetWidth / 3;
+      // When looking North (angle = PI / -PI), offset is 0.
+      let diff = angle - Math.PI;
+      // Normalize difference to -PI...PI range
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      
+      // Calculate precise offset in pixels (diff/2PI * cycle width)
+      const offset = (diff / (Math.PI * 2)) * oneCycleWidth;
+      tape.style.transform = `translateX(calc(-50% + ${offset}px))`;
+    }
   }
 
   // 6. Update Distance to target
