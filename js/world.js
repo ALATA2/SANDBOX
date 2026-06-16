@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { edgeTable, triTable } from './mctable.js';
+import { triTable } from './mctable.js';
 import { game } from './game.js';
 
 // World Configuration
@@ -196,9 +196,14 @@ export function buildMarchingCubesMesh() {
         if (d[6] >= 0) cubeIndex |= 64;
         if (d[7] >= 0) cubeIndex |= 128;
 
-        // Cube is entirely inside or outside the surface
-        const edges = edgeTable[cubeIndex];
-        if (edges === 0) continue;
+        const triRow = triTable[cubeIndex];
+        if (!triRow || triRow.length === 0) continue;
+
+        // Compute active edges dynamically from triRow to guarantee 100% consistency and prevent stretched triangles
+        let edges = 0;
+        for (let i = 0; i < triRow.length; i++) {
+          edges |= (1 << triRow[i]);
+        }
 
         // 3. Interpolate vertices along active edges
         const vertList = new Float32Array(12 * 3);
@@ -236,7 +241,6 @@ export function buildMarchingCubesMesh() {
         }
 
         // 4. Retrieve triangles from triTable
-        const triRow = triTable[cubeIndex];
         for (let i = 0; i < triRow.length; i += 3) {
           const e0 = triRow[i + 0];
           const e1 = triRow[i + 1];
@@ -388,8 +392,8 @@ export function getSurfaceHeightNear(px, py, pz) {
   const gy = py / spacing;
   const gz = pz / spacing;
 
-  // Clamp vertical sweep to active grid limits
-  const startY = Math.max(0, Math.min(Math.floor(gy), world.sizeY - 1));
+  // Start sweep slightly above player (e.g. gy + 1.5) to capture ground even if player sinks slightly
+  const startY = Math.max(0, Math.min(Math.floor(gy + 1.5), world.sizeY - 1));
 
   // Scan downwards from the player's current y height to find solid terrain floor
   for (let y = startY; y >= 0; y--) {
