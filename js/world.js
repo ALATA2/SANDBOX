@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { triTable } from './mctable.js';
+import { edgeTable, triTable } from './mctable.js';
 import { game } from './game.js';
 
 // World Configuration
@@ -196,14 +196,10 @@ export function buildMarchingCubesMesh() {
         if (d[6] >= 0) cubeIndex |= 64;
         if (d[7] >= 0) cubeIndex |= 128;
 
-        const triRow = triTable[cubeIndex];
-        if (!triRow || triRow.length === 0) continue;
+        const edges = edgeTable[cubeIndex];
+        if (edges === 0) continue;
 
-        // Compute active edges dynamically from triRow to guarantee 100% consistency and prevent stretched triangles
-        let edges = 0;
-        for (let i = 0; i < triRow.length; i++) {
-          edges |= (1 << triRow[i]);
-        }
+        const triRow = triTable[cubeIndex];
 
         // 3. Interpolate vertices along active edges
         const vertList = new Float32Array(12 * 3);

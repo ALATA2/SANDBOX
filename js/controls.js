@@ -48,6 +48,8 @@ export function initControls() {
         if (canJump) {
           velocity.y = 8.5; // Jump vertical velocity
           canJump = false;
+        } else if (game.controls.getObject().position.y < 5.5) {
+          velocity.y = 3.5; // Swim up velocity in water
         }
         break;
     }
@@ -178,5 +180,11 @@ export function updateControls(delta) {
   if (position.y > 22.0) {
     position.y = 22.0;
     velocity.y = 0;
+  }
+
+  // Safety net: if player falls below the world, teleport them safely to the center of the island
+  if (position.y < -5.0) {
+    position.set(32, 12, 32);
+    velocity.set(0, 0, 0);
   }
 }
