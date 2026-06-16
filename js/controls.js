@@ -88,12 +88,25 @@ export function updateControls(delta) {
   const position = playerObj.position;
 
   // 1. Water check: Wading or swimming slows down movement and dampens gravity
-  const inWater = position.y < 4.8; // Water level is 4.0, player feet are at position.y - playerEyeHeight (1.8) = 2.2 inside water if height is 4.0
-  const gravityScale = inWater ? 8.0 : 24.0; // Water buoyancy
-  const jumpDamp = inWater ? 0.4 : 1.0;
+  const inWater = position.y < 4.8; // Water level is 4.0
   
-  // Apply gravity
-  velocity.y -= gravityScale * delta;
+  // Apply gravity / buoyancy force
+  if (inWater) {
+    // If player is below water surface (5.0), apply buoyancy to make them float
+    const waterSurfaceY = 5.0; // Water level (4.0) + eye height offset to keep head above water
+    if (position.y < waterSurfaceY) {
+      // Push up towards water surface
+      velocity.y += (waterSurfaceY - position.y) * 4.0 * delta;
+      // Dampen downward velocity in water
+      if (velocity.y < -1.0) velocity.y *= 0.8;
+    } else {
+      // Normal gravity in water
+      velocity.y -= 8.0 * delta;
+    }
+  } else {
+    // Normal gravity on land
+    velocity.y -= 24.0 * delta;
+  }
 
   // Linear damping (friction) for movement
   const friction = inWater ? 15.0 : 10.0;

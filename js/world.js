@@ -416,13 +416,20 @@ export function getDensityInterpolated(px, py, pz) {
   const gy = py / spacing;
   const gz = pz / spacing;
 
-  const x0 = Math.max(0, Math.min(Math.floor(gx), world.sizeX - 1));
-  const y0 = Math.max(0, Math.min(Math.floor(gy), world.sizeY - 1));
-  const z0 = Math.max(0, Math.min(Math.floor(gz), world.sizeZ - 1));
-  
-  const x1 = Math.max(0, Math.min(x0 + 1, world.sizeX - 1));
-  const y1 = Math.max(0, Math.min(y0 + 1, world.sizeY - 1));
-  const z1 = Math.max(0, Math.min(z0 + 1, world.sizeZ - 1));
+  const x0 = Math.floor(gx);
+  const y0 = Math.floor(gy);
+  const z0 = Math.floor(gz);
+
+  // If coordinates are out of grid bounds, treat it as air (-1.0)
+  if (x0 < 0 || x0 >= world.sizeX - 1 || 
+      y0 < 0 || y0 >= world.sizeY - 1 || 
+      z0 < 0 || z0 >= world.sizeZ - 1) {
+    return -1.0;
+  }
+
+  const x1 = x0 + 1;
+  const y1 = y0 + 1;
+  const z1 = z0 + 1;
 
   const tx = gx - x0;
   const ty = gy - y0;
