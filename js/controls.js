@@ -9,6 +9,7 @@ export let moveBackward = false;
 export let moveLeft = false;
 export let moveRight = false;
 export let canJump = false;
+export let joystickValues = { x: 0, y: 0 };
 
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
@@ -114,9 +115,20 @@ export function updateControls(delta) {
   velocity.z -= velocity.z * friction * delta;
 
   // Reset direction vector
-  direction.z = Number(moveForward) - Number(moveBackward);
-  direction.x = Number(moveRight) - Number(moveLeft);
-  direction.normalize(); // Ensure uniform diagonal speed
+  if (game.isMobile) {
+    direction.x = joystickValues.x;
+    direction.z = joystickValues.y; // note screen Y maps to world Z (forward/backward)
+    
+    // Analog movement calculation
+    const len = direction.length();
+    if (len > 1.0) {
+      direction.normalize();
+    }
+  } else {
+    direction.z = Number(moveForward) - Number(moveBackward);
+    direction.x = Number(moveRight) - Number(moveLeft);
+    direction.normalize(); // Ensure uniform diagonal speed
+  }
 
   // Get forward and right relative camera vectors
   const camDir = new THREE.Vector3();
@@ -200,5 +212,15 @@ export function updateControls(delta) {
     console.warn("Safety net triggered! Player position:", position.x, position.y, position.z, "Velocity Y:", velocity.y);
     position.set(32, 12, 32);
     velocity.set(0, 0, 0);
+  }
+}
+
+export function triggerMobileJump() {
+  const inWater = game.controls && game.controls.getObject && game.controls.getObject().position.y < 4.8;
+  if (canJump) {
+    velocity.y = 8.5; // Jump vertical velocity
+    canJump = false;
+  } else if (inWater) {
+    velocity.y = 3.5; // Swim up velocity in water
   }
 }

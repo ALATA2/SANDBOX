@@ -271,7 +271,7 @@ function checkHarvestablePrompt() {
 }
 
 // Harvest nearest item
-function harvestClosestDebris() {
+export function harvestClosestDebris() {
   if (!closestDebris) return;
 
   // Remove mesh
