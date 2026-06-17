@@ -117,7 +117,7 @@ export function updateControls(delta) {
   // Reset direction vector
   if (game.isMobile) {
     direction.x = joystickValues.x;
-    direction.z = joystickValues.y; // note screen Y maps to world Z (forward/backward)
+    direction.z = -joystickValues.y; // note screen Y is inverted: push UP (negative Y) maps to forward (positive Z)
     
     // Analog movement calculation
     const len = direction.length();
@@ -141,11 +141,16 @@ export function updateControls(delta) {
 
   // Apply acceleration input
   const moveSpeed = inWater ? 28.0 : 45.0; // Acceleration force
-  if (moveForward || moveBackward) {
+  if (game.isMobile) {
     velocity.addScaledVector(forward, direction.z * moveSpeed * delta);
-  }
-  if (moveLeft || moveRight) {
     velocity.addScaledVector(right, direction.x * moveSpeed * delta);
+  } else {
+    if (moveForward || moveBackward) {
+      velocity.addScaledVector(forward, direction.z * moveSpeed * delta);
+    }
+    if (moveLeft || moveRight) {
+      velocity.addScaledVector(right, direction.x * moveSpeed * delta);
+    }
   }
 
   // Cap horizontal speed to keep movement smooth

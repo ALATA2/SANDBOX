@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { initControls, updateControls } from './controls.js';
+import { initControls, updateControls, joystickValues, triggerMobileJump } from './controls.js';
 import { initWorld, updateWorld } from './world.js';
-import { initPlayer, updatePlayer } from './player.js';
-import { initInteraction, updateInteraction } from './interact.js';
+import { initPlayer, updatePlayer, triggerToolSwing } from './player.js';
+import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard } from './interact.js';
 import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute } from './audio.js';
 import { setLanguage, currentLang } from './lang.js';
 
@@ -819,9 +819,7 @@ function initMobileControls() {
   if (attackBtn) {
     attackBtn.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      import('./player.js?v=0.014').then(playerMod => {
-        playerMod.triggerToolSwing();
-      });
+      triggerToolSwing();
     }, { passive: false });
   }
 
@@ -829,9 +827,7 @@ function initMobileControls() {
   if (jumpBtn) {
     jumpBtn.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      import('./controls.js?v=0.014').then(controls => {
-        controls.triggerMobileJump();
-      });
+      triggerMobileJump();
     }, { passive: false });
   }
 
@@ -865,15 +861,13 @@ function initMobileControls() {
 }
 
 function triggerMobileInteraction() {
-  import('./interact.js?v=0.014').then(interact => {
-    if (interact.nearFeedbackBoard) {
-      if (typeof window.openFeedbackBoard === 'function') {
-        window.openFeedbackBoard();
-      }
-    } else {
-      interact.harvestClosestDebris();
+  if (nearFeedbackBoard) {
+    if (typeof window.openFeedbackBoard === 'function') {
+      window.openFeedbackBoard();
     }
-  });
+  } else {
+    harvestClosestDebris();
+  }
 }
 
 function initJoystick() {
@@ -913,10 +907,8 @@ function initJoystick() {
 
         joyThumb.style.transform = `translate(${dx}px, ${dy}px)`;
 
-        import('./controls.js?v=0.014').then(controls => {
-          controls.joystickValues.x = dx / maxLimit;
-          controls.joystickValues.y = dy / maxLimit;
-        });
+        joystickValues.x = dx / maxLimit;
+        joystickValues.y = dy / maxLimit;
       }
     }
   }, { passive: true });
@@ -927,10 +919,8 @@ function initJoystick() {
       if (touch.identifier === joyTouchId) {
         joyTouchId = null;
         joyThumb.style.transform = `translate(0px, 0px)`;
-        import('./controls.js?v=0.014').then(controls => {
-          controls.joystickValues.x = 0;
-          controls.joystickValues.y = 0;
-        });
+        joystickValues.x = 0;
+        joystickValues.y = 0;
       }
     }
   };
