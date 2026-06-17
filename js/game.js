@@ -492,6 +492,7 @@ function animate() {
   }
 
   if (game.pointerLocked) {
+    if (menuParticles) menuParticles.visible = false;
     // Update active game sub-modules
     updateControls(delta);
     updatePlayer(delta);
@@ -508,6 +509,7 @@ function animate() {
       game.camera.position.z += shakeZ;
     }
   } else {
+    if (menuParticles) menuParticles.visible = true;
     // Cinematic menu rotation of the camera wrapper (game.controls.getObject())
     if (game.controls && game.controls.getObject) {
       updateWorld(delta); // Let the lighthouse beam rotate in the menu

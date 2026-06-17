@@ -272,7 +272,21 @@ export let currentLang = 'en';
 
 export function getTranslation(key, variables = {}) {
   const langDict = translations[currentLang] || translations['en'];
-  let text = langDict[key] || translations['en'][key] || key;
+  
+  // Support nested dot properties (e.g. 'hotbar.spear')
+  let text = key.split('.').reduce((obj, property) => {
+    return obj && obj[property];
+  }, langDict);
+  
+  // Fallback to English dictionary
+  if (!text) {
+    text = key.split('.').reduce((obj, property) => {
+      return obj && obj[property];
+    }, translations['en']);
+  }
+  
+  // Ultimate fallback to key itself
+  if (!text) text = key;
   
   // Replace variables like {val}
   Object.keys(variables).forEach(varName => {
