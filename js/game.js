@@ -33,7 +33,7 @@ const presets = {
     ambientIntensity: 1.2,
     sun: 0xffaa44,
     sunIntensity: 2.5,
-    sunPos: new THREE.Vector3(-60, 20, -20)
+    sunPos: new THREE.Vector3(-120, 5, -50)
   },
   nebula: {
     bg: 0x070312,
@@ -42,7 +42,7 @@ const presets = {
     ambientIntensity: 0.6,
     sun: 0x00ffff,
     sunIntensity: 1.2,
-    sunPos: new THREE.Vector3(40, 30, -50)
+    sunPos: new THREE.Vector3(100, 10, -90)
   },
   toxic: {
     bg: 0x08140c,
@@ -51,7 +51,7 @@ const presets = {
     ambientIntensity: 1.0,
     sun: 0x33ff33,
     sunIntensity: 1.8,
-    sunPos: new THREE.Vector3(-30, 25, 40)
+    sunPos: new THREE.Vector3(-80, 8, 80)
   },
   frost: {
     bg: 0xddeeff,
@@ -60,7 +60,7 @@ const presets = {
     ambientIntensity: 1.4,
     sun: 0xffffff,
     sunIntensity: 2.0,
-    sunPos: new THREE.Vector3(50, 40, 50)
+    sunPos: new THREE.Vector3(90, 12, 90)
   }
 };
 
@@ -107,7 +107,8 @@ function init() {
 
   // 1. Create Scene
   game.scene = new THREE.Scene();
-  game.scene.background = new THREE.Color(presets.sunset.bg);
+  // Clear scene background to make WebGL canvas transparent for CSS gradients
+  game.scene.background = null;
   game.scene.fog = new THREE.FogExp2(presets.sunset.bg, presets.sunset.fogDensity);
 
   // 2. Create Camera (FPS perspective)
@@ -115,8 +116,9 @@ function init() {
   game.camera.position.set(25, 8, 25); // Starting position above ground
 
   // 3. Create WebGL Renderer
-  game.renderer = new THREE.WebGLRenderer({ antialias: true });
+  game.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   game.renderer.setSize(window.innerWidth, window.innerHeight);
+  game.renderer.setClearColor(0x000000, 0); // Transparent canvas background
   game.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   game.renderer.shadowMap.enabled = true;
   game.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -410,7 +412,20 @@ function applyPreset(presetName) {
   currentPreset = presetName;
 
   // 1. Transition Scene variables
-  game.scene.background.setHex(preset.bg);
+  // Set canvas container background gradient in CSS dynamically
+  const container = document.getElementById('canvas-container');
+  if (container) {
+    if (presetName === 'sunset') {
+      container.style.background = 'linear-gradient(to bottom, #4ba3e3, #fc8c82)'; // light blue to sunset pink-orange
+    } else if (presetName === 'nebula') {
+      container.style.background = 'linear-gradient(to bottom, #020107, #070312)'; // deep space to indigo
+    } else if (presetName === 'toxic') {
+      container.style.background = 'linear-gradient(to bottom, #020804, #08140c)'; // dark green-black to sludge green
+    } else if (presetName === 'frost') {
+      container.style.background = 'linear-gradient(to bottom, #aaccff, #ddeeff)'; // light ice blue to frost white
+    }
+  }
+  
   if (game.scene.fog) {
     game.scene.fog.color.setHex(preset.bg);
     game.scene.fog.density = preset.fogDensity;
@@ -564,7 +579,10 @@ function updateUnderwaterVisuals(submerged) {
       waterDensity = 0.07;
     }
     
-    game.scene.background.setHex(waterColor);
+    const container = document.getElementById('canvas-container');
+    if (container) {
+      container.style.background = '#' + waterColor.toString(16).padStart(6, '0');
+    }
     if (game.scene.fog) {
       game.scene.fog.color.setHex(waterColor);
       game.scene.fog.density = waterDensity;
@@ -585,11 +603,37 @@ function animate() {
   if (world.waterMesh) {
     const time = game.clock.getElapsedTime();
     const positionAttribute = world.waterMesh.geometry.attributes.position;
+    const depthAttribute = world.waterMesh.geometry.attributes.depth;
+    
     for (let i = 0; i < positionAttribute.count; i++) {
       const vx = positionAttribute.getX(i);
       const vy = positionAttribute.getY(i);
-      const zVal = Math.sin(vx * 0.12 + time * 1.6) * 0.18 + 
-                   Math.cos(vy * 0.12 + time * 1.2) * 0.18;
+      const depth = depthAttribute ? depthAttribute.getX(i) : 4.0;
+      
+      let zVal = 0;
+      
+      // Calculate deep water wave (smooth rolling waves)
+      const deepWave = Math.sin(vx * 0.12 + time * 1.6) * 0.18 + 
+                       Math.cos(vy * 0.12 + time * 1.2) * 0.18;
+                       
+      if (depth < 2.0) {
+        // Near the shore (shallow depth): fade in fast, tight ripples (increspature)
+        const rippleFactor = (2.0 - depth) / 2.0; // 1.0 at shore, 0.0 at 2m depth
+        
+        // Fast, high-frequency shore ripples
+        const shoreRipple = Math.sin(vx * 0.45 + time * 3.5) * 0.05 + 
+                            Math.cos(vy * 0.45 + time * 2.8) * 0.05;
+                            
+        // Blend between large waves and small ripples near the shore
+        // Scale down the final amplitude slightly close to the sand to avoid harsh clipping
+        const amplitudeFactor = 0.4 + 0.6 * (depth / 2.0); // go down to 40% height right at the shore
+        
+        zVal = (deepWave * (1.0 - rippleFactor) + shoreRipple * rippleFactor) * amplitudeFactor;
+      } else {
+        // Deep ocean: standard smooth rolling waves
+        zVal = deepWave;
+      }
+      
       positionAttribute.setZ(i, zVal);
     }
     positionAttribute.needsUpdate = true;

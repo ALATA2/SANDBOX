@@ -604,9 +604,10 @@ function spawnScenery() {
   // 1. Crystal Water Plane with Depth Color Gradients
   const waterGeometry = new THREE.PlaneGeometry(300, 300, 32, 32);
   
-  // Calculate vertex colors based on depth
+  // Calculate vertex colors and depth attributes based on terrain depth
   const positionAttribute = waterGeometry.attributes.position;
   const colors = [];
+  const depths = [];
   const colorShallow = new THREE.Color(0x3abfb0); // Beautiful turquoise near the beach
   const colorDeep = new THREE.Color(0x0f2a3d);    // Deep dark navy blue in deep water
   
@@ -630,9 +631,11 @@ function spawnScenery() {
     tempColor.copy(colorShallow).lerp(colorDeep, t);
     
     colors.push(tempColor.r, tempColor.g, tempColor.b);
+    depths.push(depth);
   }
   
   waterGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  waterGeometry.setAttribute('depth', new THREE.Float32BufferAttribute(depths, 1));
   
   const waterMaterial = new THREE.MeshStandardMaterial({
     vertexColors: true, // Enable vertex colors!
