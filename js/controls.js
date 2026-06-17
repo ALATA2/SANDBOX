@@ -195,8 +195,8 @@ export function updateControls(delta) {
     velocity.y = 0;
   }
 
-  // Safety net: if player falls below the world, teleport them safely to the center of the island
-  if (position.y < -5.0) {
+  // Safety net: if player falls below the world or coordinates become NaN, teleport them safely to the center of the island
+  if (position.y < -5.0 || Number.isNaN(position.x) || Number.isNaN(position.y) || Number.isNaN(position.z)) {
     position.set(32, 12, 32);
     velocity.set(0, 0, 0);
   }

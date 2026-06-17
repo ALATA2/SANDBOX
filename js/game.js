@@ -531,7 +531,7 @@ function animate() {
   // Check underwater state
   let isSubmerged = false;
   if (game.pointerLocked && game.controls && game.controls.getObject) {
-    if (game.controls.getObject().position.y < 4.0) {
+    if (game.controls.getObject().position.y < 4.8) {
       isSubmerged = true;
     }
   }
