@@ -3,7 +3,7 @@ export const translations = {
   en: {
     game_subtitle: "SUNSET SURVIVAL & MINING",
     game_desc: "Explore a low-poly tropical island, mine underground tunnels in search of gold, and avoid drowning in the open ocean. Dig through rocks using your pickaxe and repair the boat.",
-    alpha_badge: "ALPHA PROTOTYPE v0.012",
+    alpha_badge: "ALPHA PROTOTYPE v0.013",
     start_btn: "START ENGINE",
     controls_title: "CONTROL TELEMETRY",
     ctrl_mv: "FPS Movement",
@@ -46,7 +46,7 @@ export const translations = {
   ja: {
     game_subtitle: "夕暮れの生存と採掘",
     game_desc: "ローポリの熱帯の島を探索し、金を求めて地下トンネルを採掘し、開けた海でおぼれないようにしてください。ピッケルで岩を掘り進み、ボートを修理しましょう。",
-    alpha_badge: "アルファプロトタイプ v0.012",
+    alpha_badge: "アルファプロトタイプ v0.013",
     start_btn: "エンジン始動",
     controls_title: "操作テレメトリー",
     ctrl_mv: "FPS移動",
@@ -89,7 +89,7 @@ export const translations = {
   es: {
     game_subtitle: "SUPERVIVENCIA Y MINERÍA AL ATARDECER",
     game_desc: "Explora una isla tropical low-poly, cava túneles subterráneos en busca de oro y evita ahogarte en el océano abierto. Hazte camino entre las rocas usando tu pico y repara el barco.",
-    alpha_badge: "PROTOTIPO ALPHA v0.012",
+    alpha_badge: "PROTOTIPO ALPHA v0.013",
     start_btn: "ARRANCAR MOTOR",
     controls_title: "TELEMETRÍA DE CONTROL",
     ctrl_mv: "Movimiento FPS",
@@ -132,7 +132,7 @@ export const translations = {
   fr: {
     game_subtitle: "SURVIE ET MINAGE AU CRÉPUSCULE",
     game_desc: "Explorez une île tropicale low-poly, creusez des tunnels souterrains à la recherche d'or et évitez de vous noyer en pleine mer. Frayez-vous un chemin à travers les roches à l'aide de votre pioche et réparez le bateau.",
-    alpha_badge: "PROTOTYPE ALPHA v0.012",
+    alpha_badge: "PROTOTYPE ALPHA v0.013",
     start_btn: "DÉMARRER MOTEUR",
     controls_title: "TÉLÉMÉTRIE DES COMMANDES",
     ctrl_mv: "Mouvement FPS",
@@ -175,7 +175,7 @@ export const translations = {
   de: {
     game_subtitle: "ÜBERLEBEN UND BERGBAU IM SONNENUNTERGANG",
     game_desc: "Erkunde eine Low-Poly-Tropeninsel, grabe unterirdische Tunnel auf der Suche nach Gold und vermeide es, im offenen Ozean zu ertrinken. Bahne dir mit deiner Spitzhacke den Weg durch die Felsen und repariere das Boot.",
-    alpha_badge: "ALPHA-PROTOTYP v0.012",
+    alpha_badge: "ALPHA-PROTOTYP v0.013",
     start_btn: "MOTOR STARTEN",
     controls_title: "STEUERUNGSTELEMETRIE",
     ctrl_mv: "FPS-Bewegung",
@@ -218,7 +218,7 @@ export const translations = {
   pt: {
     game_subtitle: "SOBREVIVÊNCIA E MINERAÇÃO AO PÔR DO SOL",
     game_desc: "Explore uma ilha tropical low-poly, cave túneis subterrâneos em busca de ouro e evite se afogar no oceano aberto. Abra caminho pelas rochas usando sua picareta e conserte o barco.",
-    alpha_badge: "PROTÓTIPO ALPHA v0.012",
+    alpha_badge: "PROTÓTIPO ALPHA v0.013",
     start_btn: "LIGAR MOTOR",
     controls_title: "TELEMETRIA DE CONTROLE",
     ctrl_mv: "Movimento FPS",
@@ -261,7 +261,7 @@ export const translations = {
   it: {
     game_subtitle: "SOPRAVVIVENZA E MINIERA AL TRAMONTO",
     game_desc: "Esplora un'isola tropicale low-poly, scava gallerie sotterranee alla ricerca di oro ed evita di affogare nell'oceano aperto. Fatti strada tra le rocce usando il tuo piccone e ripara la barca.",
-    alpha_badge: "PROTOTIPO ALPHA v0.012",
+    alpha_badge: "PROTOTIPO ALPHA v0.013",
     start_btn: "AVVIA MOTORE",
     controls_title: "TELEMETRIA COMANDI",
     ctrl_mv: "Movimento FPS",

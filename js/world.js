@@ -674,41 +674,111 @@ function spawnFeedbackBoard() {
   const boardGroup = new THREE.Group();
   boardGroup.name = "feedback_board";
 
-  const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9, flatShading: true });
-  const boardMaterial = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9, flatShading: true });
-  const paperMaterial = new THREE.MeshStandardMaterial({ color: 0xf5f5dc, roughness: 0.8, flatShading: true });
+  // Materials
+  const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x473322, roughness: 0.9, flatShading: true }); // Darker rustic wood
+  const frameMaterial = new THREE.MeshStandardMaterial({ color: 0x302115, roughness: 0.9, flatShading: true }); // Very dark frame wood
+  const corkMaterial = new THREE.MeshStandardMaterial({ color: 0xb58a63, roughness: 0.9, flatShading: true }); // Cork board texture color
+  const roofMaterial = new THREE.MeshStandardMaterial({ color: 0x3d3025, roughness: 0.9, flatShading: true }); // Dark slate roof
+  
+  const paperColors = [0xfbf9f1, 0xf7f5eb, 0xfffde8, 0xfff0f5]; // Warm tones for papers
+  const pinColors = [0xff4444, 0x4444ff, 0x44ff44, 0xffcc00]; // Accent pin colors
 
   // Left post
-  const leftPostGeom = new THREE.BoxGeometry(0.15, 2.5, 0.15);
+  const leftPostGeom = new THREE.CylinderGeometry(0.08, 0.08, 2.8, 6);
   const leftPost = new THREE.Mesh(leftPostGeom, woodMaterial);
-  leftPost.position.set(-0.9, 1.25, 0);
+  leftPost.position.set(-1.1, 1.4, 0);
   leftPost.castShadow = true;
   leftPost.receiveShadow = true;
   boardGroup.add(leftPost);
 
   // Right post
-  const rightPostGeom = new THREE.BoxGeometry(0.15, 2.5, 0.15);
+  const rightPostGeom = new THREE.CylinderGeometry(0.08, 0.08, 2.8, 6);
   const rightPost = new THREE.Mesh(rightPostGeom, woodMaterial);
-  rightPost.position.set(0.9, 1.25, 0);
+  rightPost.position.set(1.1, 1.4, 0);
   rightPost.castShadow = true;
   rightPost.receiveShadow = true;
   boardGroup.add(rightPost);
 
-  // Board backboard
-  const backboardGeom = new THREE.BoxGeometry(2.0, 1.3, 0.1);
-  const backboard = new THREE.Mesh(backboardGeom, boardMaterial);
-  backboard.position.set(0, 1.7, 0);
+  // Cork Backboard
+  const backboardGeom = new THREE.BoxGeometry(2.2, 1.5, 0.1);
+  const backboard = new THREE.Mesh(backboardGeom, corkMaterial);
+  backboard.position.set(0, 1.9, 0);
   backboard.castShadow = true;
   backboard.receiveShadow = true;
   boardGroup.add(backboard);
 
-  // Paper sheet (where user feedback/messages are located)
-  const paperGeom = new THREE.BoxGeometry(1.7, 1.0, 0.05);
-  const paper = new THREE.Mesh(paperGeom, paperMaterial);
-  paper.position.set(0, 1.7, 0.05);
-  paper.castShadow = true;
-  paper.receiveShadow = true;
-  boardGroup.add(paper);
+  // Frames (top, bottom, left, right)
+  const topFrameGeom = new THREE.BoxGeometry(2.36, 0.1, 0.14);
+  const topFrame = new THREE.Mesh(topFrameGeom, frameMaterial);
+  topFrame.position.set(0, 2.65, 0);
+  topFrame.castShadow = true;
+  boardGroup.add(topFrame);
+
+  const bottomFrameGeom = new THREE.BoxGeometry(2.36, 0.1, 0.14);
+  const bottomFrame = new THREE.Mesh(bottomFrameGeom, frameMaterial);
+  bottomFrame.position.set(0, 1.15, 0);
+  bottomFrame.castShadow = true;
+  boardGroup.add(bottomFrame);
+
+  const leftFrameGeom = new THREE.BoxGeometry(0.1, 1.6, 0.14);
+  const leftFrame = new THREE.Mesh(leftFrameGeom, frameMaterial);
+  leftFrame.position.set(-1.1, 1.9, 0);
+  leftFrame.castShadow = true;
+  boardGroup.add(leftFrame);
+
+  const rightFrameGeom = new THREE.BoxGeometry(0.1, 1.6, 0.14);
+  const rightFrame = new THREE.Mesh(rightFrameGeom, frameMaterial);
+  rightFrame.position.set(1.1, 1.9, 0);
+  rightFrame.castShadow = true;
+  boardGroup.add(rightFrame);
+
+  // Roof (Gabled structure on top)
+  const roofLeftGeom = new THREE.BoxGeometry(1.3, 0.06, 0.4);
+  const roofLeft = new THREE.Mesh(roofLeftGeom, roofMaterial);
+  roofLeft.position.set(-0.55, 2.8, 0);
+  roofLeft.rotation.z = 0.25;
+  roofLeft.castShadow = true;
+  boardGroup.add(roofLeft);
+
+  const roofRightGeom = new THREE.BoxGeometry(1.3, 0.06, 0.4);
+  const roofRight = new THREE.Mesh(roofRightGeom, roofMaterial);
+  roofRight.position.set(0.55, 2.8, 0);
+  roofRight.rotation.z = -0.25;
+  roofRight.castShadow = true;
+  boardGroup.add(roofRight);
+
+  // Multiple note sheets pinned to the board
+  const notesData = [
+    { w: 0.6, h: 0.7, x: -0.6, y: 2.15, rot: 0.08, col: paperColors[0] },
+    { w: 0.7, h: 0.65, x: 0.1, y: 1.65, rot: -0.06, col: paperColors[1] },
+    { w: 0.65, h: 0.5, x: 0.6, y: 2.1, rot: 0.12, col: paperColors[2] },
+    { w: 0.55, h: 0.6, x: -0.45, y: 1.5, rot: -0.03, col: paperColors[3] }
+  ];
+
+  notesData.forEach((nd, idx) => {
+    const noteGeom = new THREE.BoxGeometry(nd.w, nd.h, 0.02);
+    const noteMat = new THREE.MeshStandardMaterial({ color: nd.col, roughness: 0.8, flatShading: true });
+    const note = new THREE.Mesh(noteGeom, noteMat);
+    note.position.set(nd.x, nd.y, 0.06);
+    note.rotation.z = nd.rot;
+    note.castShadow = true;
+    note.receiveShadow = true;
+    boardGroup.add(note);
+
+    // Pin/Tack
+    const pinGeom = new THREE.CylinderGeometry(0.018, 0.01, 0.05, 5);
+    pinGeom.rotateX(Math.PI / 2);
+    const pinMat = new THREE.MeshStandardMaterial({ color: pinColors[idx % pinColors.length], roughness: 0.3, metalness: 0.5 });
+    const pin = new THREE.Mesh(pinGeom, pinMat);
+    
+    // Position pin slightly above the top edge of each note
+    const pinYOffset = nd.h / 2 - 0.03;
+    const pinX = nd.x - Math.sin(nd.rot) * pinYOffset;
+    const pinY = nd.y + Math.cos(nd.rot) * pinYOffset;
+    pin.position.set(pinX, pinY, 0.08);
+    pin.castShadow = true;
+    boardGroup.add(pin);
+  });
 
   boardGroup.position.set(wx, wy, wz);
   boardGroup.rotation.y = Math.PI / 4; // Face the starting spawn point (25, 25)
