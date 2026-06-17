@@ -33,7 +33,8 @@ const presets = {
     ambientIntensity: 1.2,
     sun: 0xffaa44,
     sunIntensity: 2.5,
-    sunPos: new THREE.Vector3(-120, 5, -50)
+    sunPos: new THREE.Vector3(-120, 5, -50),
+    sunMeshColor: 0xfff9e6 // Bright warm white for glowing sun disc
   },
   nebula: {
     bg: 0x070312,
@@ -42,7 +43,8 @@ const presets = {
     ambientIntensity: 0.6,
     sun: 0x00ffff,
     sunIntensity: 1.2,
-    sunPos: new THREE.Vector3(100, 10, -90)
+    sunPos: new THREE.Vector3(100, 10, -90),
+    sunMeshColor: 0xe6ffff // Bright cyan-white for moon
   },
   toxic: {
     bg: 0x08140c,
@@ -51,7 +53,8 @@ const presets = {
     ambientIntensity: 1.0,
     sun: 0x33ff33,
     sunIntensity: 1.8,
-    sunPos: new THREE.Vector3(-80, 8, 80)
+    sunPos: new THREE.Vector3(-80, 8, 80),
+    sunMeshColor: 0xe6ffe6 // Bright lime-white
   },
   frost: {
     bg: 0xddeeff,
@@ -60,7 +63,8 @@ const presets = {
     ambientIntensity: 1.4,
     sun: 0xffffff,
     sunIntensity: 2.0,
-    sunPos: new THREE.Vector3(90, 12, 90)
+    sunPos: new THREE.Vector3(90, 12, 90),
+    sunMeshColor: 0xffffff // Pure white
   }
 };
 
@@ -152,12 +156,29 @@ function init() {
   
   game.scene.add(game.lights.sun);
 
-  // Create 3D Sun Disc
+  // Create 3D Sun Disc (Disable fog so it remains bright and distinct)
   const sunGeom = new THREE.SphereGeometry(14, 8, 8); // Low-poly sphere
-  const sunMat = new THREE.MeshBasicMaterial({ color: presets.sunset.sun, toneMapped: false });
+  const sunMat = new THREE.MeshBasicMaterial({ 
+    color: presets.sunset.sunMeshColor, 
+    toneMapped: false,
+    fog: false 
+  });
   game.sunMesh = new THREE.Mesh(sunGeom, sunMat);
   game.sunMesh.position.copy(presets.sunset.sunPos).normalize().multiplyScalar(180);
   game.scene.add(game.sunMesh);
+
+  // Add a soft glowing low-poly halo around the sun/moon
+  const haloGeom = new THREE.SphereGeometry(22, 8, 8);
+  const haloMat = new THREE.MeshBasicMaterial({
+    color: presets.sunset.sunMeshColor,
+    toneMapped: false,
+    transparent: true,
+    opacity: 0.35,
+    depthWrite: false,
+    fog: false
+  });
+  game.sunHaloMesh = new THREE.Mesh(haloGeom, haloMat);
+  game.sunMesh.add(game.sunHaloMesh); // Add as child so it moves with the sun automatically
 
   // 5. Setup Clock
   game.clock = new THREE.Clock();
@@ -440,7 +461,18 @@ function applyPreset(presetName) {
 
   if (game.sunMesh) {
     game.sunMesh.position.copy(preset.sunPos).normalize().multiplyScalar(180);
-    game.sunMesh.material.color.setHex(preset.sun);
+    const mColor = preset.sunMeshColor || preset.sun;
+    game.sunMesh.material.color.setHex(mColor);
+    
+    if (game.sunHaloMesh) {
+      game.sunHaloMesh.material.color.setHex(mColor);
+      if (presetName === 'nebula') {
+        game.sunHaloMesh.material.opacity = 0.2; // Soft glow for moon
+      } else {
+        game.sunHaloMesh.material.opacity = 0.35; // Bright halo
+      }
+    }
+    
     if (presetName === 'nebula') {
       game.sunMesh.scale.setScalar(0.4); // Smaller moon/star
     } else {

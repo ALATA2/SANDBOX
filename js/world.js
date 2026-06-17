@@ -468,50 +468,111 @@ export function checkCollision(px, py, pz) {
 function createPalmTree() {
   const palmGroup = new THREE.Group();
   
-  // 1. Curved Trunk (Stacking multiple small cylinders with slight offset and angle)
-  const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x6e4e37, roughness: 0.9, flatShading: true }); // Curved bark
-  const segments = 6;
-  let currentHeight = 0;
-  let currentX = 0;
-  let currentZ = 0;
-  const segmentHeight = 0.6;
+  // 1. Curved Trunk (Hierarchical nesting of segments to prevent gaps and create a smooth bezier-like tilt)
+  const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x735135, roughness: 0.85, flatShading: true }); // Warm bark brown
+  const segments = 9;
+  const segmentHeight = 0.75;
+  
+  // Curvature: bend the tree slightly in a random horizontal direction
+  const tiltAmount = 0.22 + Math.random() * 0.12; // bend in radians
+  const tiltDir = Math.random() * Math.PI * 2;
+  
+  let parentNode = palmGroup;
   
   for (let i = 0; i < segments; i++) {
-    const geom = new THREE.CylinderGeometry(0.12 - i * 0.01, 0.14 - i * 0.01, segmentHeight, 5);
-    const mesh = new THREE.Mesh(geom, trunkMaterial);
-    mesh.position.set(currentX, currentHeight + segmentHeight / 2, currentZ);
+    const bottomRad = 0.28 - i * 0.015;
+    const topRad = 0.26 - i * 0.015;
+    const geom = new THREE.CylinderGeometry(topRad, bottomRad, segmentHeight, 5); // Pentagonal low-poly cylinder
+    geom.translate(0, segmentHeight / 2, 0); // Pivot at the base
     
-    // Tilt the segment slightly to create a curve
-    mesh.rotation.z = 0.08 * (i + 1); // Curve on X/Z axis
-    mesh.rotation.y = i * 0.2;
+    const mesh = new THREE.Mesh(geom, trunkMaterial);
+    
+    if (i === 0) {
+      mesh.position.set(0, 0, 0);
+      // Give the base segment a slight tilt
+      mesh.rotation.z = tiltAmount / segments;
+      mesh.rotation.y = tiltDir;
+    } else {
+      mesh.position.set(0, segmentHeight * 0.88, 0); // Nest with overlap
+      mesh.rotation.z = tiltAmount / segments; // Stack the curve
+      mesh.rotation.y = 0.12; // Spiral twist
+    }
     
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    palmGroup.add(mesh);
     
-    currentHeight += segmentHeight * 0.95;
-    currentX += Math.sin(0.08 * (i + 1)) * segmentHeight;
+    parentNode.add(mesh);
+    parentNode = mesh; // Nesting
   }
   
-  // 2. Palm Leaves/Fronds (Caps)
-  const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x1e5e3a, roughness: 0.8, flatShading: true });
-  const leafCount = 6;
+  // 2. Palm Leaves/Fronds (Drooping branches with side leaflets)
+  const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x2d8a4e, roughness: 0.75, flatShading: true }); // Tropical green
+  const leafCount = 8;
+  
   for (let i = 0; i < leafCount; i++) {
     const leafGroup = new THREE.Group();
-    leafGroup.position.set(currentX, currentHeight, currentZ);
-    
-    // Rotate around center
+    // Position at the very top of the last trunk segment
+    leafGroup.position.set(0, segmentHeight * 0.95, 0);
+    // Radial distribution
     leafGroup.rotation.y = (i * Math.PI * 2) / leafCount;
     
-    // The frond itself is a flat box
-    const frondGeom = new THREE.BoxGeometry(1.6, 0.04, 0.4);
-    frondGeom.translate(0.8, 0, 0); // Translate so rotation is at the trunk center
-    const frond = new THREE.Mesh(frondGeom, leavesMaterial);
-    frond.rotation.z = -0.25; // Droop down
+    // Each frond is a drooping chain of 4 box segments
+    let leafSegParent = leafGroup;
+    const leafSegCount = 4;
+    const leafSegLength = 0.65;
     
-    frond.castShadow = true;
-    leafGroup.add(frond);
-    palmGroup.add(leafGroup);
+    for (let j = 0; j < leafSegCount; j++) {
+      const w = 0.38 - j * 0.07; // Main leaf stem width
+      const h = 0.02;
+      const d = leafSegLength;
+      
+      const stemGeom = new THREE.BoxGeometry(w, h, d);
+      stemGeom.translate(0, 0, d / 2); // Pivot at segment base (along Z)
+      
+      const stemMesh = new THREE.Mesh(stemGeom, leavesMaterial);
+      if (j === 0) {
+        stemMesh.position.set(0, 0, 0);
+        stemMesh.rotation.x = -0.15; // Point slightly up first, then droop
+      } else {
+        stemMesh.position.set(0, 0, d * 0.95); // Chain together
+        stemMesh.rotation.x = 0.25 + j * 0.05; // Droop more and more
+      }
+      
+      stemMesh.castShadow = true;
+      stemMesh.receiveShadow = true;
+      
+      // Add side leaflets (feathers) to this segment to make it look lush
+      const leafletCount = 3;
+      for (let k = 0; k < leafletCount; k++) {
+        const t = (k + 0.5) / leafletCount; // spacing along the stem segment
+        const leafletW = 0.12 - j * 0.02;
+        const leafletL = 0.5 - j * 0.08 - t * 0.1;
+        
+        const leafletGeom = new THREE.BoxGeometry(leafletW, 0.01, leafletL);
+        leafletGeom.translate(0, 0, leafletL / 2);
+        
+        // Left leaflet
+        const leftLeaflet = new THREE.Mesh(leafletGeom, leavesMaterial);
+        leftLeaflet.position.set(-w / 2, 0, t * d);
+        leftLeaflet.rotation.y = -Math.PI / 3; // angle outwards
+        leftLeaflet.rotation.x = 0.15; // droop
+        leftLeaflet.castShadow = true;
+        stemMesh.add(leftLeaflet);
+        
+        // Right leaflet
+        const rightLeaflet = new THREE.Mesh(leafletGeom, leavesMaterial);
+        rightLeaflet.position.set(w / 2, 0, t * d);
+        rightLeaflet.rotation.y = Math.PI / 3; // angle outwards
+        rightLeaflet.rotation.x = 0.15; // droop
+        rightLeaflet.castShadow = true;
+        stemMesh.add(rightLeaflet);
+      }
+      
+      leafSegParent.add(stemMesh);
+      leafSegParent = stemMesh;
+    }
+    
+    parentNode.add(leafGroup);
   }
   
   return palmGroup;
@@ -608,8 +669,8 @@ function spawnScenery() {
   const positionAttribute = waterGeometry.attributes.position;
   const colors = [];
   const depths = [];
-  const colorShallow = new THREE.Color(0x3abfb0); // Beautiful turquoise near the beach
-  const colorDeep = new THREE.Color(0x0f2a3d);    // Deep dark navy blue in deep water
+  const colorShallow = new THREE.Color(0x00dfc0); // Luminous beach teal
+  const colorDeep = new THREE.Color(0x093f60);    // Vibrant deep ocean blue
   
   const tempColor = new THREE.Color();
   
@@ -639,11 +700,12 @@ function spawnScenery() {
   
   const waterMaterial = new THREE.MeshStandardMaterial({
     vertexColors: true, // Enable vertex colors!
-    roughness: 0.15,
-    metalness: 0.85,
+    roughness: 0.25,
+    metalness: 0.05,
     transparent: true,
-    opacity: 0.82,
-    flatShading: true
+    opacity: 0.90,
+    flatShading: true,
+    emissive: new THREE.Color(0x09202e) // Subtle glow so the water looks luminous and alive
   });
   world.waterMesh = new THREE.Mesh(waterGeometry, waterMaterial);
   world.waterMesh.rotation.x = -Math.PI / 2;
