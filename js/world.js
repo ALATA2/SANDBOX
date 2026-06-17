@@ -14,7 +14,8 @@ export const world = {
   oreDeposits: [], // Array of meshes representing ore nodes
   sceneryMeshes: [], // Trees, rocks, etc.
   lighthouseBeam: null, // Rotating lighthouse beam
-  feedbackBoard: null // Feedback Board Mesh
+  feedbackBoard: null, // Feedback Board Mesh
+  clouds: [] // Array of cloud meshes
 };
 
 // Indexing helper for 3D array flattened
@@ -463,20 +464,182 @@ export function checkCollision(px, py, pz) {
   return getDensityInterpolated(px, py, pz) > 0.15; // Return true if solid
 }
 
+// Helper to create a curved low-poly palm tree mesh
+function createPalmTree() {
+  const palmGroup = new THREE.Group();
+  
+  // 1. Curved Trunk (Stacking multiple small cylinders with slight offset and angle)
+  const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x6e4e37, roughness: 0.9, flatShading: true }); // Curved bark
+  const segments = 6;
+  let currentHeight = 0;
+  let currentX = 0;
+  let currentZ = 0;
+  const segmentHeight = 0.6;
+  
+  for (let i = 0; i < segments; i++) {
+    const geom = new THREE.CylinderGeometry(0.12 - i * 0.01, 0.14 - i * 0.01, segmentHeight, 5);
+    const mesh = new THREE.Mesh(geom, trunkMaterial);
+    mesh.position.set(currentX, currentHeight + segmentHeight / 2, currentZ);
+    
+    // Tilt the segment slightly to create a curve
+    mesh.rotation.z = 0.08 * (i + 1); // Curve on X/Z axis
+    mesh.rotation.y = i * 0.2;
+    
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    palmGroup.add(mesh);
+    
+    currentHeight += segmentHeight * 0.95;
+    currentX += Math.sin(0.08 * (i + 1)) * segmentHeight;
+  }
+  
+  // 2. Palm Leaves/Fronds (Caps)
+  const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x1e5e3a, roughness: 0.8, flatShading: true });
+  const leafCount = 6;
+  for (let i = 0; i < leafCount; i++) {
+    const leafGroup = new THREE.Group();
+    leafGroup.position.set(currentX, currentHeight, currentZ);
+    
+    // Rotate around center
+    leafGroup.rotation.y = (i * Math.PI * 2) / leafCount;
+    
+    // The frond itself is a flat box
+    const frondGeom = new THREE.BoxGeometry(1.6, 0.04, 0.4);
+    frondGeom.translate(0.8, 0, 0); // Translate so rotation is at the trunk center
+    const frond = new THREE.Mesh(frondGeom, leavesMaterial);
+    frond.rotation.z = -0.25; // Droop down
+    
+    frond.castShadow = true;
+    leafGroup.add(frond);
+    palmGroup.add(leafGroup);
+  }
+  
+  return palmGroup;
+}
+
+// Helper to create a lit beach torch on a post
+function createTorch() {
+  const torchGroup = new THREE.Group();
+  const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9, flatShading: true });
+  const metalMaterial = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5, metalness: 0.8 });
+  const fireMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.1, emissive: 0xff7700 });
+  
+  // The pole
+  const poleGeom = new THREE.CylinderGeometry(0.04, 0.04, 1.4, 5);
+  const pole = new THREE.Mesh(poleGeom, woodMaterial);
+  pole.position.y = 0.7;
+  pole.castShadow = true;
+  pole.receiveShadow = true;
+  torchGroup.add(pole);
+  
+  // The metal cup/holder
+  const cupGeom = new THREE.CylinderGeometry(0.08, 0.06, 0.15, 5);
+  const cup = new THREE.Mesh(cupGeom, metalMaterial);
+  cup.position.y = 1.45;
+  cup.castShadow = true;
+  torchGroup.add(cup);
+  
+  // The fire flame (yellow low-poly octahedron)
+  const flameGeom = new THREE.OctahedronGeometry(0.12);
+  const flame = new THREE.Mesh(flameGeom, fireMaterial);
+  flame.position.y = 1.6;
+  torchGroup.add(flame);
+  
+  // Add a warm point light
+  const light = new THREE.PointLight(0xff7722, 2.0, 10);
+  light.position.set(0, 1.8, 0);
+  light.castShadow = true;
+  light.shadow.bias = -0.002;
+  torchGroup.add(light);
+  
+  return torchGroup;
+}
+
+// Helper to spawn 3D drifting clouds in the sky
+function spawnClouds() {
+  const cloudMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.9,
+    flatShading: true,
+    emissive: 0x222222 // Subtle self-illumination
+  });
+  
+  for (let i = 0; i < 20; i++) {
+    const cloudGroup = new THREE.Group();
+    const blockCount = Math.floor(Math.random() * 3) + 3; // 3 to 5 blocks
+    
+    for (let j = 0; j < blockCount; j++) {
+      const w = Math.random() * 8 + 10;
+      const h = Math.random() * 3 + 3;
+      const d = Math.random() * 8 + 8;
+      
+      const geom = new THREE.BoxGeometry(w, h, d);
+      const mesh = new THREE.Mesh(geom, cloudMaterial);
+      // Offset blocks to make a clustered shape
+      mesh.position.set(
+        (Math.random() - 0.5) * 6,
+        (Math.random() - 0.5) * 2.0,
+        (Math.random() - 0.5) * 6
+      );
+      cloudGroup.add(mesh);
+    }
+    
+    // Position cloud high in the sky
+    const cx = Math.random() * 400 - 200 + 80;
+    const cy = Math.random() * 20 + 55; // 55 to 75 meters high
+    const cz = Math.random() * 400 - 200 + 80;
+    
+    cloudGroup.position.set(cx, cy, cz);
+    game.scene.add(cloudGroup);
+    world.clouds.push(cloudGroup);
+  }
+}
+
 // Spawns static low-poly island assets
 function spawnScenery() {
   const spacing = world.spacing;
   const cx = world.sizeX / 2;
   const cz = world.sizeZ / 2;
 
-  // 1. Crystal Water Plane
-  const waterGeometry = new THREE.PlaneGeometry(300, 300);
+  // 1. Crystal Water Plane with Depth Color Gradients
+  const waterGeometry = new THREE.PlaneGeometry(300, 300, 32, 32);
+  
+  // Calculate vertex colors based on depth
+  const positionAttribute = waterGeometry.attributes.position;
+  const colors = [];
+  const colorShallow = new THREE.Color(0x3abfb0); // Beautiful turquoise near the beach
+  const colorDeep = new THREE.Color(0x0f2a3d);    // Deep dark navy blue in deep water
+  
+  const tempColor = new THREE.Color();
+  
+  for (let i = 0; i < positionAttribute.count; i++) {
+    const vx = positionAttribute.getX(i);
+    const vy = positionAttribute.getY(i); // geometry Y is mapped to world Z after rotation
+    
+    // In world coordinates, the vertex position is:
+    const worldX = (cx * spacing) + vx;
+    const worldZ = (cz * spacing) + vy; // note PlaneGeometry Y maps to world Z
+    
+    // Find the ground height at this point. Water surface is at Y = 4.0
+    const groundY = getSurfaceHeightNear(worldX, 5.0, worldZ);
+    const depth = Math.max(0, 4.0 - groundY);
+    
+    // Smoothly interpolate between shallow turquoise and deep blue based on depth
+    // If depth is 0 (shore), it's shallow. If depth is 4 meters or more, it's deep.
+    const t = Math.min(1.0, depth / 4.0);
+    tempColor.copy(colorShallow).lerp(colorDeep, t);
+    
+    colors.push(tempColor.r, tempColor.g, tempColor.b);
+  }
+  
+  waterGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  
   const waterMaterial = new THREE.MeshStandardMaterial({
-    color: 0x145a80, // Deep crystal teal blue
-    roughness: 0.1,
-    metalness: 0.8,
+    vertexColors: true, // Enable vertex colors!
+    roughness: 0.15,
+    metalness: 0.85,
     transparent: true,
-    opacity: 0.8,
+    opacity: 0.82,
     flatShading: true
   });
   world.waterMesh = new THREE.Mesh(waterGeometry, waterMaterial);
@@ -498,8 +661,8 @@ function spawnScenery() {
     flatShading: true
   });
 
-  // Spawn trees randomly on the island surface
-  for (let i = 0; i < 40; i++) {
+  // Spawn trees randomly on the island surface (mix of Palm and Pine trees)
+  for (let i = 0; i < 45; i++) {
     const rx = Math.random() * (world.sizeX - 10) + 5;
     const rz = Math.random() * (world.sizeZ - 10) + 5;
     
@@ -509,32 +672,43 @@ function spawnScenery() {
     const wy = getSurfaceHeightNear(wx, 15, wz);
 
     // Only spawn trees on land above water
-    if (wy > 4.5) {
-      const treeGroup = new THREE.Group();
+    if (wy > 4.1) {
+      let treeGroup;
       
-      // Trunk
-      const trunkGeom = new THREE.CylinderGeometry(0.2, 0.3, 2.5, 5);
-      const trunk = new THREE.Mesh(trunkGeom, woodMaterial);
-      trunk.position.y = 1.25;
-      trunk.castShadow = true;
-      trunk.receiveShadow = true;
-      treeGroup.add(trunk);
+      // If height is close to the beach water line (4.1 to 6.2), spawn a Palm Tree
+      if (wy <= 6.2) {
+        treeGroup = createPalmTree();
+        treeGroup.position.set(wx, wy - 0.1, wz);
+        treeGroup.scale.setScalar(0.75 + Math.random() * 0.3);
+      } else {
+        // Otherwise spawn a standard low-poly Pine Tree
+        treeGroup = new THREE.Group();
+        
+        // Trunk
+        const trunkGeom = new THREE.CylinderGeometry(0.2, 0.3, 2.5, 5);
+        const trunk = new THREE.Mesh(trunkGeom, woodMaterial);
+        trunk.position.y = 1.25;
+        trunk.castShadow = true;
+        trunk.receiveShadow = true;
+        treeGroup.add(trunk);
 
-      // Leaves (conical layers)
-      const foliageGeom1 = new THREE.ConeGeometry(1.2, 2.0, 5);
-      const foliage1 = new THREE.Mesh(foliageGeom1, leavesMaterial);
-      foliage1.position.y = 2.5;
-      foliage1.castShadow = true;
-      treeGroup.add(foliage1);
+        // Leaves (conical layers)
+        const foliageGeom1 = new THREE.ConeGeometry(1.2, 2.0, 5);
+        const foliage1 = new THREE.Mesh(foliageGeom1, leavesMaterial);
+        foliage1.position.y = 2.5;
+        foliage1.castShadow = true;
+        treeGroup.add(foliage1);
 
-      const foliageGeom2 = new THREE.ConeGeometry(0.9, 1.5, 5);
-      const foliage2 = new THREE.Mesh(foliageGeom2, leavesMaterial);
-      foliage2.position.y = 3.5;
-      foliage2.castShadow = true;
-      treeGroup.add(foliage2);
-
-      treeGroup.position.set(wx, wy, wz);
-      treeGroup.scale.setScalar(0.8 + Math.random() * 0.4);
+        const foliageGeom2 = new THREE.ConeGeometry(0.9, 1.5, 5);
+        const foliage2 = new THREE.Mesh(foliageGeom2, leavesMaterial);
+        foliage2.position.y = 3.5;
+        foliage2.castShadow = true;
+        treeGroup.add(foliage2);
+        
+        treeGroup.position.set(wx, wy, wz);
+        treeGroup.scale.setScalar(0.8 + Math.random() * 0.4);
+      }
+      
       game.scene.add(treeGroup);
       world.sceneryMeshes.push({ mesh: treeGroup, type: 'tree' });
     }
@@ -614,7 +788,68 @@ function spawnScenery() {
     world.oreDeposits.push(oreGroup);
   });
 
-  // 5. Distant Island with a Lighthouse
+  // 5. Wooden Pier / Dock (near player spawn)
+  const dockGroup = new THREE.Group();
+  const plankMaterial = new THREE.MeshStandardMaterial({ color: 0x6e4e37, roughness: 0.95, flatShading: true });
+  const pierX = 17.0 * spacing; // aligned with beach
+  
+  for (let z = 18.0; z <= 28.0; z += 0.8) {
+    const plankGeom = new THREE.BoxGeometry(1.4, 0.06, 0.6);
+    const plank = new THREE.Mesh(plankGeom, plankMaterial);
+    plank.position.set(pierX, 4.12, z * spacing);
+    plank.castShadow = true;
+    plank.receiveShadow = true;
+    dockGroup.add(plank);
+  }
+  
+  const postGeom = new THREE.CylinderGeometry(0.08, 0.08, 3.5, 5);
+  const postLocations = [
+    { x: pierX - 0.6, z: 18.5 * spacing },
+    { x: pierX + 0.6, z: 18.5 * spacing },
+    { x: pierX - 0.6, z: 27.5 * spacing },
+    { x: pierX + 0.6, z: 27.5 * spacing }
+  ];
+  
+  postLocations.forEach(pos => {
+    const post = new THREE.Mesh(postGeom, plankMaterial);
+    post.position.set(pos.x, 2.5, pos.z);
+    post.castShadow = true;
+    post.receiveShadow = true;
+    dockGroup.add(post);
+  });
+  
+  game.scene.add(dockGroup);
+  
+  // 6. Floating Log Raft
+  const raftGroup = new THREE.Group();
+  const raftMaterial = new THREE.MeshStandardMaterial({ color: 0x553d2d, roughness: 0.9, flatShading: true });
+  for (let i = 0; i < 4; i++) {
+    const logGeom = new THREE.CylinderGeometry(0.12, 0.12, 1.8, 5);
+    logGeom.rotateX(Math.PI / 2);
+    const log = new THREE.Mesh(logGeom, raftMaterial);
+    log.position.set(pierX - 2.0 + i * 0.28, 4.05, 26.5 * spacing);
+    log.castShadow = true;
+    log.receiveShadow = true;
+    raftGroup.add(log);
+  }
+  game.scene.add(raftGroup);
+
+  // 7. Lit Beach Torches
+  const torchPositions = [
+    { x: 22.0 * spacing, z: 23.0 * spacing },
+    { x: pierX + 1.2, z: 19.0 * spacing },
+    { x: pierX + 1.2, z: 27.5 * spacing },
+    { x: 12.0 * spacing, z: 21.0 * spacing }
+  ];
+  
+  torchPositions.forEach(pos => {
+    const torch = createTorch();
+    const ty = getSurfaceHeightNear(pos.x, 15.0, pos.z);
+    torch.position.set(pos.x, ty, pos.z);
+    game.scene.add(torch);
+  });
+
+  // 8. Distant Island with a Lighthouse
   const distIslandGroup = new THREE.Group();
   distIslandGroup.position.set(80, -5, -120); // All'orizzonte
   
@@ -663,6 +898,9 @@ function spawnScenery() {
   game.scene.add(world.lighthouseBeam);
 
   game.scene.add(distIslandGroup);
+
+  // 9. Spawn Sky Clouds
+  spawnClouds();
 }
 
 // Spawns a 3D wooden bulletin feedback board on the island
@@ -825,5 +1063,15 @@ export function updateWorld(delta) {
     const pos = world.feedbackBoard.position;
     const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
     world.feedbackBoard.position.y = groundY;
+  }
+
+  // Drift clouds slowly in the sky
+  if (world.clouds) {
+    world.clouds.forEach(cloud => {
+      cloud.position.x += 1.0 * delta;
+      if (cloud.position.x > 250) {
+        cloud.position.x = -150;
+      }
+    });
   }
 }

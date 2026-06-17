@@ -87,13 +87,14 @@ body, html {
 
 #objective-panel {
   max-width: 320px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
 }
 
 #objective-text {
-  color: var(--accent-gold);
-  font-weight: 400;
-  font-size: 0.95rem;
-  text-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.15rem;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
 }
 
 /* Compass */
@@ -106,6 +107,7 @@ body, html {
   overflow: hidden;
   height: 60px;
   padding: 8px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
 }
 
 .compass-container {
@@ -120,18 +122,21 @@ body, html {
   display: flex;
   position: absolute;
   left: 50%;
-  font-family: 'Courier New', Courier, monospace;
-  font-weight: 800;
-  font-size: 0.95rem;
-  letter-spacing: 0.5px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: 2px;
   transition: transform 0.05s linear;
   white-space: nowrap;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .compass-marker {
-  width: 2px;
-  height: 8px;
-  background-color: var(--accent-gold);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 8px solid #ffffff;
   position: absolute;
   bottom: 0;
   left: 50%;
@@ -141,6 +146,7 @@ body, html {
 #distance-panel {
   text-align: right;
   min-width: 140px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
 }
 
 /* BOTTOM ROW */
@@ -153,25 +159,30 @@ body, html {
 
 /* Status Bars */
 #status-panel {
-  width: 280px;
+  width: 200px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .status-bar-group {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  align-items: center;
+  column-gap: 8px;
+}
+
+.status-icon {
+  grid-row: 1 / 3;
+  font-size: 1.25rem;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
 }
 
 .status-label-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 4px;
+  display: none; /* Hide text labels for clean style */
 }
 
 .status-bar-bg {
@@ -191,18 +202,15 @@ body, html {
 }
 
 #health-fill {
-  background: linear-gradient(90deg, #ff3366, #ff6688);
-  box-shadow: 0 0 8px rgba(255, 51, 102, 0.4);
+  background: #ff3b30;
 }
 
 #energy-fill {
-  background: linear-gradient(90deg, #ffcc00, #ffea00);
-  box-shadow: 0 0 8px rgba(255, 204, 0, 0.4);
+  background: #ffcc00;
 }
 
 #hydration-fill {
-  background: linear-gradient(90deg, #0099ff, #66ccff);
-  box-shadow: 0 0 8px rgba(0, 153, 255, 0.4);
+  background: #007aff;
 }
 
 /* Hotbar */
@@ -1035,32 +1043,21 @@ body.is-mobile #interaction-prompt {
   bottom: 20px;
   right: 30px;
   display: flex;
-  gap: 15px;
+  gap: 12px;
   pointer-events: auto;
 }
 
 .mobile-action-btn {
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  background: rgba(18, 12, 28, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: white;
-  font-size: 1.35rem;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  touch-action: none;
-  box-shadow: 0 0 12px rgba(0,0,0,0.5);
+  pointer-events: auto;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .mobile-action-btn:active {
-  transform: scale(0.9);
-  background: linear-gradient(135deg, #ff55bb, #ffcc00);
-  border-color: rgba(255,255,255,0.4);
+  border: 2px solid #ffffff !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.4) !important;
+  transform: scale(1.08) translateY(-4px) !important;
 }
 
 #mobile-interact-btn {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ARCHIPELAGO - Low-Poly Survival Prototype</title>
-  <link rel="stylesheet" href="style.css?v=0.014">
+  <link rel="stylesheet" href="style.css?v=0.015">
   
   <!-- Import maps polyfill if needed -->
   <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
@@ -15,13 +15,13 @@
       "imports": {
         "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
         "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/",
-        "./js/controls.js": "./js/controls.js?v=0.014",
-        "./js/world.js": "./js/world.js?v=0.014",
-        "./js/player.js": "./js/player.js?v=0.014",
-        "./js/interact.js": "./js/interact.js?v=0.014",
-        "./js/audio.js": "./js/audio.js?v=0.014",
-        "./js/lang.js": "./js/lang.js?v=0.014",
-        "./js/game.js": "./js/game.js?v=0.014"
+        "./js/controls.js": "./js/controls.js?v=0.015",
+        "./js/world.js": "./js/world.js?v=0.015",
+        "./js/player.js": "./js/player.js?v=0.015",
+        "./js/interact.js": "./js/interact.js?v=0.015",
+        "./js/audio.js": "./js/audio.js?v=0.015",
+        "./js/lang.js": "./js/lang.js?v=0.015",
+        "./js/game.js": "./js/game.js?v=0.015"
       }
     }
   </script>
@@ -190,12 +190,12 @@
     
     <!-- Top Row: Objective, Compass, Distance -->
     <div class="hud-top-row">
-      <div id="objective-panel" class="glass-panel">
+      <div id="objective-panel">
         <div class="label-small" data-translate="hud_objective">OBJECTIVE</div>
         <div id="objective-text" data-translate="obj_initial">Collect ore for boat repairs</div>
       </div>
       
-      <div id="compass-panel" class="glass-panel">
+      <div id="compass-panel">
         <div class="label-small" data-translate="hud_compass">COMPASS</div>
         <div class="compass-container">
           <div class="compass-tape" id="compass-tape">N · · · NE · · · E · · · SE · · · S · · · SW · · · W · · · NW · · · N · · · NE · · · E · · · SE · · · S · · · SW · · · W · · · NW · · · N · · · NE · · · E · · · SE · · · S · · · SW · · · W · · · NW · · · </div>
@@ -203,7 +203,7 @@
         </div>
       </div>
       
-      <div id="distance-panel" class="glass-panel">
+      <div id="distance-panel">
         <div class="label-small" data-translate="hud_distance">DISTANCE</div>
         <div class="value-large" id="distance-value">1810 m</div>
       </div>
@@ -222,9 +222,10 @@
     <div class="hud-bottom-row">
       
       <!-- Status Bars -->
-      <div id="status-panel" class="glass-panel">
+      <div id="status-panel">
         <!-- Health -->
         <div class="status-bar-group">
+          <span class="status-icon">❤️</span>
           <div class="status-label-row">
             <span data-translate="hud_health">HEALTH</span>
             <span id="health-value">100%</span>
@@ -235,6 +236,7 @@
         </div>
         <!-- Energy -->
         <div class="status-bar-group">
+          <span class="status-icon">⚡</span>
           <div class="status-label-row">
             <span data-translate="hud_energy">ENERGY</span>
             <span id="energy-value">100%</span>
@@ -245,6 +247,7 @@
         </div>
         <!-- Hydration -->
         <div class="status-bar-group">
+          <span class="status-icon">💧</span>
           <div class="status-label-row">
             <span data-translate="hud_hydration">HYDRATION</span>
             <span id="hydration-value">100%</span>
@@ -316,9 +319,21 @@
     
     <!-- Right Action Buttons -->
     <div class="mobile-action-buttons">
-      <button id="mobile-attack-btn" class="mobile-action-btn">⛏️</button>
-      <button id="mobile-jump-btn" class="mobile-action-btn">🚀</button>
-      <button id="mobile-interact-btn" class="mobile-action-btn">E</button>
+      <div id="mobile-attack-btn" class="mobile-action-btn hotbar-slot">
+        <span class="slot-number">M1</span>
+        <span class="slot-icon">⛏️</span>
+        <span class="slot-label">MINE/ATTACK</span>
+      </div>
+      <div id="mobile-jump-btn" class="mobile-action-btn hotbar-slot">
+        <span class="slot-number">JMP</span>
+        <span class="slot-icon">▲</span>
+        <span class="slot-label">JUMP/SWIM</span>
+      </div>
+      <div id="mobile-interact-btn" class="mobile-action-btn hotbar-slot">
+        <span class="slot-number">ACT</span>
+        <span class="slot-icon" style="color: var(--accent-gold);">E</span>
+        <span class="slot-label">INTERACT</span>
+      </div>
     </div>
   </div>
 
@@ -335,9 +350,9 @@
   </div>
 
   <!-- Version Tag for Deployment Tracking -->
-  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.014</div>
+  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.015</div>
 
   <!-- Main JS entry point as an ES Module -->
-  <script type="module" src="js/game.js?v=0.014"></script>
+  <script type="module" src="js/game.js?v=0.015"></script>
 </body>
 </html>

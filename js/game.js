@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { initControls, updateControls, joystickValues, triggerMobileJump } from './controls.js';
-import { initWorld, updateWorld } from './world.js';
+import { initWorld, updateWorld, world } from './world.js';
 import { initPlayer, updatePlayer, triggerToolSwing } from './player.js';
 import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard } from './interact.js';
 import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute } from './audio.js';
@@ -149,6 +149,13 @@ function init() {
   game.lights.sun.shadow.normalBias = 0.08;
   
   game.scene.add(game.lights.sun);
+
+  // Create 3D Sun Disc
+  const sunGeom = new THREE.SphereGeometry(14, 8, 8); // Low-poly sphere
+  const sunMat = new THREE.MeshBasicMaterial({ color: presets.sunset.sun, toneMapped: false });
+  game.sunMesh = new THREE.Mesh(sunGeom, sunMat);
+  game.sunMesh.position.copy(presets.sunset.sunPos).normalize().multiplyScalar(180);
+  game.scene.add(game.sunMesh);
 
   // 5. Setup Clock
   game.clock = new THREE.Clock();
@@ -416,6 +423,16 @@ function applyPreset(presetName) {
   game.lights.sun.intensity = preset.sunIntensity;
   game.lights.sun.position.copy(preset.sunPos);
 
+  if (game.sunMesh) {
+    game.sunMesh.position.copy(preset.sunPos).normalize().multiplyScalar(180);
+    game.sunMesh.material.color.setHex(preset.sun);
+    if (presetName === 'nebula') {
+      game.sunMesh.scale.setScalar(0.4); // Smaller moon/star
+    } else {
+      game.sunMesh.scale.setScalar(1.0); // Standard sun
+    }
+  }
+
   // 2. Reposition / recolor active particles
   if (menuParticles) {
     const colors = menuParticles.geometry.attributes.color.array;
@@ -563,6 +580,21 @@ function animate() {
   requestAnimationFrame(animate);
 
   const delta = Math.min(game.clock.getDelta(), 0.1); // Cap delta
+
+  // Animate low-poly water waves
+  if (world.waterMesh) {
+    const time = game.clock.getElapsedTime();
+    const positionAttribute = world.waterMesh.geometry.attributes.position;
+    for (let i = 0; i < positionAttribute.count; i++) {
+      const vx = positionAttribute.getX(i);
+      const vy = positionAttribute.getY(i);
+      const zVal = Math.sin(vx * 0.12 + time * 1.6) * 0.18 + 
+                   Math.cos(vy * 0.12 + time * 1.2) * 0.18;
+      positionAttribute.setZ(i, zVal);
+    }
+    positionAttribute.needsUpdate = true;
+    world.waterMesh.geometry.computeVertexNormals();
+  }
 
   // Apply camera shake decay
   if (cameraShake > 0) {
