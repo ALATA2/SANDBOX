@@ -480,6 +480,43 @@ function initTerminalLogger() {
   }, 1400);
 }
 
+let wasSubmerged = false;
+
+function updateUnderwaterVisuals(submerged) {
+  if (submerged === wasSubmerged) return;
+  wasSubmerged = submerged;
+  
+  const preset = presets[currentPreset];
+  if (!preset) return;
+  
+  if (submerged) {
+    // Deep murky underwater colors based on the active atmosphere preset
+    let waterColor, waterDensity;
+    if (currentPreset === 'sunset') {
+      waterColor = 0x081b2a; // Deep dark blue-teal
+      waterDensity = 0.08;
+    } else if (currentPreset === 'nebula') {
+      waterColor = 0x030310; // Void space navy
+      waterDensity = 0.09;
+    } else if (currentPreset === 'toxic') {
+      waterColor = 0x051a0a; // Deep toxic sludge green
+      waterDensity = 0.08;
+    } else if (currentPreset === 'frost') {
+      waterColor = 0x203548; // Cold icy navy
+      waterDensity = 0.07;
+    }
+    
+    game.scene.background.setHex(waterColor);
+    if (game.scene.fog) {
+      game.scene.fog.color.setHex(waterColor);
+      game.scene.fog.density = waterDensity;
+    }
+  } else {
+    // Restores original preset visual values when emerging
+    applyPreset(currentPreset);
+  }
+}
+
 // Main Game Loop
 function animate() {
   requestAnimationFrame(animate);
@@ -490,6 +527,15 @@ function animate() {
   if (cameraShake > 0) {
     cameraShake = Math.max(0, cameraShake - delta * 4.5);
   }
+
+  // Check underwater state
+  let isSubmerged = false;
+  if (game.pointerLocked && game.controls && game.controls.getObject) {
+    if (game.controls.getObject().position.y < 4.0) {
+      isSubmerged = true;
+    }
+  }
+  updateUnderwaterVisuals(isSubmerged);
 
   if (game.pointerLocked) {
     if (menuParticles) menuParticles.visible = false;
