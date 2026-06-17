@@ -13,7 +13,8 @@ export const world = {
   waterMesh: null,
   oreDeposits: [], // Array of meshes representing ore nodes
   sceneryMeshes: [], // Trees, rocks, etc.
-  lighthouseBeam: null // Rotating lighthouse beam
+  lighthouseBeam: null, // Rotating lighthouse beam
+  feedbackBoard: null // Feedback Board Mesh
 };
 
 // Indexing helper for 3D array flattened
@@ -664,11 +665,64 @@ function spawnScenery() {
   game.scene.add(distIslandGroup);
 }
 
+// Spawns a 3D wooden bulletin feedback board on the island
+function spawnFeedbackBoard() {
+  const wx = 22.0;
+  const wz = 22.0;
+  const wy = getSurfaceHeightNear(wx, 15, wz);
+
+  const boardGroup = new THREE.Group();
+  boardGroup.name = "feedback_board";
+
+  const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9, flatShading: true });
+  const boardMaterial = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9, flatShading: true });
+  const paperMaterial = new THREE.MeshStandardMaterial({ color: 0xf5f5dc, roughness: 0.8, flatShading: true });
+
+  // Left post
+  const leftPostGeom = new THREE.BoxGeometry(0.15, 2.5, 0.15);
+  const leftPost = new THREE.Mesh(leftPostGeom, woodMaterial);
+  leftPost.position.set(-0.9, 1.25, 0);
+  leftPost.castShadow = true;
+  leftPost.receiveShadow = true;
+  boardGroup.add(leftPost);
+
+  // Right post
+  const rightPostGeom = new THREE.BoxGeometry(0.15, 2.5, 0.15);
+  const rightPost = new THREE.Mesh(rightPostGeom, woodMaterial);
+  rightPost.position.set(0.9, 1.25, 0);
+  rightPost.castShadow = true;
+  rightPost.receiveShadow = true;
+  boardGroup.add(rightPost);
+
+  // Board backboard
+  const backboardGeom = new THREE.BoxGeometry(2.0, 1.3, 0.1);
+  const backboard = new THREE.Mesh(backboardGeom, boardMaterial);
+  backboard.position.set(0, 1.7, 0);
+  backboard.castShadow = true;
+  backboard.receiveShadow = true;
+  boardGroup.add(backboard);
+
+  // Paper sheet (where user feedback/messages are located)
+  const paperGeom = new THREE.BoxGeometry(1.7, 1.0, 0.05);
+  const paper = new THREE.Mesh(paperGeom, paperMaterial);
+  paper.position.set(0, 1.7, 0.05);
+  paper.castShadow = true;
+  paper.receiveShadow = true;
+  boardGroup.add(paper);
+
+  boardGroup.position.set(wx, wy, wz);
+  boardGroup.rotation.y = Math.PI / 4; // Face the starting spawn point (25, 25)
+
+  game.scene.add(boardGroup);
+  world.feedbackBoard = boardGroup;
+}
+
 // Initialize World
 export function initWorld() {
   generateDensityGrid();
   buildMarchingCubesMesh();
   spawnScenery();
+  spawnFeedbackBoard();
 }
 
 // Update World Animation (e.g. lighthouse rotation, dynamic gravity snap for trees/rocks)
@@ -695,4 +749,11 @@ export function updateWorld(delta) {
     const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
     oreGroup.position.y = groundY - 0.2;
   });
+
+  // Keep feedback board snapped to deformed terrain
+  if (world.feedbackBoard) {
+    const pos = world.feedbackBoard.position;
+    const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
+    world.feedbackBoard.position.y = groundY;
+  }
 }

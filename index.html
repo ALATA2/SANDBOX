@@ -56,7 +56,7 @@
             <div class="logo-container">
               <img src="assets/logo.png" alt="11° Logo" class="logo-img">
             </div>
-            <div class="menu-badge" data-translate="beta_badge">BETA PROTOTYPE v0.011</div>
+             <div class="menu-badge" data-translate="alpha_badge">ALPHA PROTOTYPE v0.012</div>
           </div>
           
           <!-- Title (With glow effect) -->
@@ -160,6 +160,21 @@
         </div>
         
       </div>
+    </div>
+  </div>
+
+  <!-- Feedback Board Modal Overlay -->
+  <div id="feedback-modal" style="display: none;">
+    <div class="feedback-container glass-panel">
+      <h2 id="feedback-title" data-translate="board_title">COMMUNITY FEEDBACK TERMINAL</h2>
+      <div id="feedback-list">
+        <!-- Message items dynamically populated -->
+      </div>
+      <div class="feedback-input-row">
+        <input type="text" id="feedback-input" placeholder="Enter your message here..." maxlength="80">
+        <button id="feedback-submit" data-translate="board_submit">TRANSMIT</button>
+      </div>
+      <button id="feedback-close" data-translate="board_close">CLOSE</button>
     </div>
   </div>
 

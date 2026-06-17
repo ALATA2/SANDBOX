@@ -3,7 +3,7 @@ export const translations = {
   en: {
     game_subtitle: "SUNSET SURVIVAL & MINING",
     game_desc: "Explore a low-poly tropical island, mine underground tunnels in search of gold, and avoid drowning in the open ocean. Dig through rocks using your pickaxe and repair the boat.",
-    beta_badge: "BETA PROTOTYPE v0.012",
+    alpha_badge: "ALPHA PROTOTYPE v0.012",
     start_btn: "START ENGINE",
     controls_title: "CONTROL TELEMETRY",
     ctrl_mv: "FPS Movement",
@@ -22,6 +22,11 @@ export const translations = {
     obj_progress: "Collect ore for boat repairs ({val}/5)",
     obj_complete: "Objective Completed! Boat repaired.",
     interact_harvest: "PRESS E TO HARVEST ORE",
+    interact_board: "PRESS E TO READ FEEDBACK BOARD",
+    board_title: "COMMUNITY FEEDBACK TERMINAL",
+    board_placeholder: "Enter your message here...",
+    board_submit: "TRANSMIT",
+    board_close: "CLOSE",
     msg_mined: "Mined Gold Ore! Pick it up.",
     msg_depleted: "Ore Deposit Depleted!",
     msg_collected: "+1 Gold Ore",
@@ -41,14 +46,14 @@ export const translations = {
   ja: {
     game_subtitle: "夕暮れの生存と採掘",
     game_desc: "ローポリの熱帯の島を探索し、金を求めて地下トンネルを採掘し、開けた海でおぼれないようにしてください。ピッケルで岩を掘り進み、ボートを修理しましょう。",
-    beta_badge: "ベータプロトタイプ v0.012",
+    alpha_badge: "アルファプロトタイプ v0.012",
     start_btn: "エンジン始動",
     controls_title: "操作テレメトリー",
     ctrl_mv: "FPS移動",
     ctrl_look: "周囲を見回す",
     ctrl_dig: "掘る / 攻撃",
     ctrl_jump: "ジャンプ / 浮上する",
-    ctrl_harvest: "鉱石・資源の回収",
+    ctrl_harvest: "鉱石・資源 of 回収",
     ctrl_switch: "ツールの切り替え",
     hud_objective: "目標",
     hud_compass: "コンパス",
@@ -60,6 +65,11 @@ export const translations = {
     obj_progress: "ボート修理用の鉱石を収集する ({val}/5)",
     obj_complete: "目標達成！ボートが修理されました。",
     interact_harvest: "Eキーで鉱石を回収",
+    interact_board: "Eキーで掲示板を読む",
+    board_title: "コミュニティ・フィードバック・ターミナル",
+    board_placeholder: "メッセージを入力してください...",
+    board_submit: "送信する",
+    board_close: "閉じる",
     msg_mined: "金鉱石を採掘しました！拾ってください。",
     msg_depleted: "鉱床が枯渇しました！",
     msg_collected: "+1 金鉱石",
@@ -79,7 +89,7 @@ export const translations = {
   es: {
     game_subtitle: "SUPERVIVENCIA Y MINERÍA AL ATARDECER",
     game_desc: "Explora una isla tropical low-poly, cava túneles subterráneos en busca de oro y evita ahogarte en el océano abierto. Hazte camino entre las rocas usando tu pico y repara el barco.",
-    beta_badge: "PROTOTIPO BETA v0.012",
+    alpha_badge: "PROTOTIPO ALPHA v0.012",
     start_btn: "ARRANCAR MOTOR",
     controls_title: "TELEMETRÍA DE CONTROL",
     ctrl_mv: "Movimiento FPS",
@@ -98,6 +108,11 @@ export const translations = {
     obj_progress: "Recoge mineral para reparar el barco ({val}/5)",
     obj_complete: "¡Objetivo completado! Barco reparado.",
     interact_harvest: "PULSA E PARA RECOGER MINERAL",
+    interact_board: "PULSA E PARA LEER EL TABLÓN",
+    board_title: "TERMINAL DE FEEDBACK DE LA COMUNIDAD",
+    board_placeholder: "Escribe tu mensaje aquí...",
+    board_submit: "TRANSMITIR",
+    board_close: "CERRAR",
     msg_mined: "¡Mineral de oro extraído! Recógelo.",
     msg_depleted: "¡Yacimiento de mineral agotado!",
     msg_collected: "+1 Mineral de oro",
@@ -117,7 +132,7 @@ export const translations = {
   fr: {
     game_subtitle: "SURVIE ET MINAGE AU CRÉPUSCULE",
     game_desc: "Explorez une île tropicale low-poly, creusez des tunnels souterrains à la recherche d'or et évitez de vous noyer en pleine mer. Frayez-vous un chemin à travers les roches à l'aide de votre pioche et réparez le bateau.",
-    beta_badge: "PROTOTYPE BÊTA v0.012",
+    alpha_badge: "PROTOTYPE ALPHA v0.012",
     start_btn: "DÉMARRER MOTEUR",
     controls_title: "TÉLÉMÉTRIE DES COMMANDES",
     ctrl_mv: "Mouvement FPS",
@@ -136,6 +151,11 @@ export const translations = {
     obj_progress: "Collecter du minerai pour réparer le bateau ({val}/5)",
     obj_complete: "Objectif atteint ! Bateau réparé.",
     interact_harvest: "APPUYER SUR E POUR RÉCOLTER LE MINERAI",
+    interact_board: "APPUYER SUR E POUR LIRE LE TABLEAU",
+    board_title: "CONSOLE DE FEEDBACK COMMUNAUTAIRE",
+    board_placeholder: "Saisissez votre message ici...",
+    board_submit: "TRANSMETTRE",
+    board_close: "FERMER",
     msg_mined: "Minerai d'or extrait ! Ramassez-le.",
     msg_depleted: "Gisement de minerai épuisé !",
     msg_collected: "+1 Minerai d'or",
@@ -155,7 +175,7 @@ export const translations = {
   de: {
     game_subtitle: "ÜBERLEBEN UND BERGBAU IM SONNENUNTERGANG",
     game_desc: "Erkunde eine Low-Poly-Tropeninsel, grabe unterirdische Tunnel auf der Suche nach Gold und vermeide es, im offenen Ozean zu ertrinken. Bahne dir mit deiner Spitzhacke den Weg durch die Felsen und repariere das Boot.",
-    beta_badge: "BETA-PROTOTYP v0.012",
+    alpha_badge: "ALPHA-PROTOTYP v0.012",
     start_btn: "MOTOR STARTEN",
     controls_title: "STEUERUNGSTELEMETRIE",
     ctrl_mv: "FPS-Bewegung",
@@ -174,6 +194,11 @@ export const translations = {
     obj_progress: "Sammle Erz für Bootsreparaturen ({val}/5)",
     obj_complete: "Ziel erreicht! Boot repariert.",
     interact_harvest: "DRÜCKE E, UM ERZ ZU SAMMELN",
+    interact_board: "DRÜCKE E, UM DAS TABLEAU ZU LESEN",
+    board_title: "COMMUNITY-FEEDBACK-TERMINAL",
+    board_placeholder: "Geben Sie Ihre Nachricht ein...",
+    board_submit: "SENDEN",
+    board_close: "SCHLIESSEN",
     msg_mined: "Golderz abgebaut! Sammle es auf.",
     msg_depleted: "Erzvorkommen erschöpft!",
     msg_collected: "+1 Golderz",
@@ -193,7 +218,7 @@ export const translations = {
   pt: {
     game_subtitle: "SOBREVIVÊNCIA E MINERAÇÃO AO PÔR DO SOL",
     game_desc: "Explore uma ilha tropical low-poly, cave túneis subterrâneos em busca de ouro e evite se afogar no oceano aberto. Abra caminho pelas rochas usando sua picareta e conserte o barco.",
-    beta_badge: "PROTÓTIPO BETA v0.012",
+    alpha_badge: "PROTÓTIPO ALPHA v0.012",
     start_btn: "LIGAR MOTOR",
     controls_title: "TELEMETRIA DE CONTROLE",
     ctrl_mv: "Movimento FPS",
@@ -212,6 +237,11 @@ export const translations = {
     obj_progress: "Colete minério para consertar o barco ({val}/5)",
     obj_complete: "Objetivo Concluído! Barco consertado.",
     interact_harvest: "PRESSIONE E PARA COLETAR MINÉRIO",
+    interact_board: "PRESSIONE E PARA LER O QUADRO",
+    board_title: "TERMINAL DE FEEDBACK DA COMUNIDADE",
+    board_placeholder: "Digite sua mensagem aqui...",
+    board_submit: "TRANSMITIR",
+    board_close: "FECHAR",
     msg_mined: "Minério de ouro extraído! Colete-o.",
     msg_depleted: "Depósito de minério esgotado!",
     msg_collected: "+1 Minério de ouro",
@@ -231,7 +261,7 @@ export const translations = {
   it: {
     game_subtitle: "SOPRAVVIVENZA E MINIERA AL TRAMONTO",
     game_desc: "Esplora un'isola tropicale low-poly, scava gallerie sotterranee alla ricerca di oro ed evita di affogare nell'oceano aperto. Fatti strada tra le rocce usando il tuo piccone e ripara la barca.",
-    beta_badge: "PROTOTIPO BETA v0.012",
+    alpha_badge: "PROTOTIPO ALPHA v0.012",
     start_btn: "AVVIA MOTORE",
     controls_title: "TELEMETRIA COMANDI",
     ctrl_mv: "Movimento FPS",
@@ -250,6 +280,11 @@ export const translations = {
     obj_progress: "Raccogli oro per riparare la barca ({val}/5)",
     obj_complete: "Obiettivo Completato! Barca riparata.",
     interact_harvest: "PREMI E PER RACCOGLIERE ORO",
+    interact_board: "PREMI E PER LEGGERE LA LAVAGNA",
+    board_title: "TERMINALE FEEDBACK DELLA COMMUNITY",
+    board_placeholder: "Scrivi il tuo messaggio qui...",
+    board_submit: "INVIA",
+    board_close: "CHIUDI",
     msg_mined: "Oro estratto! Raccolto.",
     msg_depleted: "Giacimento esaurito!",
     msg_collected: "+1 Oro",
@@ -311,6 +346,7 @@ export function setLanguage(langCode) {
   // 2. Update interaction prompt if it exists
   const prompt = document.getElementById('interaction-prompt');
   if (prompt) {
+    // If player is looking at the board, we update dynamically elsewhere, but this is the baseline
     prompt.innerHTML = getTranslation('interact_harvest');
   }
 
@@ -370,7 +406,21 @@ export function setLanguage(langCode) {
     }
   }
 
-  // Dispatch an event so that other modules can react to language change if needed
+  // Update feedback board placeholder and buttons if active
+  const boardPlaceholderEl = document.getElementById('feedback-input');
+  if (boardPlaceholderEl) {
+    boardPlaceholderEl.placeholder = getTranslation('board_placeholder');
+  }
+  const boardSubmitEl = document.getElementById('feedback-submit');
+  if (boardSubmitEl) {
+    boardSubmitEl.textContent = getTranslation('board_submit');
+  }
+  const boardCloseEl = document.getElementById('feedback-close');
+  if (boardCloseEl) {
+    boardCloseEl.textContent = getTranslation('board_close');
+  }
+
+  // Dispatch an event
   window.dispatchEvent(new CustomEvent('languagechanged', { detail: langCode }));
 }
 

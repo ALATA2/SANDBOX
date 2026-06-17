@@ -196,6 +196,13 @@ function init() {
   document.addEventListener('pointerlockchange', () => {
     if (document.pointerLockElement === game.renderer.domElement) {
       blocker.style.display = 'none';
+      
+      // Close feedback board if pointer is locked (game focus)
+      const feedbackModal = document.getElementById('feedback-modal');
+      if (feedbackModal) {
+        feedbackModal.style.display = 'none';
+      }
+      
       game.pointerLocked = true;
       stopDrone();
       stopCoreHover();
@@ -208,9 +215,15 @@ function init() {
         firstStart = false;
       }
     } else {
-      blocker.style.display = 'flex';
-      game.pointerLocked = false;
-      startDrone();
+      // If feedback modal is open, do not show start menu blocker
+      const feedbackModal = document.getElementById('feedback-modal');
+      if (feedbackModal && feedbackModal.style.display === 'flex') {
+        game.pointerLocked = false;
+      } else {
+        blocker.style.display = 'flex';
+        game.pointerLocked = false;
+        startDrone();
+      }
       
       // Reset menu vibration classes
       const menu = document.getElementById('instructions');
@@ -303,6 +316,9 @@ function init() {
 
   // Initialize page translation
   setLanguage(currentLang);
+
+  // Initialize feedback board system
+  initFeedbackBoard();
 
   // 8. Start Game Loop
   animate();
@@ -595,6 +611,120 @@ function animate() {
 
   // Render scene
   game.renderer.render(game.scene, game.camera);
+}
+
+// Pre-populate feedback if empty, and bind UI buttons
+function initFeedbackBoard() {
+  const defaultFeedbacks = [
+    { text: "Che tramonto spettacolare! Bella atmosfera.", user: "@GamerIT", time: "2026-06-17 14:15" },
+    { text: "Awesome low-poly visuals and smooth mining mechanics!", user: "@PixelLover", time: "2026-06-17 14:30" },
+    { text: "Il faro in lontananza è bellissimo!", user: "@LighthouseKeeper", time: "2026-06-17 15:02" },
+    { text: "Tip: hold Space to swim back up to the surface!", user: "@OceanExplorer", time: "2026-06-17 15:45" },
+    { text: "J'adore le style rétro et la musique synthé!", user: "@Jean_Valjean", time: "2026-06-17 16:01" },
+    { text: "¡Increíble la deformación del terreno en tiempo real!", user: "@Minero", time: "2026-06-17 16:10" }
+  ];
+
+  if (!localStorage.getItem('sandbox_feedbacks')) {
+    localStorage.setItem('sandbox_feedbacks', JSON.stringify(defaultFeedbacks));
+  }
+
+  // Bind Submit Button
+  const submitBtn = document.getElementById('feedback-submit');
+  const inputEl = document.getElementById('feedback-input');
+  const closeBtn = document.getElementById('feedback-close');
+
+  if (submitBtn && inputEl) {
+    const submitComment = () => {
+      const text = inputEl.value.trim();
+      if (!text) return;
+      
+      const feedbacks = JSON.parse(localStorage.getItem('sandbox_feedbacks') || '[]');
+      
+      // Get current date/time format YYYY-MM-DD HH:MM
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const timeStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      
+      feedbacks.push({
+        text: text,
+        user: `@You`,
+        time: timeStr
+      });
+      
+      localStorage.setItem('sandbox_feedbacks', JSON.stringify(feedbacks));
+      inputEl.value = '';
+      renderFeedbacks();
+    };
+
+    submitBtn.addEventListener('click', submitComment);
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        submitComment();
+      }
+    });
+  }
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      closeFeedbackBoard();
+    });
+  }
+}
+
+function renderFeedbacks() {
+  const listEl = document.getElementById('feedback-list');
+  if (!listEl) return;
+  
+  listEl.innerHTML = '';
+  const feedbacks = JSON.parse(localStorage.getItem('sandbox_feedbacks') || '[]');
+  
+  feedbacks.forEach(item => {
+    const itemEl = document.createElement('div');
+    itemEl.className = 'feedback-item';
+    
+    const textEl = document.createElement('div');
+    textEl.textContent = item.text;
+    itemEl.appendChild(textEl);
+    
+    const metaEl = document.createElement('div');
+    metaEl.className = 'feedback-item-meta';
+    metaEl.textContent = `${item.user} • ${item.time}`;
+    itemEl.appendChild(metaEl);
+    
+    listEl.appendChild(itemEl);
+  });
+  
+  // Scroll to bottom
+  listEl.scrollTop = listEl.scrollHeight;
+}
+
+window.openFeedbackBoard = function() {
+  const modal = document.getElementById('feedback-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    renderFeedbacks();
+    
+    // Focus input
+    const inputEl = document.getElementById('feedback-input');
+    if (inputEl) {
+      setTimeout(() => inputEl.focus(), 100);
+    }
+  }
+  
+  if (game.controls) {
+    game.controls.unlock();
+  }
+};
+
+function closeFeedbackBoard() {
+  const modal = document.getElementById('feedback-modal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+  
+  if (game.controls) {
+    game.controls.lock();
+  }
 }
 
 // Run engine initialization on load

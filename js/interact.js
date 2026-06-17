@@ -7,6 +7,7 @@ import { getTranslation } from './lang.js';
 let raycaster;
 const activeDebris = [];
 let closestDebris = null;
+export let nearFeedbackBoard = false;
 
 // Initialize Raycasting and keyboard listeners for interaction
 export function initInteraction() {
@@ -15,7 +16,13 @@ export function initInteraction() {
   // Listen for the "E" harvest key
   document.addEventListener('keydown', (e) => {
     if (game.pointerLocked && e.code === 'KeyE') {
-      harvestClosestDebris();
+      if (nearFeedbackBoard) {
+        if (typeof window.openFeedbackBoard === 'function') {
+          window.openFeedbackBoard();
+        }
+      } else if (closestDebris) {
+        harvestClosestDebris();
+      }
     }
   });
 }
@@ -242,8 +249,21 @@ function checkHarvestablePrompt() {
 
   closestDebris = foundCloseDebris;
 
+  // Check proximity to feedback board
+  nearFeedbackBoard = false;
+  if (world.feedbackBoard) {
+    const distToBoard = playerPos.distanceTo(world.feedbackBoard.position);
+    if (distToBoard < 3.0) {
+      nearFeedbackBoard = true;
+    }
+  }
+
   const prompt = document.getElementById('interaction-prompt');
   if (closestDebris) {
+    prompt.innerHTML = getTranslation('interact_harvest').replace('E', '<span style="color: #ffd700; font-weight:800;">E</span>');
+    prompt.classList.add('visible');
+  } else if (nearFeedbackBoard) {
+    prompt.innerHTML = getTranslation('interact_board').replace('E', '<span style="color: #ffd700; font-weight:800;">E</span>');
     prompt.classList.add('visible');
   } else {
     prompt.classList.remove('visible');
