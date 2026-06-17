@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SANDBOX - Low-Poly Survival Prototype</title>
+  <title>ARCHIPELAGO - Low-Poly Survival Prototype</title>
   <link rel="stylesheet" href="style.css">
   
   <!-- Import maps polyfill if needed -->
@@ -26,38 +26,140 @@
 
   <!-- Blocker screen (Start Menu / Instructions) -->
   <div id="blocker">
-    <div id="instructions">
-      <h1>SANDBOX</h1>
-      <p>Un prototipo 3D low-poly di sopravvivenza ed esplorazione al tramonto.</p>
+    
+    <!-- Top Bar: Sound and Language Selection -->
+    <div class="menu-top-bar">
+      <!-- Mute Toggle -->
+      <button id="mute-toggle" title="Toggle Sound">🔊</button>
       
-      <div class="controls-list">
-        <div class="control-item">
-          <span class="key-cap">W</span><span class="key-cap">A</span><span class="key-cap">S</span><span class="key-cap">D</span>
-          <span>Movimento</span>
-        </div>
-        <div class="control-item">
-          <span class="key-cap">MOUSE</span>
-          <span>Guarda in giro</span>
-        </div>
-        <div class="control-item">
-          <span class="key-cap">CLICK SX</span>
-          <span>Usa strumento (Scava/Attacca)</span>
-        </div>
-        <div class="control-item">
-          <span class="key-cap">1</span> - <span class="key-cap">8</span>
-          <span>Cambia strumento</span>
-        </div>
-        <div class="control-item">
-          <span class="key-cap">E</span>
-          <span>Raccogli detriti / minerali</span>
-        </div>
-        <div class="control-item">
-          <span class="key-cap">SPAZIO</span>
-          <span>Salta</span>
-        </div>
+      <!-- Language Selection Pills -->
+      <div class="lang-row">
+        <button class="lang-pill active" data-lang="en">EN</button>
+        <button class="lang-pill" data-lang="ja">日本語</button>
+        <button class="lang-pill" data-lang="es">ES</button>
+        <button class="lang-pill" data-lang="fr">FR</button>
+        <button class="lang-pill" data-lang="de">DE</button>
+        <button class="lang-pill" data-lang="pt">PT</button>
+        <button class="lang-pill" data-lang="it">IT</button>
       </div>
-      
-      <button id="start-button">INIZIA A GIOCARE</button>
+    </div>
+
+    <!-- Main Asymmetrical Dashboard -->
+    <div id="instructions">
+      <div class="menu-container">
+        
+        <!-- Left Panel: Brand & Play -->
+        <div class="menu-left">
+          
+          <!-- Logo & Brand Badge -->
+          <div class="brand-row">
+            <div class="logo-container">
+              <img src="assets/logo.png" alt="11° Logo" class="logo-img">
+            </div>
+            <div class="menu-badge" data-translate="beta_badge">BETA PROTOTYPE v0.011</div>
+          </div>
+          
+          <!-- Title (With glow effect) -->
+          <h1 class="menu-title">ARCHIPELAGO</h1>
+          <p class="menu-subtitle" data-translate="game_subtitle">SUNSET SURVIVAL & MINING</p>
+          <p class="menu-desc" data-translate="game_desc">Explore a low-poly tropical island, mine underground tunnels in search of gold, and avoid drowning in the open ocean. Dig through rocks using your pickaxe and repair the boat.</p>
+          
+          <!-- Real-Time Telemetry Terminal -->
+          <div class="terminal-panel">
+            <div id="telemetry-terminal"></div>
+            <div class="coords-display">
+              <div>LAT: <span id="telemetry-lat" class="telemetry-val">32.00</span></div>
+              <div>LNG: <span id="telemetry-lng" class="telemetry-val">32.00</span></div>
+              <div>ALT: <span id="telemetry-alt" class="telemetry-val">10.00</span></div>
+            </div>
+          </div>
+
+          <!-- REACTOR CORE PLAY BUTTON -->
+          <div id="start-container">
+            <div class="reactor-ring ring-1"></div>
+            <div class="reactor-ring ring-2"></div>
+            <div class="reactor-ring ring-3"></div>
+            <button id="start-button" data-translate="start_btn">START ENGINE</button>
+          </div>
+        </div>
+        
+        <!-- Right Panel: Atmosphere Settings & Commands -->
+        <div class="menu-right">
+          
+          <!-- Atmosphere Presets Switching -->
+          <div class="presets-section">
+            <h2 class="sub-section-title">ATMOSPHERE CORE PROTOCOLS</h2>
+            <div class="presets-grid">
+              <button class="preset-btn active" data-preset="sunset">
+                <span class="preset-icon">🌅</span>
+                <span class="preset-name">SUNSET</span>
+              </button>
+              <button class="preset-btn" data-preset="nebula">
+                <span class="preset-icon">🌌</span>
+                <span class="preset-name">NEBULA</span>
+              </button>
+              <button class="preset-btn" data-preset="toxic">
+                <span class="preset-icon">🌿</span>
+                <span class="preset-name">TOXIC</span>
+              </button>
+              <button class="preset-btn" data-preset="frost">
+                <span class="preset-icon">❄️</span>
+                <span class="preset-name">FROST</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Commands Grid -->
+          <h2 data-translate="controls_title" class="sub-section-title">CONTROL TELEMETRY</h2>
+          <div class="controls-grid">
+            <div class="control-card">
+              <div class="key-row">
+                <span class="key-cap">W</span>
+              </div>
+              <div class="key-row">
+                <span class="key-cap">A</span><span class="key-cap">S</span><span class="key-cap">D</span>
+              </div>
+              <span class="control-label" data-translate="ctrl_mv">FPS Movement</span>
+            </div>
+            
+            <div class="control-card">
+              <div class="key-row">
+                <span class="key-cap">MOUSE</span>
+              </div>
+              <span class="control-label" data-translate="ctrl_look">Look Around</span>
+            </div>
+            
+            <div class="control-card">
+              <div class="key-row">
+                <span class="key-cap">LEFT CLICK</span>
+              </div>
+              <span class="control-label" data-translate="ctrl_dig">Dig / Attack</span>
+            </div>
+            
+            <div class="control-card">
+              <div class="key-row">
+                <span class="key-cap">SPACE</span>
+              </div>
+              <span class="control-label" data-translate="ctrl_jump">Jump / Swim Up</span>
+            </div>
+            
+            <div class="control-card">
+              <div class="key-row">
+                <span class="key-cap">E</span>
+              </div>
+              <span class="control-label" data-translate="ctrl_harvest">Harvest Ore / Resource</span>
+            </div>
+            
+            <div class="control-card">
+              <div class="key-row">
+                <span class="key-cap">1</span> - <span class="key-cap">8</span>
+              </div>
+              <span class="control-label" data-translate="ctrl_switch">Switch Tool</span>
+            </div>
+          </div>
+        </div>
+        
+      </div>
     </div>
   </div>
 
@@ -67,21 +169,20 @@
     <!-- Top Row: Objective, Compass, Distance -->
     <div class="hud-top-row">
       <div id="objective-panel" class="glass-panel">
-        <div class="label-small">OBJECTIVE</div>
-        <div id="objective-text">Collect ore for boat repairs</div>
+        <div class="label-small" data-translate="hud_objective">OBJECTIVE</div>
+        <div id="objective-text" data-translate="obj_initial">Collect ore for boat repairs</div>
       </div>
       
       <div id="compass-panel" class="glass-panel">
-        <div class="label-small">COMPASS</div>
+        <div class="label-small" data-translate="hud_compass">COMPASS</div>
         <div class="compass-container">
-          <!-- The compass tape is translated dynamically via JS -->
           <div class="compass-tape" id="compass-tape">N · · · NE · · · E · · · SE · · · S · · · SW · · · W · · · NW · · · N · · · NE · · · E · · · SE · · · S · · · SW · · · W · · · NW · · · N · · · NE · · · E · · · SE · · · S · · · SW · · · W · · · NW · · · </div>
           <div class="compass-marker"></div>
         </div>
       </div>
       
       <div id="distance-panel" class="glass-panel">
-        <div class="label-small">DISTANCE</div>
+        <div class="label-small" data-translate="hud_distance">DISTANCE</div>
         <div class="value-large" id="distance-value">1810 m</div>
       </div>
     </div>
@@ -90,7 +191,7 @@
     <div id="hud-message"></div>
 
     <!-- Interaction Tooltip ("Press E to collect...") -->
-    <div id="interaction-prompt">PRESS <span style="color: #ffd700; font-weight:800;">E</span> TO HARVEST ORE</div>
+    <div id="interaction-prompt" data-translate="interact_harvest">PRESS <span style="color: #ffd700; font-weight:800;">E</span> TO HARVEST ORE</div>
 
     <!-- Center Screen Crosshair -->
     <div id="crosshair"></div>
@@ -103,7 +204,7 @@
         <!-- Health -->
         <div class="status-bar-group">
           <div class="status-label-row">
-            <span>HEALTH</span>
+            <span data-translate="hud_health">HEALTH</span>
             <span id="health-value">100%</span>
           </div>
           <div class="status-bar-bg">
@@ -113,7 +214,7 @@
         <!-- Energy -->
         <div class="status-bar-group">
           <div class="status-label-row">
-            <span>ENERGY</span>
+            <span data-translate="hud_energy">ENERGY</span>
             <span id="energy-value">100%</span>
           </div>
           <div class="status-bar-bg">
@@ -123,7 +224,7 @@
         <!-- Hydration -->
         <div class="status-bar-group">
           <div class="status-label-row">
-            <span>HYDRATION</span>
+            <span data-translate="hud_hydration">HYDRATION</span>
             <span id="hydration-value">100%</span>
           </div>
           <div class="status-bar-bg">
@@ -137,47 +238,46 @@
         <div class="hotbar-slot" data-slot="0">
           <span class="slot-number">1</span>
           <span class="slot-icon">⚔️</span>
-          <span class="slot-label">Spear</span>
+          <span class="slot-label" data-translate="hotbar.spear">Spear</span>
         </div>
         <div class="hotbar-slot" data-slot="1">
           <span class="slot-number">2</span>
           <span class="slot-icon">🪓</span>
-          <span class="slot-label">Axe</span>
+          <span class="slot-label" data-translate="hotbar.axe">Axe</span>
         </div>
         <div class="hotbar-slot" data-slot="2">
           <span class="slot-number">3</span>
           <span class="slot-icon">💧</span>
-          <span class="slot-label">Water</span>
+          <span class="slot-label" data-translate="hotbar.water">Water</span>
         </div>
         <div class="hotbar-slot" data-slot="3">
           <span class="slot-number">4</span>
           <span class="slot-icon">🍃</span>
-          <span class="slot-label">Leaves</span>
+          <span class="slot-label" data-translate="hotbar.leaves">Leaves</span>
           <span class="slot-count">x4</span>
         </div>
         <div class="hotbar-slot" data-slot="4">
           <span class="slot-number">5</span>
           <span class="slot-icon">🪢</span>
-          <span class="slot-label">Rope</span>
+          <span class="slot-label" data-translate="hotbar.rope">Rope</span>
           <span class="slot-count">x2</span>
         </div>
         <div class="hotbar-slot" data-slot="5">
           <span class="slot-number">6</span>
           <span class="slot-icon">🪵</span>
-          <span class="slot-label">Wood</span>
+          <span class="slot-label" data-translate="hotbar.wood">Wood</span>
           <span class="slot-count">x5</span>
         </div>
-        <!-- Pickaxe starting selected -->
         <div class="hotbar-slot selected" data-slot="6">
           <span class="slot-number">7</span>
           <span class="slot-icon">⛏️</span>
-          <span class="slot-label">Pickaxe</span>
+          <span class="slot-label" data-translate="hotbar.pickaxe">Pickaxe</span>
           <span class="slot-count" id="slot-pickaxe-count">x1</span>
         </div>
         <div class="hotbar-slot" data-slot="7">
           <span class="slot-number">8</span>
           <span class="slot-icon">🪨</span>
-          <span class="slot-label">Stone</span>
+          <span class="slot-label" data-translate="hotbar.stone">Stone</span>
           <span class="slot-count" id="slot-stone-count">x1</span>
         </div>
       </div>
@@ -186,7 +286,7 @@
   </div>
 
   <!-- Version Tag for Deployment Tracking -->
-  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.010</div>
+  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.011</div>
 
   <!-- Main JS entry point as an ES Module -->
   <script type="module" src="js/game.js"></script>

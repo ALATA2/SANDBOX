@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { game } from './game.js';
 import { world, deformTerrainLowPoly, getSurfaceHeightNear } from './world.js';
 import { player, showHudMessage, selectSlot } from './player.js';
+import { getTranslation } from './lang.js';
 
 let raycaster;
 const activeDebris = [];
@@ -109,7 +110,7 @@ function performMiningRaycast() {
     if (isOreHit && oreGroupRef) {
       // 1. Spawns shiny gold ore debris
       spawnDebris(hitPoint, hitNormal, true);
-      showHudMessage("Mined Gold Ore! Pick it up.");
+      showHudMessage(getTranslation('msg_mined'));
       
       // Shrink the gold crystals slightly to show decay
       oreGroupRef.scale.subScalar(0.12);
@@ -125,7 +126,7 @@ function performMiningRaycast() {
         const idx = world.oreDeposits.indexOf(oreGroupRef);
         if (idx > -1) world.oreDeposits.splice(idx, 1);
         
-        showHudMessage("Ore Deposit Depleted!");
+        showHudMessage(getTranslation('msg_depleted'));
       }
     } else {
       // 2. Generic terrain hits: deform (carve crater) and spawn stone debris
@@ -264,7 +265,7 @@ function harvestClosestDebris() {
 
   // Update player inventory
   player.inventory.ore += 1;
-  showHudMessage("+1 Gold Ore");
+  showHudMessage(getTranslation('msg_collected'));
 
   // Sync to HUD Hotbar Slot 8 (which we use for collected Gold Ore display)
   // Update Slot 8 text and count
@@ -274,18 +275,18 @@ function harvestClosestDebris() {
     const count = slot8.querySelector('.slot-count');
     const icon = slot8.querySelector('.slot-icon');
 
-    if (label) label.innerText = "Ore";
+    if (label) label.innerText = getTranslation('hotbar.ore');
     if (icon) icon.innerText = "🪙";
     if (count) count.innerText = `x${player.inventory.ore}`;
   }
 
   // Check objective update
   if (player.inventory.ore >= 5) {
-    document.getElementById('objective-text').innerText = "Objective Completed! Boat repaired.";
+    document.getElementById('objective-text').innerText = getTranslation('obj_complete');
     document.getElementById('objective-text').style.color = "#00ff88";
-    showHudMessage("Survival Goal Complete!");
+    showHudMessage(getTranslation('msg_goal_complete'));
   } else {
-    document.getElementById('objective-text').innerText = `Collect ore for boat repairs (${player.inventory.ore}/5)`;
+    document.getElementById('objective-text').innerText = getTranslation('obj_progress', { val: player.inventory.ore });
   }
 
   closestDebris = null;
