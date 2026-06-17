@@ -672,6 +672,15 @@ function animate() {
     world.waterMesh.geometry.computeVertexNormals();
   }
 
+  // Keep the 3D Sun aligned with the camera to eliminate perspective parallax
+  // and ensure the sun disc aligns exactly with the directional light's specular reflection trail.
+  if (game.sunMesh && currentPreset && game.camera) {
+    const preset = presets[currentPreset];
+    if (preset) {
+      game.sunMesh.position.copy(preset.sunPos).normalize().multiplyScalar(180).add(game.camera.position);
+    }
+  }
+
   // Apply camera shake decay
   if (cameraShake > 0) {
     cameraShake = Math.max(0, cameraShake - delta * 4.5);

@@ -12,6 +12,7 @@ export const player = {
   handGroup: null,
   spearMesh: null,
   pickaxeMesh: null,
+  axeMesh: null,
   
   // Tool swing animation states
   swingTimer: 0,
@@ -46,6 +47,9 @@ export function initPlayer() {
 
   // 3. Build Low-Poly 3D Pickaxe
   buildPickaxeModel();
+
+  // Build Low-Poly 3D Axe
+  buildAxeModel();
 
   // 4. Set starting slot selection
   selectSlot(6); // Slot 7 (index 6, Pickaxe)
@@ -166,6 +170,64 @@ function buildPickaxeModel() {
   player.pickaxeMesh.visible = false;
 }
 
+// Draw a beautiful low-poly Axe
+function buildAxeModel() {
+  player.axeMesh = new THREE.Group();
+
+  const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x5c3d24, roughness: 0.9, flatShading: true }); // Warm brown handle
+  const metalMaterial = new THREE.MeshStandardMaterial({ color: 0x6b7782, roughness: 0.35, metalness: 0.75, flatShading: true }); // Steel grey blade
+  const wrappingMaterial = new THREE.MeshStandardMaterial({ color: 0x3d3028, roughness: 0.8, flatShading: true }); // Dark leather wrap
+
+  // 1. Handle (shaft - straight up along Y)
+  const shaftGeom = new THREE.CylinderGeometry(0.014, 0.016, 0.62, 5);
+  const shaft = new THREE.Mesh(shaftGeom, woodMaterial);
+  shaft.position.y = -0.05;
+  player.axeMesh.add(shaft);
+
+  // 2. Leather hand wrap at bottom
+  const wrapGeom = new THREE.CylinderGeometry(0.017, 0.019, 0.18, 5);
+  const wrap = new THREE.Mesh(wrapGeom, wrappingMaterial);
+  wrap.position.y = -0.22;
+  player.axeMesh.add(wrap);
+
+  // 3. Metal head socket block
+  const socketGeom = new THREE.BoxGeometry(0.035, 0.06, 0.045);
+  const socket = new THREE.Mesh(socketGeom, metalMaterial);
+  socket.position.set(0, 0.22, 0);
+  player.axeMesh.add(socket);
+
+  // 4. Flat wedge-shaped blade (flaring out in X, thin in Z)
+  const headGroup = new THREE.Group();
+  headGroup.position.set(0, 0.22, 0);
+
+  // Neck connecting socket to blade
+  const neckGeom = new THREE.BoxGeometry(0.05, 0.03, 0.025);
+  const neck = new THREE.Mesh(neckGeom, metalMaterial);
+  neck.position.x = 0.035;
+  headGroup.add(neck);
+
+  // Flaring blade face
+  const bladeGeom = new THREE.BoxGeometry(0.06, 0.12, 0.015);
+  const blade = new THREE.Mesh(bladeGeom, metalMaterial);
+  blade.position.set(0.08, 0, 0);
+  blade.rotation.z = -0.05; // slight tilt for aesthetic
+  headGroup.add(blade);
+
+  // Sharp cutting edge (bevelled prism using a thin tall box)
+  const edgeGeom = new THREE.BoxGeometry(0.02, 0.15, 0.005);
+  const edge = new THREE.Mesh(edgeGeom, metalMaterial);
+  edge.position.set(0.115, 0, 0);
+  headGroup.add(edge);
+
+  player.axeMesh.add(headGroup);
+
+  // Rotate axe 90 degrees on Y so the blade points forward (Z direction)
+  player.axeMesh.rotation.y = Math.PI / 2;
+
+  player.handGroup.add(player.axeMesh);
+  player.axeMesh.visible = false;
+}
+
 // Select active slot
 export function selectSlot(index) {
   player.selectedSlot = index;
@@ -180,12 +242,15 @@ export function selectSlot(index) {
   });
 
   // Switch visible hand model
-  if (player.spearMesh && player.pickaxeMesh) {
+  if (player.spearMesh && player.pickaxeMesh && player.axeMesh) {
     player.spearMesh.visible = false;
     player.pickaxeMesh.visible = false;
+    player.axeMesh.visible = false;
 
     if (index === 0) {
       player.spearMesh.visible = true; // Spear
+    } else if (index === 1) {
+      player.axeMesh.visible = true;   // Axe
     } else if (index === 6) {
       player.pickaxeMesh.visible = true; // Pickaxe
     }
