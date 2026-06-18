@@ -17,7 +17,11 @@ export const game = {
     sun: null
   },
   pointerLocked: false,
-  isMobile: false
+  isMobile: false,
+  sunMesh: null,
+  sunHaloMesh: null,
+  moonMesh: null,
+  moonHaloMesh: null
 };
 
 const blocker = document.getElementById('blocker');
@@ -67,6 +71,144 @@ const presets = {
     sunMeshColor: 0xffffff // Pure white
   }
 };
+
+const presetCycles = {
+  sunset: {
+    day: {
+      bg: 0xaecbe6,
+      gradTop: 0x3b82f6,
+      gradBottom: 0x93c5fd,
+      ambient: 0x8ab4f8,
+      ambientIntensity: 1.3,
+      sun: 0xffffff,
+      sunIntensity: 2.8,
+      fogDensity: 0.008
+    },
+    twilight: {
+      bg: 0xfc8c82,
+      gradTop: 0x4ba3e3,
+      gradBottom: 0xfc8c82,
+      ambient: 0x4a2e5c,
+      ambientIntensity: 1.2,
+      sun: 0xffaa44,
+      sunIntensity: 2.5,
+      fogDensity: 0.015
+    },
+    night: {
+      bg: 0x050409,
+      gradTop: 0x020107,
+      gradBottom: 0x070312,
+      ambient: 0x0c0e1a,
+      ambientIntensity: 0.45,
+      sun: 0xaaccff,
+      sunIntensity: 0.7,
+      fogDensity: 0.018
+    }
+  },
+  nebula: {
+    day: {
+      bg: 0x3d1b54,
+      gradTop: 0x5a189a,
+      gradBottom: 0x9d4edd,
+      ambient: 0x7b2cbf,
+      ambientIntensity: 0.8,
+      sun: 0xff00ff,
+      sunIntensity: 1.5,
+      fogDensity: 0.015
+    },
+    twilight: {
+      bg: 0x070312,
+      gradTop: 0x020107,
+      gradBottom: 0x070312,
+      ambient: 0x442266,
+      ambientIntensity: 0.6,
+      sun: 0x00ffff,
+      sunIntensity: 1.2,
+      fogDensity: 0.02
+    },
+    night: {
+      bg: 0x020105,
+      gradTop: 0x000000,
+      gradBottom: 0x020107,
+      ambient: 0x0f031b,
+      ambientIntensity: 0.3,
+      sun: 0x00ffff,
+      sunIntensity: 0.5,
+      fogDensity: 0.022
+    }
+  },
+  toxic: {
+    day: {
+      bg: 0x1b382b,
+      gradTop: 0x1b4332,
+      gradBottom: 0x40916c,
+      ambient: 0x2d6a4f,
+      ambientIntensity: 1.2,
+      sun: 0x33ff33,
+      sunIntensity: 2.0,
+      fogDensity: 0.014
+    },
+    twilight: {
+      bg: 0x08140c,
+      gradTop: 0x020804,
+      gradBottom: 0x08140c,
+      ambient: 0x113311,
+      ambientIntensity: 1.0,
+      sun: 0x33ff33,
+      sunIntensity: 1.8,
+      fogDensity: 0.018
+    },
+    night: {
+      bg: 0x020603,
+      gradTop: 0x000000,
+      gradBottom: 0x020503,
+      ambient: 0x051a08,
+      ambientIntensity: 0.4,
+      sun: 0x00ff66,
+      sunIntensity: 0.5,
+      fogDensity: 0.022
+    }
+  },
+  frost: {
+    day: {
+      bg: 0xcfe8ff,
+      gradTop: 0x9ac7f8,
+      gradBottom: 0xcfe8ff,
+      ambient: 0xaaccff,
+      ambientIntensity: 1.5,
+      sun: 0xffffff,
+      sunIntensity: 2.3,
+      fogDensity: 0.009
+    },
+    twilight: {
+      bg: 0xddeeff,
+      gradTop: 0xaaccff,
+      gradBottom: 0xddeeff,
+      ambient: 0x6688aa,
+      ambientIntensity: 1.4,
+      sun: 0xffffff,
+      sunIntensity: 2.0,
+      fogDensity: 0.012
+    },
+    night: {
+      bg: 0x091420,
+      gradTop: 0x030810,
+      gradBottom: 0x0e1d2f,
+      ambient: 0x1d3557,
+      ambientIntensity: 0.5,
+      sun: 0xbdecff,
+      sunIntensity: 0.8,
+      fogDensity: 0.016
+    }
+  }
+};
+
+// Pre-allocate Color instances for smooth interpolation without garbage collection churn
+const colorTempTop = new THREE.Color();
+const colorTempBottom = new THREE.Color();
+const colorTempAmbient = new THREE.Color();
+const colorTempSun = new THREE.Color();
+const colorTempFog = new THREE.Color();
 
 let currentPreset = 'sunset';
 let cameraShake = 0;
@@ -179,6 +321,29 @@ function init() {
   });
   game.sunHaloMesh = new THREE.Mesh(haloGeom, haloMat);
   game.sunMesh.add(game.sunHaloMesh); // Add as child so it moves with the sun automatically
+
+  // Create 3D Moon Disc (Disable fog so it remains bright and distinct)
+  const moonGeom = new THREE.SphereGeometry(10, 8, 8); // Low-poly sphere, slightly smaller
+  const moonMat = new THREE.MeshBasicMaterial({ 
+    color: 0xe6ffff, 
+    toneMapped: false,
+    fog: false 
+  });
+  game.moonMesh = new THREE.Mesh(moonGeom, moonMat);
+  game.scene.add(game.moonMesh);
+
+  // Add a soft glowing low-poly halo around the moon
+  const moonHaloGeom = new THREE.SphereGeometry(16, 8, 8);
+  const moonHaloMat = new THREE.MeshBasicMaterial({
+    color: 0xe6ffff,
+    toneMapped: false,
+    transparent: true,
+    opacity: 0.2,
+    depthWrite: false,
+    fog: false
+  });
+  game.moonHaloMesh = new THREE.Mesh(moonHaloGeom, moonHaloMat);
+  game.moonMesh.add(game.moonHaloMesh); // Add as child so it moves with the moon automatically
 
   // 5. Setup Clock
   game.clock = new THREE.Clock();
@@ -672,12 +837,68 @@ function animate() {
     world.waterMesh.geometry.computeVertexNormals();
   }
 
-  // Keep the 3D Sun aligned with the camera to eliminate perspective parallax
-  // and ensure the sun disc aligns exactly with the directional light's specular reflection trail.
-  if (game.sunMesh && currentPreset && game.camera) {
-    const preset = presets[currentPreset];
-    if (preset) {
-      game.sunMesh.position.copy(preset.sunPos).normalize().multiplyScalar(180).add(game.camera.position);
+  // Day / Night Cycle (60 seconds duration)
+  const cycleDuration = 60;
+  const cycleTime = game.clock.getElapsedTime();
+  const progress = (cycleTime % cycleDuration) / cycleDuration;
+  const angle = progress * Math.PI * 2;
+
+  // Orbit math: Sun and Moon rotate opposite to each other
+  // We tilt the orbit by -0.3 on the Z-axis (north-south offset)
+  // so the specular highlights and position align correctly with the player's view
+  const sunDir = new THREE.Vector3(-Math.cos(angle), Math.sin(angle), -0.3).normalize();
+  const moonDir = new THREE.Vector3(Math.cos(angle), -Math.sin(angle), 0.3).normalize();
+
+  const cameraPos = game.camera ? game.camera.position : new THREE.Vector3(0, 0, 0);
+
+  // Position Sun and Moon relative to camera to eliminate perspective parallax
+  if (game.sunMesh) {
+    game.sunMesh.position.copy(sunDir).multiplyScalar(180).add(cameraPos);
+  }
+  if (game.moonMesh) {
+    game.moonMesh.position.copy(moonDir).multiplyScalar(180).add(cameraPos);
+  }
+
+  // Reuse directional light pointing from the active celestial body (Sun by day, Moon by night)
+  // to calculate shadows efficiently using a single light source
+  const isDayTime = sunDir.y >= 0;
+  const lightSourceDir = isDayTime ? sunDir : moonDir;
+  game.lights.sun.position.copy(lightSourceDir);
+
+  // Dynamic Atmospheric Interpolation (Day <-> Twilight <-> Night)
+  const cycle = presetCycles[currentPreset];
+  if (cycle) {
+    const t = Math.abs(Math.sin(angle)); // 0.0 at horizon, 1.0 at Zenith
+
+    let targetState = isDayTime ? cycle.day : cycle.night;
+    let baseState = cycle.twilight;
+
+    // 1. Lerp ambient light intensity and color
+    game.lights.ambient.intensity = baseState.ambientIntensity + (targetState.ambientIntensity - baseState.ambientIntensity) * t;
+    colorTempAmbient.copy(new THREE.Color(baseState.ambient)).lerp(new THREE.Color(targetState.ambient), t);
+    game.lights.ambient.color.copy(colorTempAmbient);
+
+    // 2. Lerp directional light intensity and color
+    game.lights.sun.intensity = baseState.sunIntensity + (targetState.sunIntensity - baseState.sunIntensity) * t;
+    colorTempSun.copy(new THREE.Color(baseState.sun)).lerp(new THREE.Color(targetState.sun), t);
+    game.lights.sun.color.copy(colorTempSun);
+
+    // 3. Lerp fog color and density
+    if (game.scene.fog) {
+      game.scene.fog.density = baseState.fogDensity + (targetState.fogDensity - baseState.fogDensity) * t;
+      colorTempFog.copy(new THREE.Color(baseState.bg)).lerp(new THREE.Color(targetState.bg), t);
+      game.scene.fog.color.copy(colorTempFog);
+    }
+
+    // 4. Lerp CSS canvas-container linear-gradient (only when not submerged)
+    const container = document.getElementById('canvas-container');
+    if (container && !wasSubmerged) {
+      colorTempTop.copy(new THREE.Color(baseState.gradTop)).lerp(new THREE.Color(targetState.gradTop), t);
+      colorTempBottom.copy(new THREE.Color(baseState.gradBottom)).lerp(new THREE.Color(targetState.gradBottom), t);
+      
+      const topCSS = '#' + colorTempTop.getHexString();
+      const bottomCSS = '#' + colorTempBottom.getHexString();
+      container.style.background = `linear-gradient(to bottom, ${topCSS}, ${bottomCSS})`;
     }
   }
 
