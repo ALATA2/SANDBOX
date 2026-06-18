@@ -897,7 +897,11 @@ function animate() {
   // Dynamic Atmospheric Interpolation (Day <-> Twilight <-> Night)
   const cycle = presetCycles[currentPreset];
   if (cycle) {
-    const t = Math.abs(Math.sin(angle)); // 0.0 at horizon, 1.0 at Zenith
+    let t = Math.abs(Math.sin(angle)); // 0.0 at horizon, 1.0 at Zenith
+    if (!isDayTime) {
+      // Make it get dark almost immediately as the sun goes below the horizon
+      t = Math.pow(t, 0.08);
+    }
 
     let targetState = isDayTime ? cycle.day : cycle.night;
     let baseState = cycle.twilight;
