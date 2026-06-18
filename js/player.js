@@ -266,7 +266,7 @@ export function triggerToolSwing() {
 
 // Update player metrics, hand bobbing, animations, and HUD panels
 export function updatePlayer(delta) {
-  const time = game.clock.getElapsedTime();
+  const time = game.time;
 
   // 1. Tool Swing animation math
   if (player.swinging) {

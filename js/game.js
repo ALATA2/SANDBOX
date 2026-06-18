@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { initControls, updateControls, joystickValues, triggerMobileJump } from './controls.js';
-import { initWorld, updateWorld, world } from './world.js';
+import { initWorld, updateWorld, world, getSurfaceHeightNear } from './world.js';
 import { initPlayer, updatePlayer, triggerToolSwing } from './player.js';
 import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard } from './interact.js';
 import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute } from './audio.js';
@@ -21,7 +21,10 @@ export const game = {
   sunMesh: null,
   sunHaloMesh: null,
   moonMesh: null,
-  moonHaloMesh: null
+  moonHaloMesh: null,
+  time: 0,
+  paused: false,
+  roosterMesh: null
 };
 
 const blocker = document.getElementById('blocker');
@@ -382,6 +385,12 @@ function init() {
   initPlayer();
   initInteraction();
 
+  // Spawn Arturo the Rooster
+  game.roosterMesh = createRooster();
+  const roosterSpawnY = getSurfaceHeightNear(28, 15, 28);
+  game.roosterMesh.position.set(28, roosterSpawnY, 28);
+  game.scene.add(game.roosterMesh);
+
   // Initialize atmospheric particles
   initMenuParticles();
 
@@ -438,6 +447,8 @@ function init() {
 
   // Handle pointerlock change
   let firstStart = true;
+  let isConfirmingExit = false;
+
   document.addEventListener('pointerlockchange', () => {
     if (document.pointerLockElement === game.renderer.domElement) {
       blocker.style.display = 'none';
@@ -448,7 +459,23 @@ function init() {
         feedbackModal.style.display = 'none';
       }
       
+      // Close confirmation modal & pause screen on relock
+      const confirmModal = document.getElementById('confirm-modal');
+      if (confirmModal) {
+        confirmModal.style.display = 'none';
+      }
+      const pauseOverlay = document.getElementById('pause-overlay');
+      if (pauseOverlay) {
+        pauseOverlay.style.display = 'none';
+      }
+      
       game.pointerLocked = true;
+      game.paused = false;
+      if (game.controls) {
+        game.controls.enabled = true;
+      }
+      isConfirmingExit = false;
+      
       stopDrone();
       stopCoreHover();
       cameraShake = 6.0; // Extra screen impact shake when entering world
@@ -460,14 +487,23 @@ function init() {
         firstStart = false;
       }
     } else {
-      // If feedback modal is open, do not show start menu blocker
-      const feedbackModal = document.getElementById('feedback-modal');
-      if (feedbackModal && feedbackModal.style.display === 'flex') {
+      if (isConfirmingExit) {
+        // Show exit confirmation modal instead of blocker
+        const confirmModal = document.getElementById('confirm-modal');
+        if (confirmModal) {
+          confirmModal.style.display = 'flex';
+        }
         game.pointerLocked = false;
       } else {
-        blocker.style.display = 'flex';
-        game.pointerLocked = false;
-        startDrone();
+        // If feedback modal is open, do not show start menu blocker
+        const feedbackModal = document.getElementById('feedback-modal');
+        if (feedbackModal && feedbackModal.style.display === 'flex') {
+          game.pointerLocked = false;
+        } else {
+          blocker.style.display = 'flex';
+          game.pointerLocked = false;
+          startDrone();
+        }
       }
       
       // Reset menu vibration classes
@@ -477,6 +513,55 @@ function init() {
       }
     }
   });
+
+  // Bind exit confirmation modal buttons
+  const confirmYesBtn = document.getElementById('confirm-yes-btn');
+  const confirmNoBtn = document.getElementById('confirm-no-btn');
+  if (confirmYesBtn) {
+    confirmYesBtn.addEventListener('click', () => {
+      const confirmModal = document.getElementById('confirm-modal');
+      if (confirmModal) confirmModal.style.display = 'none';
+      isConfirmingExit = false;
+      
+      // Go to main start menu blocker
+      blocker.style.display = 'flex';
+      game.pointerLocked = false;
+      startDrone();
+    });
+  }
+  if (confirmNoBtn) {
+    confirmNoBtn.addEventListener('click', () => {
+      const confirmModal = document.getElementById('confirm-modal');
+      if (confirmModal) confirmModal.style.display = 'none';
+      isConfirmingExit = false;
+      
+      // Re-lock and resume
+      if (game.controls) {
+        game.controls.lock();
+      }
+    });
+  }
+
+  // Key listener for Pause (P) and Escape (Exit Confirmation)
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyP') {
+      if (game.pointerLocked && !isConfirmingExit) {
+        togglePause();
+      }
+    }
+    if (e.code === 'Escape' && game.pointerLocked && !game.paused) {
+      isConfirmingExit = true;
+    }
+  });
+
+  // Mobile pause button support
+  const mobilePauseBtn = document.getElementById('mobile-pause-btn');
+  if (mobilePauseBtn) {
+    mobilePauseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePause();
+    });
+  }
 
   // Sound Mute Toggle UI Binding
   const muteBtn = document.getElementById('mute-toggle');
@@ -822,11 +907,14 @@ function updateUnderwaterVisuals(submerged) {
 function animate() {
   requestAnimationFrame(animate);
 
-  const delta = Math.min(game.clock.getDelta(), 0.1); // Cap delta
+  const delta = (game.pointerLocked && game.paused) ? 0 : Math.min(game.clock.getDelta(), 0.1);
+  if (!game.paused) {
+    game.time += delta;
+  }
 
   // Animate low-poly water waves
   if (world.waterMesh) {
-    const time = game.clock.getElapsedTime();
+    const time = game.time;
     const positionAttribute = world.waterMesh.geometry.attributes.position;
     const depthAttribute = world.waterMesh.geometry.attributes.depth;
     
@@ -867,7 +955,7 @@ function animate() {
 
   // Day / Night Cycle (60 seconds duration)
   const cycleDuration = 60;
-  const cycleTime = game.clock.getElapsedTime();
+  const cycleTime = game.time;
   const progress = (cycleTime % cycleDuration) / cycleDuration;
   const angle = progress * Math.PI * 2;
 
@@ -951,21 +1039,30 @@ function animate() {
 
   if (game.pointerLocked) {
     if (menuParticles) menuParticles.visible = false;
-    // Update active game sub-modules
-    updateControls(delta);
-    updatePlayer(delta);
-    updateWorld(delta);
-    updateInteraction(delta);
     
-    // Apply camera shake to playing camera if active
-    if (cameraShake > 0) {
-      const shakeX = (Math.random() - 0.5) * cameraShake * 0.08;
-      const shakeY = (Math.random() - 0.5) * cameraShake * 0.08;
-      const shakeZ = (Math.random() - 0.5) * cameraShake * 0.08;
-      game.camera.position.x += shakeX;
-      game.camera.position.y += shakeY;
-      game.camera.position.z += shakeZ;
+    if (!game.paused) {
+      // Update active game sub-modules
+      updateControls(delta);
+      updatePlayer(delta);
+      updateWorld(delta);
+      updateInteraction(delta);
+      
+      // Update Arturo Rooster
+      updateRoosterBehavior(delta);
+      
+      // Apply camera shake to playing camera if active
+      if (cameraShake > 0) {
+        const shakeX = (Math.random() - 0.5) * cameraShake * 0.08;
+        const shakeY = (Math.random() - 0.5) * cameraShake * 0.08;
+        const shakeZ = (Math.random() - 0.5) * cameraShake * 0.08;
+        game.camera.position.x += shakeX;
+        game.camera.position.y += shakeY;
+        game.camera.position.z += shakeZ;
+      }
     }
+    
+    // Update floating name tag position
+    updateArturoLabel();
   } else {
     if (menuParticles) menuParticles.visible = true;
     // Cinematic menu rotation of the camera wrapper (game.controls.getObject())
@@ -1298,6 +1395,190 @@ function initJoystick() {
 
   joyContainer.addEventListener('touchend', endJoy);
   joyContainer.addEventListener('touchcancel', endJoy);
+}
+
+// Helper to create low-poly Rooster Arturo
+function createRooster() {
+  const group = new THREE.Group();
+  
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, flatShading: true }); // white body
+  const combMaterial = new THREE.MeshStandardMaterial({ color: 0xff2222, roughness: 0.8, flatShading: true }); // red comb
+  const beakMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.8, flatShading: true }); // yellow beak/legs
+  const tailMaterial = new THREE.MeshStandardMaterial({ color: 0x1b4332, roughness: 0.8, flatShading: true }); // dark green tail
+
+  // 1. Body
+  const bodyGeom = new THREE.BoxGeometry(0.3, 0.35, 0.45);
+  const body = new THREE.Mesh(bodyGeom, bodyMaterial);
+  body.position.y = 0.35;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  group.add(body);
+
+  // 2. Neck & Head
+  const headGeom = new THREE.BoxGeometry(0.18, 0.35, 0.18);
+  const head = new THREE.Mesh(headGeom, bodyMaterial);
+  head.position.set(0, 0.55, 0.15);
+  head.castShadow = true;
+  group.add(head);
+
+  // 3. Beak (pointing forward along +Z)
+  const beakGeom = new THREE.ConeGeometry(0.06, 0.15, 4);
+  beakGeom.rotateX(Math.PI / 2); // point forward
+  const beak = new THREE.Mesh(beakGeom, beakMaterial);
+  beak.position.set(0, 0.62, 0.28);
+  beak.castShadow = true;
+  group.add(beak);
+
+  // 4. Comb (on top of head)
+  const combGeom = new THREE.BoxGeometry(0.04, 0.12, 0.18);
+  const comb = new THREE.Mesh(combGeom, combMaterial);
+  comb.position.set(0, 0.76, 0.12);
+  comb.castShadow = true;
+  group.add(comb);
+
+  // 5. Tail Feathers (sticking out back)
+  const tailGeom = new THREE.BoxGeometry(0.12, 0.28, 0.18);
+  tailGeom.translate(0, 0.14, -0.09);
+  const tail = new THREE.Mesh(tailGeom, tailMaterial);
+  tail.position.set(0, 0.35, -0.22);
+  tail.rotation.x = -0.4; // tilt up
+  tail.castShadow = true;
+  group.add(tail);
+
+  // 6. Legs & Feet
+  const leftLegGeom = new THREE.CylinderGeometry(0.02, 0.02, 0.22, 4);
+  const leftLeg = new THREE.Mesh(leftLegGeom, beakMaterial);
+  leftLeg.position.set(-0.08, 0.11, 0);
+  leftLeg.castShadow = true;
+  group.add(leftLeg);
+
+  const rightLeg = leftLeg.clone();
+  rightLeg.position.x = 0.08;
+  group.add(rightLeg);
+
+  // Scale the group slightly
+  group.scale.setScalar(0.7);
+
+  return group;
+}
+
+let roosterState = 'idle'; // 'idle', 'walking', 'pecking'
+let roosterTimer = 2.0;
+let roosterTarget = new THREE.Vector3();
+let peckTimer = 0;
+
+function updateRoosterBehavior(delta) {
+  if (!game.roosterMesh) return;
+
+  const mesh = game.roosterMesh;
+  roosterTimer -= delta;
+
+  // Snap Y to terrain height
+  const groundY = getSurfaceHeightNear(mesh.position.x, 15, mesh.position.z);
+  
+  if (roosterState === 'idle') {
+    // Stand still, slight idle breathe
+    mesh.position.y = groundY;
+    mesh.rotation.x = Math.sin(game.time * 5.0) * 0.03; // breathing tilt
+    mesh.rotation.z = 0;
+    
+    if (roosterTimer <= 0) {
+      if (Math.random() < 0.65) {
+        roosterState = 'pecking';
+        roosterTimer = 1.5 + Math.random() * 2.0;
+        peckTimer = 0;
+      } else {
+        roosterState = 'walking';
+        roosterTimer = 8.0; // timeout
+        let attempts = 0;
+        let tx = mesh.position.x;
+        let tz = mesh.position.z;
+        let ty = groundY;
+        while (attempts < 10) {
+          const dist = 3.0 + Math.random() * 5.0;
+          const ang = Math.random() * Math.PI * 2;
+          tx = mesh.position.x + Math.cos(ang) * dist;
+          tz = mesh.position.z + Math.sin(ang) * dist;
+          // Stay inside world bounds
+          tx = Math.max(5, Math.min(world.sizeX * world.spacing - 5, tx));
+          tz = Math.max(5, Math.min(world.sizeZ * world.spacing - 5, tz));
+          ty = getSurfaceHeightNear(tx, 15, tz);
+          if (ty > 4.2) break; // found land!
+          attempts++;
+        }
+        roosterTarget.set(tx, ty, tz);
+      }
+    }
+  } else if (roosterState === 'pecking') {
+    mesh.position.y = groundY;
+    mesh.rotation.z = 0;
+    peckTimer += delta * 12.0;
+    mesh.rotation.x = Math.max(0, Math.sin(peckTimer)) * 0.7; // peck downward
+    
+    if (roosterTimer <= 0) {
+      roosterState = 'idle';
+      roosterTimer = 1.0 + Math.random() * 2.0;
+      mesh.rotation.x = 0;
+    }
+  } else if (roosterState === 'walking') {
+    const dir = roosterTarget.clone().sub(mesh.position);
+    dir.y = 0;
+    const distance = dir.length();
+    
+    if (distance < 0.15 || roosterTimer <= 0) {
+      roosterState = 'idle';
+      roosterTimer = 1.0 + Math.random() * 2.0;
+      mesh.rotation.z = 0;
+    } else {
+      dir.normalize();
+      const speed = 1.1;
+      mesh.position.addScaledVector(dir, speed * delta);
+      mesh.position.y = groundY;
+      
+      const targetAngle = Math.atan2(dir.x, dir.z);
+      mesh.rotation.y = targetAngle;
+      mesh.rotation.z = Math.sin(game.time * 15.0) * 0.08;
+    }
+  }
+}
+
+function updateArturoLabel() {
+  const label = document.getElementById('arturo-label');
+  if (!label || !game.roosterMesh) return;
+
+  const playerPos = game.controls.getObject().position;
+  const dist = playerPos.distanceTo(game.roosterMesh.position);
+
+  if (dist < 8.0 && game.pointerLocked && !game.paused) {
+    const tempV = new THREE.Vector3();
+    tempV.copy(game.roosterMesh.position);
+    tempV.y += 0.8; // Position offset above the rooster
+
+    tempV.project(game.camera);
+
+    const x = (tempV.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (tempV.y * -0.5 + 0.5) * window.innerHeight;
+
+    label.style.left = `${x}px`;
+    label.style.top = `${y}px`;
+    label.style.display = 'block';
+  } else {
+    label.style.display = 'none';
+  }
+}
+
+export function togglePause() {
+  if (!game.pointerLocked) return; 
+  
+  game.paused = !game.paused;
+  const overlay = document.getElementById('pause-overlay');
+  if (overlay) {
+    overlay.style.display = game.paused ? 'flex' : 'none';
+  }
+  
+  if (game.controls) {
+    game.controls.enabled = !game.paused; // Stop camera rotation when paused
+  }
 }
 
 // Run engine initialization on load

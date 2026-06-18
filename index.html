@@ -340,6 +340,26 @@
   <!-- Mobile Pause Button -->
   <button id="mobile-pause-btn" class="mobile-only">⏸️</button>
 
+  <!-- Pause Screen Overlay -->
+  <div id="pause-overlay" style="display: none;">
+    <div class="pause-box">
+      <h1 style="color: var(--accent-gold); text-shadow: 0 0 15px rgba(230,184,0,0.4); margin: 0 0 10px 0; font-size: 1.8rem; letter-spacing: 0.15em;">GIOCO IN PAUSA</h1>
+      <p style="color: #ccc; margin: 0; font-size: 0.9rem; letter-spacing: 0.05em;">PREMI <span style="color: var(--accent-gold); font-weight: bold;">P</span> PER RIPRENDERE</p>
+    </div>
+  </div>
+
+  <!-- Exit Confirmation Modal -->
+  <div id="confirm-modal" style="display: none;">
+    <div class="confirm-box">
+      <h2 style="color: #ff5555; text-shadow: 0 0 10px rgba(255,85,85,0.4); margin-top: 0; letter-spacing: 0.1em; font-size: 1.4rem;">ABBANDONARE LA PARTITA?</h2>
+      <p style="color: #ccc; margin: 15px 0 25px 0; font-size: 0.9rem; line-height: 1.5;">Sei sicuro di voler tornare al menu principale? I tuoi progressi andranno perduti.</p>
+      <div class="modal-buttons" style="display: flex; gap: 15px; justify-content: center;">
+        <button id="confirm-yes-btn" style="background: rgba(255,85,85,0.15); border: 1px solid #ff5555; color: #ff8888; padding: 10px 24px; font-weight: bold; border-radius: 8px; cursor: pointer; font-family: monospace; letter-spacing: 0.1em;">SÌ, ESCI</button>
+        <button id="confirm-no-btn" style="background: rgba(85,255,85,0.1); border: 1px solid #55ff55; color: #88ff88; padding: 10px 24px; font-weight: bold; border-radius: 8px; cursor: pointer; font-family: monospace; letter-spacing: 0.1em;">NO, CONTINUA</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Portrait Rotation Warning Screen -->
   <div id="portrait-warning">
     <div class="warning-box">
