@@ -13,6 +13,7 @@ export const world = {
   waterMesh: null,
   oreDeposits: [], // Array of meshes representing ore nodes
   sceneryMeshes: [], // Trees, rocks, etc.
+  trees: [], // Array of active tree groups for Axe chopping
   lighthouseBeam: null, // Rotating lighthouse beam
   feedbackBoard: null, // Feedback Board Mesh
   clouds: [] // Array of cloud meshes
@@ -578,6 +579,104 @@ function createPalmTree() {
   return palmGroup;
 }
 
+// Helper to create a detailed low-poly Pine Tree
+function createPineTree() {
+  const pineGroup = new THREE.Group();
+
+  const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x543d2b, roughness: 0.9, flatShading: true });
+  const foliageMaterial = new THREE.MeshStandardMaterial({ color: 0x275435, roughness: 0.82, flatShading: true });
+
+  // 1. Detailed trunk
+  const trunkHeight = 4.5;
+  const trunkGeom = new THREE.CylinderGeometry(0.12, 0.28, trunkHeight, 5);
+  // Shift pivot to base of trunk
+  trunkGeom.translate(0, trunkHeight / 2, 0);
+  const trunk = new THREE.Mesh(trunkGeom, trunkMaterial);
+  trunk.castShadow = true;
+  trunk.receiveShadow = true;
+  pineGroup.add(trunk);
+
+  // 2. Small bare branch stubs at the trunk base (Y between 0.6 and 1.8)
+  const stubCount = 3 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < stubCount; i++) {
+    const stubLength = 0.25 + Math.random() * 0.25;
+    const stubGeom = new THREE.CylinderGeometry(0.02, 0.04, stubLength, 4);
+    stubGeom.translate(0, stubLength / 2, 0);
+    const stub = new THREE.Mesh(stubGeom, trunkMaterial);
+    
+    // Position along the trunk height
+    const sy = 0.6 + (i / stubCount) * 1.2 + Math.random() * 0.15;
+    stub.position.set(0, sy, 0);
+    
+    // Angle sticking outward and slightly downward
+    const sAngle = Math.random() * Math.PI * 2;
+    stub.rotation.y = sAngle;
+    stub.rotation.z = 1.1 + Math.random() * 0.3; // point downward/outward
+    stub.castShadow = true;
+    pineGroup.add(stub);
+  }
+
+  // 3. Foliage: 4 overlapping 5-sided cones
+  const coneConfigs = [
+    { radius: 1.6, height: 2.4, y: 2.1 },
+    { radius: 1.3, height: 2.0, y: 3.4 },
+    { radius: 1.0, height: 1.6, y: 4.5 },
+    { radius: 0.65, height: 1.2, y: 5.4 }
+  ];
+
+  coneConfigs.forEach((conf, idx) => {
+    // Slight random variation per tree to look organic
+    const r = conf.radius * (0.9 + Math.random() * 0.2);
+    const h = conf.height * (0.9 + Math.random() * 0.2);
+    const yPos = conf.y;
+
+    const foliageGeom = new THREE.ConeGeometry(r, h, 5);
+    // Move pivot to bottom center of cone
+    foliageGeom.translate(0, h / 2, 0);
+    
+    const foliageMesh = new THREE.Mesh(foliageGeom, foliageMaterial);
+    foliageMesh.position.y = yPos;
+    
+    // Random y rotation to break symmetry
+    foliageMesh.rotation.y = Math.random() * Math.PI * 2;
+    foliageMesh.castShadow = true;
+    foliageMesh.receiveShadow = true;
+    
+    pineGroup.add(foliageMesh);
+
+    // 4. Detailed drooping branch tips around the base rim of each cone
+    const tipCount = 5; // Pentagonal symmetry
+    for (let k = 0; k < tipCount; k++) {
+      // Distribute radially
+      const angle = (k * Math.PI * 2) / tipCount + (Math.random() - 0.5) * 0.2;
+      const tipGroup = new THREE.Group();
+      
+      // Position at the rim of the cone bottom
+      const rx = Math.cos(angle) * r * 0.95;
+      const rz = Math.sin(angle) * r * 0.95;
+      tipGroup.position.set(rx, 0.05, rz); // close to bottom of cone
+      
+      // Face outward from center
+      tipGroup.rotation.y = -angle + Math.PI / 2;
+      
+      // Small box branch tip drooping down
+      const tipLength = 0.35 + Math.random() * 0.2;
+      const tipWidth = 0.12 + Math.random() * 0.08;
+      const tipGeom = new THREE.BoxGeometry(tipWidth, 0.03, tipLength);
+      tipGeom.translate(0, 0, tipLength / 2); // pivot at base
+      
+      const tipMesh = new THREE.Mesh(tipGeom, foliageMaterial);
+      tipMesh.rotation.x = 0.3 + Math.random() * 0.25; // Droop down
+      tipMesh.castShadow = true;
+      tipGroup.add(tipMesh);
+      
+      foliageMesh.add(tipGroup);
+    }
+  });
+
+  return pineGroup;
+}
+
 // Helper to create a lit beach torch on a post
 function createTorch() {
   const torchGroup = new THREE.Group();
@@ -739,43 +838,30 @@ function spawnScenery() {
     // Only spawn trees on land above water
     if (wy > 4.1) {
       let treeGroup;
+      const isPalm = wy <= 6.2;
       
-      // If height is close to the beach water line (4.1 to 6.2), spawn a Palm Tree
-      if (wy <= 6.2) {
+      if (isPalm) {
         treeGroup = createPalmTree();
         treeGroup.position.set(wx, wy - 0.1, wz);
         treeGroup.scale.setScalar(0.75 + Math.random() * 0.3);
       } else {
-        // Otherwise spawn a standard low-poly Pine Tree
-        treeGroup = new THREE.Group();
-        
-        // Trunk
-        const trunkGeom = new THREE.CylinderGeometry(0.2, 0.3, 2.5, 5);
-        const trunk = new THREE.Mesh(trunkGeom, woodMaterial);
-        trunk.position.y = 1.25;
-        trunk.castShadow = true;
-        trunk.receiveShadow = true;
-        treeGroup.add(trunk);
-
-        // Leaves (conical layers)
-        const foliageGeom1 = new THREE.ConeGeometry(1.2, 2.0, 5);
-        const foliage1 = new THREE.Mesh(foliageGeom1, leavesMaterial);
-        foliage1.position.y = 2.5;
-        foliage1.castShadow = true;
-        treeGroup.add(foliage1);
-
-        const foliageGeom2 = new THREE.ConeGeometry(0.9, 1.5, 5);
-        const foliage2 = new THREE.Mesh(foliageGeom2, leavesMaterial);
-        foliage2.position.y = 3.5;
-        foliage2.castShadow = true;
-        treeGroup.add(foliage2);
-        
+        treeGroup = createPineTree();
         treeGroup.position.set(wx, wy, wz);
         treeGroup.scale.setScalar(0.8 + Math.random() * 0.4);
       }
+
+      // Initialize health and falling state for woodcutting in userData
+      treeGroup.userData = {
+        health: 3,
+        maxHealth: 3,
+        falling: false,
+        fallTimer: 0,
+        type: isPalm ? 'palm' : 'pine'
+      };
       
       game.scene.add(treeGroup);
       world.sceneryMeshes.push({ mesh: treeGroup, type: 'tree' });
+      world.trees.push(treeGroup);
     }
   }
 
@@ -1110,7 +1196,9 @@ export function updateWorld(delta) {
     const pos = item.mesh.position;
     const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
     if (item.type === 'tree') {
-      item.mesh.position.y = groundY;
+      if (!item.mesh.userData || !item.mesh.userData.falling) {
+        item.mesh.position.y = groundY;
+      }
     } else if (item.type === 'rock') {
       item.mesh.position.y = groundY - 0.5;
     }

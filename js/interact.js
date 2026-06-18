@@ -3,6 +3,7 @@ import { game } from './game.js';
 import { world, deformTerrainLowPoly, getSurfaceHeightNear } from './world.js';
 import { player, showHudMessage, selectSlot } from './player.js';
 import { getTranslation } from './lang.js';
+import { playWoodChop } from './audio.js';
 
 let raycaster;
 const activeDebris = [];
@@ -27,7 +28,7 @@ export function initInteraction() {
   });
 }
 
-// Triggered when left clicking to mine
+// Triggered when left clicking to mine / chop
 export function updateInteraction(delta) {
   // Update physics for all active debris pieces
   updateDebrisPhysics(delta);
@@ -35,18 +36,120 @@ export function updateInteraction(delta) {
   // Check if any debris is near the player to show the "PRESS E" prompt
   checkHarvestablePrompt();
 
-  // If the player is swinging the pickaxe, check for hit at the peak of the swing
+  // If the player is swinging a tool, check for hit at the peak of the swing
   // The swing duration is 0.25s. We cast a ray near the start (e.g. when swinging is active)
   if (player.swinging && player.swingTimer > 0.1 && player.swingTimer < 0.15) {
     // Perform hit detection once per click
     if (!player.hasHitThisSwing) {
-      performMiningRaycast();
+      performToolsRaycast();
       player.hasHitThisSwing = true;
     }
   }
 
   if (!player.swinging) {
     player.hasHitThisSwing = false;
+  }
+
+  // Animate falling trees
+  for (let i = world.trees.length - 1; i >= 0; i--) {
+    const treeGroup = world.trees[i];
+    if (treeGroup.userData && treeGroup.userData.falling) {
+      treeGroup.userData.fallTimer += delta;
+      
+      const fallDuration = 1.5;
+      const progress = Math.min(1.0, treeGroup.userData.fallTimer / fallDuration);
+      
+      const rotationAxis = new THREE.Vector3(0, 1, 0)
+        .cross(treeGroup.userData.fallDirection)
+        .normalize();
+        
+      const targetAngle = progress * (Math.PI / 2);
+      const prevAngle = (Math.max(0, treeGroup.userData.fallTimer - delta) / fallDuration) * (Math.PI / 2);
+      const deltaAngle = targetAngle - prevAngle;
+      
+      treeGroup.rotateOnWorldAxis(rotationAxis, deltaAngle);
+      
+      // When tree finishes falling, clean up and spawn 3 wood debris logs
+      if (progress >= 1.0) {
+        game.scene.remove(treeGroup);
+        
+        // Remove from world.sceneryMeshes
+        const scenIdx = world.sceneryMeshes.findIndex(item => item.mesh === treeGroup);
+        if (scenIdx > -1) world.sceneryMeshes.splice(scenIdx, 1);
+        
+        // Remove from world.trees
+        world.trees.splice(i, 1);
+        
+        // Spawn 3 collectible wood logs
+        for (let j = 0; j < 3; j++) {
+          const spawnPos = treeGroup.position.clone();
+          spawnPos.x += (Math.random() - 0.5) * 1.5;
+          spawnPos.z += (Math.random() - 0.5) * 1.5;
+          const groundY = getSurfaceHeightNear(spawnPos.x, 15, spawnPos.z);
+          spawnPos.y = groundY + 0.15;
+          
+          spawnDebris(spawnPos, new THREE.Vector3(0, 1, 0), 'wood');
+        }
+      }
+    }
+  }
+}
+
+// Route raycast based on held tool (Axe vs Pickaxe)
+function performToolsRaycast() {
+  if (player.selectedSlot === 6) {
+    performMiningRaycast();
+  } else if (player.selectedSlot === 1) {
+    performWoodcuttingRaycast();
+  }
+}
+
+// Raycast for tree felling when holding the Axe
+function performWoodcuttingRaycast() {
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), game.camera);
+
+  const treeMeshes = [];
+  const meshToGroupMap = new Map();
+
+  world.trees.forEach(group => {
+    if (group.userData && !group.userData.falling) {
+      group.traverse(child => {
+        if (child.isMesh) {
+          treeMeshes.push(child);
+          meshToGroupMap.set(child, group);
+        }
+      });
+    }
+  });
+
+  const intersections = raycaster.intersectObjects(treeMeshes);
+
+  if (intersections.length > 0 && intersections[0].distance < 4.0) {
+    const hit = intersections[0];
+    const hitMesh = hit.object;
+    const treeGroup = meshToGroupMap.get(hitMesh);
+
+    if (treeGroup && treeGroup.userData) {
+      playWoodChop();
+
+      const hitNormal = hit.face.normal.clone().applyQuaternion(hitMesh.getWorldQuaternion(new THREE.Quaternion()));
+      spawnDebris(hit.point, hitNormal, 'wood');
+
+      treeGroup.userData.health -= 1;
+      showHudMessage(getTranslation('msg_chopped') || 'Chop!');
+
+      if (treeGroup.userData.health <= 0) {
+        treeGroup.userData.falling = true;
+        treeGroup.userData.fallTimer = 0;
+        
+        const playerPos = game.controls.getObject().position.clone();
+        playerPos.y = treeGroup.position.y;
+        const fallDirection = treeGroup.position.clone().sub(playerPos).normalize();
+        treeGroup.userData.fallDirection = fallDirection;
+
+        showHudMessage(getTranslation('msg_tree_felled') || 'Tree felled!');
+      }
+    }
   }
 }
 
@@ -116,7 +219,7 @@ function performMiningRaycast() {
   if (hitPoint && hitDistance < 4.0) {
     if (isOreHit && oreGroupRef) {
       // 1. Spawns shiny gold ore debris
-      spawnDebris(hitPoint, hitNormal, true);
+      spawnDebris(hitPoint, hitNormal, 'ore');
       showHudMessage(getTranslation('msg_mined'));
       
       // Shrink the gold crystals slightly to show decay
@@ -126,7 +229,7 @@ function performMiningRaycast() {
       if (oreGroupRef.scale.x < 0.5) {
         // Explode into extra debris
         for (let i = 0; i < 4; i++) {
-          spawnDebris(hitPoint, hitNormal, true);
+          spawnDebris(hitPoint, hitNormal, 'ore');
         }
         game.scene.remove(oreGroupRef);
         // Remove from world array
@@ -138,20 +241,25 @@ function performMiningRaycast() {
     } else {
       // 2. Generic terrain hits: deform (carve crater) and spawn stone debris
       deformTerrainLowPoly(hitPoint, 1.8, 1.2);
-      spawnDebris(hitPoint, hitNormal, false);
+      spawnDebris(hitPoint, hitNormal, 'stone');
     }
   }
 }
 
 // Spawns a physical low-poly debris chunk that falls and bounces
-function spawnDebris(position, normal, isOre) {
-  // Low-poly geometry (small angular shapes)
-  const geom = new THREE.DodecahedronGeometry(0.12, 0);
-  
-  // Materials
-  const mat = isOre 
-    ? new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.2, metalness: 0.9, emissive: 0xffa500, emissiveIntensity: 0.2, flatShading: true })
-    : new THREE.MeshStandardMaterial({ color: 0x8a7f76, roughness: 0.9, flatShading: true });
+function spawnDebris(position, normal, type) {
+  let geom, mat;
+  if (type === 'wood') {
+    geom = new THREE.CylinderGeometry(0.06, 0.06, 0.35, 5); // horizontal low-poly log
+    geom.rotateZ(Math.PI / 2);
+    mat = new THREE.MeshStandardMaterial({ color: 0x825a3c, roughness: 0.9, flatShading: true });
+  } else if (type === 'ore') {
+    geom = new THREE.DodecahedronGeometry(0.12, 0);
+    mat = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.2, metalness: 0.9, emissive: 0xffa500, emissiveIntensity: 0.2, flatShading: true });
+  } else {
+    geom = new THREE.DodecahedronGeometry(0.12, 0);
+    mat = new THREE.MeshStandardMaterial({ color: 0x8a7f76, roughness: 0.9, flatShading: true });
+  }
 
   const mesh = new THREE.Mesh(geom, mat);
   
@@ -170,7 +278,7 @@ function spawnDebris(position, normal, isOre) {
   const debrisObj = {
     mesh: mesh,
     velocity: velocity,
-    isOre: isOre,
+    type: type,
     onGround: false,
     lifeTime: 25.0 // Debris decays after 25s if not collected
   };
@@ -228,7 +336,7 @@ function updateDebrisPhysics(delta) {
   }
 }
 
-// Detect if any gold ore is close to display E prompt
+// Detect if any gold ore or wood log is close to display E prompt
 function checkHarvestablePrompt() {
   if (!game.controls) return;
 
@@ -237,8 +345,8 @@ function checkHarvestablePrompt() {
   let minDist = 2.2; // Maximum collection distance
 
   activeDebris.forEach(debris => {
-    // Only collect gold ore for objective
-    if (debris.isOre) {
+    // Collect both gold ore and wood logs
+    if (debris.type === 'ore' || debris.type === 'wood') {
       const dist = playerPos.distanceTo(debris.mesh.position);
       if (dist < minDist) {
         minDist = dist;
@@ -260,7 +368,9 @@ function checkHarvestablePrompt() {
 
   const prompt = document.getElementById('interaction-prompt');
   if (closestDebris) {
-    prompt.innerHTML = getTranslation('interact_harvest').replace('E', '<span style="color: #ffd700; font-weight:800;">E</span>');
+    const translationKey = closestDebris.type === 'wood' ? 'interact_harvest_wood' : 'interact_harvest';
+    const rawPrompt = getTranslation(translationKey) || (closestDebris.type === 'wood' ? 'PRESS E TO HARVEST WOOD' : 'PRESS E TO HARVEST ORE');
+    prompt.innerHTML = rawPrompt.replace('E', '<span style="color: #ffd700; font-weight:800;">E</span>');
     prompt.classList.add('visible');
   } else if (nearFeedbackBoard) {
     prompt.innerHTML = getTranslation('interact_board').replace('E', '<span style="color: #ffd700; font-weight:800;">E</span>');
@@ -283,30 +393,43 @@ export function harvestClosestDebris() {
     activeDebris.splice(index, 1);
   }
 
-  // Update player inventory
-  player.inventory.ore += 1;
-  showHudMessage(getTranslation('msg_collected'));
+  if (closestDebris.type === 'wood') {
+    // Update player inventory for wood
+    player.inventory.wood += 1;
+    showHudMessage(getTranslation('msg_collected_wood') || '+1 Wood');
 
-  // Sync to HUD Hotbar Slot 8 (which we use for collected Gold Ore display)
-  // Update Slot 8 text and count
-  const slot8 = document.querySelector('.hotbar-slot[data-slot="7"]');
-  if (slot8) {
-    const label = slot8.querySelector('.slot-label');
-    const count = slot8.querySelector('.slot-count');
-    const icon = slot8.querySelector('.slot-icon');
+    // Sync to HUD Hotbar Slot 6 (Wood is data-slot="5")
+    const slot6 = document.querySelector('.hotbar-slot[data-slot="5"]');
+    if (slot6) {
+      const count = slot6.querySelector('.slot-count');
+      if (count) count.innerText = `x${player.inventory.wood}`;
+    }
+  } else if (closestDebris.type === 'ore') {
+    // Update player inventory for gold ore
+    player.inventory.ore += 1;
+    showHudMessage(getTranslation('msg_collected'));
 
-    if (label) label.innerText = getTranslation('hotbar.ore');
-    if (icon) icon.innerText = "🪙";
-    if (count) count.innerText = `x${player.inventory.ore}`;
-  }
+    // Sync to HUD Hotbar Slot 8 (which we use for collected Gold Ore display)
+    // Update Slot 8 text and count
+    const slot8 = document.querySelector('.hotbar-slot[data-slot="7"]');
+    if (slot8) {
+      const label = slot8.querySelector('.slot-label');
+      const count = slot8.querySelector('.slot-count');
+      const icon = slot8.querySelector('.slot-icon');
 
-  // Check objective update
-  if (player.inventory.ore >= 5) {
-    document.getElementById('objective-text').innerText = getTranslation('obj_complete');
-    document.getElementById('objective-text').style.color = "#00ff88";
-    showHudMessage(getTranslation('msg_goal_complete'));
-  } else {
-    document.getElementById('objective-text').innerText = getTranslation('obj_progress', { val: player.inventory.ore });
+      if (label) label.innerText = getTranslation('hotbar.ore');
+      if (icon) icon.innerText = "🪙";
+      if (count) count.innerText = `x${player.inventory.ore}`;
+    }
+
+    // Check objective update
+    if (player.inventory.ore >= 5) {
+      document.getElementById('objective-text').innerText = getTranslation('obj_complete');
+      document.getElementById('objective-text').style.color = "#00ff88";
+      showHudMessage(getTranslation('msg_goal_complete'));
+    } else {
+      document.getElementById('objective-text').innerText = getTranslation('obj_progress', { val: player.inventory.ore });
+    }
   }
 
   closestDebris = null;

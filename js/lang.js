@@ -3,7 +3,7 @@ export const translations = {
   en: {
     game_subtitle: "SUNSET SURVIVAL & MINING",
     game_desc: "Explore a low-poly tropical island, mine underground tunnels in search of gold, and avoid drowning in the open ocean. Dig through rocks using your pickaxe and repair the boat.",
-    alpha_badge: "ALPHA PROTOTYPE v0.019",
+    alpha_badge: "ALPHA PROTOTYPE v0.020",
     rotate_warning_title: "PLEASE ROTATE DEVICE",
     rotate_warning_desc: "This game is designed to be played in landscape mode (horizontal) only.",
     start_btn: "START ENGINE",
@@ -33,6 +33,10 @@ export const translations = {
     msg_depleted: "Ore Deposit Depleted!",
     msg_collected: "+1 Gold Ore",
     msg_goal_complete: "Survival Goal Complete!",
+    interact_harvest_wood: "PRESS E TO HARVEST WOOD",
+    msg_chopped: "Chop!",
+    msg_tree_felled: "Tree felled!",
+    msg_collected_wood: "+1 Wood",
     hotbar: {
       spear: "Spear",
       axe: "Axe",
@@ -48,7 +52,7 @@ export const translations = {
   ja: {
     game_subtitle: "夕暮れの生存と採掘",
     game_desc: "ローポリの熱帯の島を探索し、金を求めて地下トンネルを採掘し、開けた海でおぼれないようにしてください。ピッケルで岩を掘り進み、ボートを修理しましょう。",
-    alpha_badge: "アルファプロトタイプ v0.019",
+    alpha_badge: "アルファプロトタイプ v0.020",
     rotate_warning_title: "画面を横にしてください",
     rotate_warning_desc: "このゲームは横画面（ランドスケープ）専用です。",
     start_btn: "エンジン始動",
@@ -78,6 +82,10 @@ export const translations = {
     msg_depleted: "鉱床が枯渇しました！",
     msg_collected: "+1 金鉱石",
     msg_goal_complete: "サバイバルゴール達成！",
+    interact_harvest_wood: "Eキーで木材を回収",
+    msg_chopped: "チョップ！",
+    msg_tree_felled: "木が倒れました！",
+    msg_collected_wood: "+1 木材",
     hotbar: {
       spear: "槍",
       axe: "斧",
@@ -93,7 +101,7 @@ export const translations = {
   es: {
     game_subtitle: "SUPERVIVENCIA Y MINERÍA AL ATARDECER",
     game_desc: "Explora una isla tropical low-poly, cava túneles subterráneos en busca de oro y evita ahogarte en el océano abierto. Hazte camino entre las rocas usando tu pico y repara el barco.",
-    alpha_badge: "PROTOTIPO ALPHA v0.019",
+    alpha_badge: "PROTOTIPO ALPHA v0.020",
     rotate_warning_title: "POR FAVOR ROTAR DISPOSITIVO",
     rotate_warning_desc: "Este juego está diseñado para jugarse únicamente en modo horizontal.",
     start_btn: "ARRANCAR MOTOR",
@@ -123,6 +131,10 @@ export const translations = {
     msg_depleted: "¡Yacimiento de mineral agotado!",
     msg_collected: "+1 Mineral de oro",
     msg_goal_complete: "¡Meta de supervivencia completada!",
+    interact_harvest_wood: "PRESIONA E PARA RECOLECTAR MADERA",
+    msg_chopped: "¡Tajo!",
+    msg_tree_felled: "¡Árbol talado!",
+    msg_collected_wood: "+1 Madera",
     hotbar: {
       spear: "Lanza",
       axe: "Hacha",
@@ -138,7 +150,7 @@ export const translations = {
   fr: {
     game_subtitle: "SURVIE ET MINAGE AU CRÉPUSCULE",
     game_desc: "Explorez une île tropicale low-poly, creusez des tunnels souterrains à la recherche d'or et évitez de vous noyer en pleine mer. Frayez-vous un chemin à travers les roches à l'aide de votre pioche et réparez le bateau.",
-    alpha_badge: "PROTOTYPE ALPHA v0.019",
+    alpha_badge: "PROTOTYPE ALPHA v0.020",
     rotate_warning_title: "VEUILLEZ PIVOTER L'APPAREIL",
     rotate_warning_desc: "Ce jeu est conçu pour être joué en mode paysage (horizontal) uniquement.",
     start_btn: "DÉMARRER MOTEUR",
@@ -168,6 +180,10 @@ export const translations = {
     msg_depleted: "Gisement de minerai épuisé !",
     msg_collected: "+1 Minerai d'or",
     msg_goal_complete: "Objectif de survie atteint !",
+    interact_harvest_wood: "APPUYEZ SUR E POUR RAMASSER LE BOIS",
+    msg_chopped: "Coupe !",
+    msg_tree_felled: "Arbre abattu !",
+    msg_collected_wood: "+1 Bois",
     hotbar: {
       spear: "Lance",
       axe: "Hache",
@@ -183,7 +199,7 @@ export const translations = {
   de: {
     game_subtitle: "ÜBERLEBEN UND BERGBAU IM SONNENUNTERGANG",
     game_desc: "Erkunde eine Low-Poly-Tropeninsel, grabe unterirdische Tunnel auf der Suche nach Gold und vermeide es, im offenen Ozean zu ertrinken. Bahne dir mit deiner Spitzhacke den Weg durch die Felsen und repariere das Boot.",
-    alpha_badge: "ALPHA-PROTOTYP v0.019",
+    alpha_badge: "ALPHA-PROTOTYP v0.020",
     rotate_warning_title: "GERÄT DREHEN",
     rotate_warning_desc: "Dieses Spiel kann nur im Querformat (horizontal) gespielt werden.",
     start_btn: "MOTOR STARTEN",
@@ -213,6 +229,10 @@ export const translations = {
     msg_depleted: "Erzvorkommen erschöpft!",
     msg_collected: "+1 Golderz",
     msg_goal_complete: "Überlebensziel erreicht!",
+    interact_harvest_wood: "DRÜCKE E UM HOLZ ZU SAMMELN",
+    msg_chopped: "Hack!",
+    msg_tree_felled: "Baum gefällt!",
+    msg_collected_wood: "+1 Holz",
     hotbar: {
       spear: "Speer",
       axe: "Axt",
@@ -228,7 +248,7 @@ export const translations = {
   pt: {
     game_subtitle: "SOBREVIVÊNCIA E MINERAÇÃO AO PÔR DO SOL",
     game_desc: "Explore uma ilha tropical low-poly, cave túneis subterrâneos em busca de ouro e evite se afogar no oceano aberto. Abra caminho pelas rochas usando sua picareta e conserte o barco.",
-    alpha_badge: "PROTÓTIPO ALPHA v0.019",
+    alpha_badge: "PROTÓTIPO ALPHA v0.020",
     rotate_warning_title: "POR FAVOR ROTE O DISPOSITIVO",
     rotate_warning_desc: "Este jogo foi projetato para ser jogado apenas no modo paisagem (horizontal).",
     start_btn: "LIGAR MOTOR",
@@ -258,6 +278,10 @@ export const translations = {
     msg_depleted: "Depósito de minério esgotado!",
     msg_collected: "+1 Minério de ouro",
     msg_goal_complete: "Meta de Sobrevivência Concluída!",
+    interact_harvest_wood: "PRESSIONE E PARA COLETAR MADEIRA",
+    msg_chopped: "Golpe!",
+    msg_tree_felled: "Árvore derrubada!",
+    msg_collected_wood: "+1 Madeira",
     hotbar: {
       spear: "Lança",
       axe: "Machado",
@@ -273,7 +297,7 @@ export const translations = {
   it: {
     game_subtitle: "SOPRAVVIVENZA E MINIERA AL TRAMONTO",
     game_desc: "Esplora un'isola tropicale low-poly, scava gallerie sotterranee alla ricerca di oro ed evita di affogare nell'oceano aperto. Fatti strada tra le rocce usando il tuo piccone e ripara la barca.",
-    alpha_badge: "PROTOTIPO ALPHA v0.019",
+    alpha_badge: "PROTOTIPO ALPHA v0.020",
     rotate_warning_title: "RUOTA IL DISPOSITIVO",
     rotate_warning_desc: "Questo gioco è progettato per essere giocato solo in modalità orizzontale.",
     start_btn: "AVVIA MOTORE",
@@ -303,6 +327,10 @@ export const translations = {
     msg_depleted: "Giacimento esaurito!",
     msg_collected: "+1 Oro",
     msg_goal_complete: "Obiettivo Sopravvivenza Completato!",
+    interact_harvest_wood: "PREMI E PER RACCOGLIERE IL LEGNO",
+    msg_chopped: "Taglio!",
+    msg_tree_felled: "Albero abbattuto!",
+    msg_collected_wood: "+1 Legno",
     hotbar: {
       spear: "Lancia",
       axe: "Accetta",

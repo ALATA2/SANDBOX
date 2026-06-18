@@ -302,3 +302,27 @@ export function playLaunch() {
   sub.start(explodeTime);
   sub.stop(explodeTime + 1.6);
 }
+
+// Wood chop impact sound (triangle wave pitch drop)
+export function playWoodChop() {
+  if (isMuted) return;
+  initAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  const time = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(180, time);
+  osc.frequency.exponentialRampToValueAtTime(45, time + 0.15);
+
+  gain.gain.setValueAtTime(0.3, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(time);
+  osc.stop(time + 0.16);
+}

@@ -322,23 +322,51 @@ function init() {
   game.sunHaloMesh = new THREE.Mesh(haloGeom, haloMat);
   game.sunMesh.add(game.sunHaloMesh); // Add as child so it moves with the sun automatically
 
-  // Create 3D Moon Disc (Disable fog so it remains bright and distinct)
-  const moonGeom = new THREE.SphereGeometry(10, 8, 8); // Low-poly sphere, slightly smaller
+  // Create 3D Moon Disc as an extruded Crescent Shape (Disable fog so it remains bright and distinct)
+  const moonShape = new THREE.Shape();
+  // Outer circle: center (0,0), radius 12, arc from -PI/2 to PI/2
+  moonShape.absarc(0, 0, 12, -Math.PI / 2, Math.PI / 2, false);
+  // Inner circle: center (4.0, 0), radius 10.5, arc from PI/2 to -PI/2
+  moonShape.absarc(4.0, 0, 10.5, Math.PI / 2, -Math.PI / 2, true);
+
+  const extrudeSettings = {
+    depth: 2.5,
+    bevelEnabled: true,
+    bevelThickness: 0.8,
+    bevelSize: 0.4,
+    bevelSegments: 1,
+    curveSegments: 6 // Keep it low-poly
+  };
+
+  const moonGeom = new THREE.ExtrudeGeometry(moonShape, extrudeSettings);
+  moonGeom.center(); // Center geometry pivot exactly
+
   const moonMat = new THREE.MeshBasicMaterial({ 
     color: 0xe6ffff, 
     toneMapped: false,
     fog: false 
   });
   game.moonMesh = new THREE.Mesh(moonGeom, moonMat);
+  // Rotate the crescent moon slightly so its flat side faces the scene nicely
+  game.moonMesh.rotation.y = Math.PI / 4;
   game.scene.add(game.moonMesh);
 
-  // Add a soft glowing low-poly halo around the moon
-  const moonHaloGeom = new THREE.SphereGeometry(16, 8, 8);
+  // Add a soft glowing low-poly halo around the moon (crescent shape also for halo!)
+  const moonHaloGeom = new THREE.ExtrudeGeometry(moonShape, {
+    depth: 3.5,
+    bevelEnabled: true,
+    bevelThickness: 1.5,
+    bevelSize: 1.2,
+    bevelSegments: 1,
+    curveSegments: 6
+  });
+  moonHaloGeom.center();
+
   const moonHaloMat = new THREE.MeshBasicMaterial({
     color: 0xe6ffff,
     toneMapped: false,
     transparent: true,
-    opacity: 0.2,
+    opacity: 0.15,
     depthWrite: false,
     fog: false
   });
@@ -857,6 +885,7 @@ function animate() {
   }
   if (game.moonMesh) {
     game.moonMesh.position.copy(moonDir).multiplyScalar(180).add(cameraPos);
+    game.moonMesh.lookAt(cameraPos);
   }
 
   // Reuse directional light pointing from the active celestial body (Sun by day, Moon by night)
