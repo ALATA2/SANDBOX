@@ -584,8 +584,8 @@ function createPineTree() {
   const pineGroup = new THREE.Group();
 
   const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x543d2b, roughness: 0.9, flatShading: true });
-  const foliageMaterial1 = new THREE.MeshStandardMaterial({ color: 0x2e8b57, roughness: 0.8, flatShading: true }); // SeaGreen
-  const foliageMaterial2 = new THREE.MeshStandardMaterial({ color: 0x389a42, roughness: 0.8, flatShading: true }); // Vibrant Forest Green
+  const foliageMaterial1 = new THREE.MeshStandardMaterial({ color: 0x1e5631, roughness: 0.85, flatShading: true }); // Deep Forest Green
+  const foliageMaterial2 = new THREE.MeshStandardMaterial({ color: 0x2d8a4e, roughness: 0.85, flatShading: true }); // Vibrant Sea Green
 
   // 1. Detailed trunk
   const trunkHeight = 5.0;
@@ -617,58 +617,38 @@ function createPineTree() {
     pineGroup.add(stub);
   }
 
-  // 3. Foliage: 6 stacked layers of radiating flat shingle plates
-  const numLayers = 6;
-  for (let i = 0; i < numLayers; i++) {
-    const t = i / (numLayers - 1);
-    const yPos = 1.4 + t * 3.4; // distribute from Y=1.4 to 4.8
-    
-    // Calculate tapered size of shingles at this layer
-    const l = 1.45 * (1.0 - t * 0.72); // length from trunk outward
-    const w = 0.72 * (1.0 - t * 0.72); // width of each plate
-    const th = 0.045; // thickness of plate
-    
-    // Number of shingles in this ring (more at bottom, fewer at top)
-    const N = Math.round(8 - t * 3); 
-    
-    // Alternating rotation between layers to stagger the branch patterns
-    const stagger = (i % 2) * (Math.PI / N);
-    
-    // Alternate color between layers to add visual depth
-    const material = (i % 2 === 0) ? foliageMaterial1 : foliageMaterial2;
-    
-    // Dynamic trunk radius to position shingles offset from trunk surface
-    const trunkRadius = 0.26 - (yPos / trunkHeight) * 0.16;
-    const offset = trunkRadius * 0.5; // overlap into the trunk to prevent gaps
+  // 3. Foliage: 5 stacked layers of 5-sided cones (pyramids)
+  const cones = [
+    { r: 1.7, h: 1.3, y: 1.8 },
+    { r: 1.3, h: 1.1, y: 2.7 },
+    { r: 0.9, h: 0.9, y: 3.5 },
+    { r: 0.55, h: 0.7, y: 4.2 },
+    { r: 0.25, h: 0.5, y: 4.8 }
+  ];
 
-    const tilt = 0.44 + t * 0.08; // tilt downwards (steeper near the top crown)
+  cones.forEach((c, index) => {
+    const geom = new THREE.ConeGeometry(c.r, c.h, 5);
+    // Translate pivot to base of cone for clean placement
+    geom.translate(0, c.h / 2, 0);
 
-    for (let k = 0; k < N; k++) {
-      const angle = (k * Math.PI * 2) / N + stagger;
-      
-      const shingleGeom = new THREE.BoxGeometry(w, th, l);
-      // Move pivot to the inner base of the shingle
-      shingleGeom.translate(0, 0, offset + l / 2);
-      
-      const shingleMesh = new THREE.Mesh(shingleGeom, material);
-      shingleMesh.position.set(0, yPos, 0);
-      shingleMesh.rotation.x = tilt;
-      shingleMesh.rotation.y = angle;
-      shingleMesh.castShadow = true;
-      shingleMesh.receiveShadow = true;
-      
-      pineGroup.add(shingleMesh);
-    }
-  }
+    const material = (index % 2 === 0) ? foliageMaterial1 : foliageMaterial2;
+    const mesh = new THREE.Mesh(geom, material);
+    mesh.position.set(0, c.y, 0);
+    
+    // Rotate Y-axis in a staggered pattern to stagger the facets
+    mesh.rotation.y = index * 0.45 + (Math.random() * 0.1); 
+    
+    // Add a very small random tilt to give organic character
+    mesh.rotation.x = (Math.random() - 0.5) * 0.05;
+    mesh.rotation.z = (Math.random() - 0.5) * 0.05;
+    
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    pineGroup.add(mesh);
+  });
 
-  // 4. Sharp top crown cone to finish the tip of the tree
-  const crownGeom = new THREE.ConeGeometry(0.12, 0.75, 5);
-  crownGeom.translate(0, 0.375, 0); // pivot at base
-  const crown = new THREE.Mesh(crownGeom, foliageMaterial2);
-  crown.position.set(0, 4.8, 0);
-  crown.castShadow = true;
-  crown.receiveShadow = true;
-  pineGroup.add(crown);
+  // Random rotation on the entire tree to make each instance unique
+  pineGroup.rotation.y = Math.random() * Math.PI * 2;
 
   return pineGroup;
 }

@@ -3,7 +3,7 @@ export const translations = {
   en: {
     game_subtitle: "SUNSET SURVIVAL & MINING",
     game_desc: "Explore a low-poly tropical island, mine underground tunnels in search of gold, and avoid drowning in the open ocean. Dig through rocks using your pickaxe and repair the boat.",
-    alpha_badge: "ALPHA PROTOTYPE v0.027",
+    alpha_badge: "ALPHA PROTOTYPE v0.028",
     rotate_warning_title: "PLEASE ROTATE DEVICE",
     rotate_warning_desc: "This game is designed to be played in landscape mode (horizontal) only.",
     start_btn: "START ENGINE",
@@ -56,7 +56,7 @@ export const translations = {
   ja: {
     game_subtitle: "夕暮れの生存と採掘",
     game_desc: "ローポリの熱帯の島を探索し、金を求めて地下トンネルを採掘し、開けた海でおぼれないようにしてください。ピッケルで岩を掘り進み、ボートを修理しましょう。",
-    alpha_badge: "アルファプロトタイプ v0.027",
+    alpha_badge: "アルファプロトタイプ v0.028",
     rotate_warning_title: "画面を横にしてください",
     rotate_warning_desc: "このゲームは横画面（ランドスケープ）専用です。",
     start_btn: "エンジン始動",
@@ -109,7 +109,7 @@ export const translations = {
   es: {
     game_subtitle: "SUPERVIVENCIA Y MINERÍA AL ATARDECER",
     game_desc: "Explora una isla tropical low-poly, cava túneles subterráneos en busca de oro y evita ahogarte en el océano abierto. Hazte camino entre las rocas usando tu pico y repara el barco.",
-    alpha_badge: "PROTOTIPO ALPHA v0.027",
+    alpha_badge: "PROTOTIPO ALPHA v0.028",
     rotate_warning_title: "POR FAVOR ROTAR DISPOSITIVO",
     rotate_warning_desc: "Este juego está diseñado para jugarse únicamente en modo horizontal.",
     start_btn: "ARRANCAR MOTOR",
@@ -162,7 +162,7 @@ export const translations = {
   fr: {
     game_subtitle: "SURVIE ET MINAGE AU CRÉPUSCULE",
     game_desc: "Explorez une île tropicale low-poly, creusez des tunnels souterrains à la recherche d'or et évitez de vous noyer en pleine mer. Frayez-vous un chemin à travers les roches à l'aide de votre pioche et réparez le bateau.",
-    alpha_badge: "PROTOTYPE ALPHA v0.027",
+    alpha_badge: "PROTOTYPE ALPHA v0.028",
     rotate_warning_title: "VEUILLEZ PIVOTER L'APPAREIL",
     rotate_warning_desc: "Ce jeu est conçu pour être joué en mode paysage (horizontal) uniquement.",
     start_btn: "DÉMARRER MOTEUR",
@@ -215,7 +215,7 @@ export const translations = {
   de: {
     game_subtitle: "ÜBERLEBEN UND BERGBAU IM SONNENUNTERGANG",
     game_desc: "Erkunde eine Low-Poly-Tropeninsel, grabe unterirdische Tunnel auf der Suche nach Gold und vermeide es, im offenen Ozean zu ertrinken. Bahne dir mit deiner Spitzhacke den Weg durch die Felsen und repariere das Boot.",
-    alpha_badge: "ALPHA-PROTOTYP v0.027",
+    alpha_badge: "ALPHA-PROTOTYP v0.028",
     rotate_warning_title: "GERÄT DREHEN",
     rotate_warning_desc: "Dieses Spiel kann nur im Querformat (horizontal) gespielt werden.",
     start_btn: "MOTOR STARTEN",
@@ -268,7 +268,7 @@ export const translations = {
   pt: {
     game_subtitle: "SOBREVIVÊNCIA E MINERAÇÃO AO PÔR DO SOL",
     game_desc: "Explore uma ilha tropical low-poly, cave túneis subterrâneos em busca de oro e evite se afogar no oceano aberto. Abra caminho pelas rochas usando sua picareta e conserte o barco.",
-    alpha_badge: "PROTÓTIPO ALPHA v0.027",
+    alpha_badge: "PROTÓTIPO ALPHA v0.028",
     rotate_warning_title: "POR FAVOR ROTE O DISPOSITIVO",
     rotate_warning_desc: "Este jogo foi projetato para ser jogado apenas no modo paisagem (horizontal).",
     start_btn: "LIGAR MOTOR",
@@ -321,7 +321,7 @@ export const translations = {
   it: {
     game_subtitle: "SOPRAVVIVENZA E MINIERA AL TRAMONTO",
     game_desc: "Esplora un'isola tropicale low-poly, scava gallerie sotterranee alla ricerca di oro ed evita di affogare nell'oceano aperto. Fatti strada tra le rocce usando il tuo piccone e ripara la barca.",
-    alpha_badge: "PROTOTIPO ALPHA v0.027",
+    alpha_badge: "PROTOTIPO ALPHA v0.028",
     rotate_warning_title: "RUOTA IL DISPOSITIVO",
     rotate_warning_desc: "Questo gioco è progettato per essere giocato solo in modalità orizzontale.",
     start_btn: "AVVIA MOTORE",
