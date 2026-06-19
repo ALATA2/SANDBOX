@@ -584,12 +584,23 @@ function createPineTree() {
   const pineGroup = new THREE.Group();
 
   const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x543d2b, roughness: 0.9, flatShading: true });
-  const foliageMaterial1 = new THREE.MeshStandardMaterial({ color: 0x1e5631, roughness: 0.85, flatShading: true }); // Deep Forest Green
-  const foliageMaterial2 = new THREE.MeshStandardMaterial({ color: 0x2d8a4e, roughness: 0.85, flatShading: true }); // Vibrant Sea Green
+  // Natural mossy greens matching reference image
+  const foliageMaterial1 = new THREE.MeshStandardMaterial({ 
+    color: 0x47783a, 
+    roughness: 0.85, 
+    flatShading: true, 
+    side: THREE.DoubleSide 
+  });
+  const foliageMaterial2 = new THREE.MeshStandardMaterial({ 
+    color: 0x5a904d, 
+    roughness: 0.85, 
+    flatShading: true, 
+    side: THREE.DoubleSide 
+  });
 
   // 1. Detailed trunk
-  const trunkHeight = 5.0;
-  const trunkGeom = new THREE.CylinderGeometry(0.1, 0.26, trunkHeight, 5);
+  const trunkHeight = 5.2;
+  const trunkGeom = new THREE.CylinderGeometry(0.1, 0.25, trunkHeight, 5);
   // Shift pivot to base of trunk
   trunkGeom.translate(0, trunkHeight / 2, 0);
   const trunk = new THREE.Mesh(trunkGeom, trunkMaterial);
@@ -597,7 +608,7 @@ function createPineTree() {
   trunk.receiveShadow = true;
   pineGroup.add(trunk);
 
-  // 2. Small bare branch stubs at the trunk base (Y between 0.6 and 1.8)
+  // 2. Small bare branch stubs at the trunk base (Y between 0.6 and 1.6)
   const stubCount = 3 + Math.floor(Math.random() * 3);
   for (let i = 0; i < stubCount; i++) {
     const stubLength = 0.25 + Math.random() * 0.25;
@@ -617,35 +628,68 @@ function createPineTree() {
     pineGroup.add(stub);
   }
 
-  // 3. Foliage: 5 stacked layers of 5-sided cones (pyramids)
-  const cones = [
-    { r: 1.7, h: 1.3, y: 1.8 },
-    { r: 1.3, h: 1.1, y: 2.7 },
-    { r: 0.9, h: 0.9, y: 3.5 },
-    { r: 0.55, h: 0.7, y: 4.2 },
-    { r: 0.25, h: 0.5, y: 4.8 }
-  ];
+  // 3. Foliage: 9 layers of realistic drooping folded leaves
+  const numLayers = 9;
+  for (let i = 0; i < numLayers; i++) {
+    const t = i / (numLayers - 1);
+    const yPos = 1.2 + t * 3.8; // distribute from Y=1.2 to 5.0
+    
+    // Calculate tapered size of branch at this layer
+    const L = 1.85 * (1.0 - t * 0.76);        // Length of the branch outward
+    const W = 0.62 * (1.0 - t * 0.66);        // Width of the branch base
+    const H_inner = 0.16 * (1.0 - t * 0.66);  // Height of the fold at the trunk
+    const tipDroop = 0.52 * (1.0 - t * 0.76); // How much the tip droops below the base
+    
+    // Number of branches in this layer (more at bottom, fewer at top)
+    const N = Math.round(9 - t * 4); 
+    
+    // Alternating rotation between layers to stagger the branch patterns
+    const stagger = (i % 2) * (Math.PI / N);
+    
+    // Alternate color between layers to add visual depth
+    const material = (i % 2 === 0) ? foliageMaterial1 : foliageMaterial2;
+    
+    // Dynamic trunk radius to position branches offset from trunk surface
+    const trunkRadius = 0.25 - (yPos / trunkHeight) * 0.15;
 
-  cones.forEach((c, index) => {
-    const geom = new THREE.ConeGeometry(c.r, c.h, 5);
-    // Translate pivot to base of cone for clean placement
-    geom.translate(0, c.h / 2, 0);
-
-    const material = (index % 2 === 0) ? foliageMaterial1 : foliageMaterial2;
-    const mesh = new THREE.Mesh(geom, material);
-    mesh.position.set(0, c.y, 0);
-    
-    // Rotate Y-axis in a staggered pattern to stagger the facets
-    mesh.rotation.y = index * 0.45 + (Math.random() * 0.1); 
-    
-    // Add a very small random tilt to give organic character
-    mesh.rotation.x = (Math.random() - 0.5) * 0.05;
-    mesh.rotation.z = (Math.random() - 0.5) * 0.05;
-    
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    pineGroup.add(mesh);
-  });
+    for (let k = 0; k < N; k++) {
+      const angle = (k * Math.PI * 2) / N + stagger;
+      
+      const branchGeom = new THREE.BufferGeometry();
+      
+      // We model each branch as a folded paper tent (shallow inverted V) that tapers to a point
+      // Vertices: v0 (inner peak), v1 (inner left), v2 (inner right), v3 (outer tip)
+      const baseZ = -trunkRadius * 0.8;
+      
+      const vertices = new Float32Array([
+        // Left side triangle: v0, v1, v3
+        0, H_inner, baseZ,    // v0
+        -W / 2, 0, baseZ,     // v1
+        0, -tipDroop, L,      // v3
+        
+        // Right side triangle: v0, v3, v2
+        0, H_inner, baseZ,    // v0
+        0, -tipDroop, L,      // v3
+        W / 2, 0, baseZ       // v2
+      ]);
+      
+      branchGeom.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+      branchGeom.computeVertexNormals();
+      
+      const branchMesh = new THREE.Mesh(branchGeom, material);
+      branchMesh.position.set(0, yPos, 0);
+      
+      // Add slight random variation to each branch to make them look organic
+      branchMesh.rotation.y = angle + (Math.random() - 0.5) * 0.12; 
+      branchMesh.rotation.x = (Math.random() - 0.5) * 0.08; 
+      branchMesh.rotation.z = (Math.random() - 0.5) * 0.08; 
+      
+      branchMesh.castShadow = true;
+      branchMesh.receiveShadow = true;
+      
+      pineGroup.add(branchMesh);
+    }
+  }
 
   // Random rotation on the entire tree to make each instance unique
   pineGroup.rotation.y = Math.random() * Math.PI * 2;
@@ -882,6 +926,93 @@ function spawnScenery() {
       rock.receiveShadow = true;
       game.scene.add(rock);
       world.sceneryMeshes.push({ mesh: rock, type: 'rock' });
+    }
+  }
+
+  // 3b. Marine Rocks (rocks emerging from the sea)
+  const marineRockMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x5a6363, // Darker wet rock
+    roughness: 0.6,  // Slightly glossy/wet appearance
+    flatShading: true 
+  });
+  
+  for (let i = 0; i < 15; i++) {
+    const rx = Math.random() * (world.sizeX - 10) + 5;
+    const rz = Math.random() * (world.sizeZ - 10) + 5;
+    
+    const wx = rx * spacing;
+    const wz = rz * spacing;
+    const wy = getSurfaceHeightNear(wx, 15, wz);
+
+    // Only spawn in shallow water (between Y=1.2 and 3.9)
+    if (wy >= 1.2 && wy < 3.9) {
+      // Large rocks (radius 1.5 to 3.0) to ensure they emerge from the 4.0 water level
+      const rockRadius = 1.5 + Math.random() * 1.5;
+      const rockGeom = new THREE.DodecahedronGeometry(rockRadius, 0);
+      const rock = new THREE.Mesh(rockGeom, marineRockMaterial);
+      
+      rock.position.set(wx, wy - 0.5, wz);
+      rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+      rock.castShadow = true;
+      rock.receiveShadow = true;
+      game.scene.add(rock);
+      world.sceneryMeshes.push({ mesh: rock, type: 'rock' });
+    }
+  }
+
+  // 3c. 3D Low-Poly Starfish on the shoreline
+  const starfishMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xff5722, // Luminous orange
+    roughness: 0.8, 
+    flatShading: true 
+  });
+
+  // Create a 2D 5-pointed star shape
+  const starShape = new THREE.Shape();
+  const outerR = 0.22;
+  const innerR = 0.09;
+  for (let idx = 0; idx < 10; idx++) {
+    const angle = (idx * Math.PI) / 5;
+    const r = (idx % 2 === 0) ? outerR : innerR;
+    const sx = Math.cos(angle) * r;
+    const sz = Math.sin(angle) * r;
+    if (idx === 0) {
+      starShape.moveTo(sx, sz);
+    } else {
+      starShape.lineTo(sx, sz);
+    }
+  }
+  starShape.closePath();
+
+  // Extrude 2D shape into 3D
+  const starfishGeom = new THREE.ExtrudeGeometry(starShape, {
+    depth: 0.04,
+    bevelEnabled: true,
+    bevelThickness: 0.02,
+    bevelSize: 0.01,
+    bevelSegments: 1
+  });
+  starfishGeom.center();
+  // Rotate so it lies flat on the horizontal XZ plane
+  starfishGeom.rotateX(-Math.PI / 2);
+
+  for (let i = 0; i < 12; i++) {
+    const rx = Math.random() * (world.sizeX - 10) + 5;
+    const rz = Math.random() * (world.sizeZ - 10) + 5;
+    
+    const wx = rx * spacing;
+    const wz = rz * spacing;
+    const wy = getSurfaceHeightNear(wx, 15, wz);
+
+    // Spawn on the sandy shoreline (Y between 4.05 and 4.8)
+    if (wy >= 4.05 && wy <= 4.8) {
+      const starfish = new THREE.Mesh(starfishGeom, starfishMaterial);
+      starfish.position.set(wx, wy + 0.01, wz);
+      starfish.rotation.y = Math.random() * Math.PI * 2;
+      starfish.castShadow = true;
+      starfish.receiveShadow = true;
+      game.scene.add(starfish);
+      world.sceneryMeshes.push({ mesh: starfish, type: 'starfish' });
     }
   }
 
@@ -1190,7 +1321,7 @@ export function updateWorld(delta) {
     world.lighthouseBeam.rotation.y += 0.8 * delta;
   }
 
-  // Keep trees and rocks snapped to the deformed terrain
+  // Keep trees, rocks, and starfish snapped to the deformed terrain
   world.sceneryMeshes.forEach(item => {
     const pos = item.mesh.position;
     const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
@@ -1200,6 +1331,8 @@ export function updateWorld(delta) {
       }
     } else if (item.type === 'rock') {
       item.mesh.position.y = groundY - 0.5;
+    } else if (item.type === 'starfish') {
+      item.mesh.position.y = groundY + 0.01;
     }
   });
 
