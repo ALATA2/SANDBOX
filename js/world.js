@@ -714,31 +714,54 @@ function createTorch() {
 // Helper to spawn 3D drifting clouds in the sky
 function spawnClouds() {
   const cloudMaterial = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    roughness: 0.9,
-    flatShading: true,
-    emissive: 0x222222 // Subtle self-illumination
+    vertexColors: true,
+    roughness: 0.95,
+    metalness: 0.0,
+    flatShading: true
   });
   
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 22; i++) {
     const cloudGroup = new THREE.Group();
-    const blockCount = Math.floor(Math.random() * 3) + 3; // 3 to 5 blocks
     
-    for (let j = 0; j < blockCount; j++) {
-      const w = Math.random() * 8 + 10;
-      const h = Math.random() * 3 + 3;
-      const d = Math.random() * 8 + 8;
+    // Choose base radius for this cloud cluster
+    const baseR = Math.random() * 3 + 5; // 5 to 8 meters
+    
+    // Define relative offsets and scale multipliers for the spheres in a cluster
+    // This creates a natural elongated puffy cloud shape tapering at both ends
+    const spheres = [
+      { x: 0, y: 0, z: 0, r: 1.0 },                           // Center puff
+      { x: -baseR * 0.7, y: -baseR * 0.1, z: 0, r: 0.75 },     // Left puff
+      { x: baseR * 0.7, y: -baseR * 0.1, z: 0, r: 0.75 },      // Right puff
+      { x: -baseR * 1.3, y: -baseR * 0.25, z: 0, r: 0.5 },     // Outer left puff
+      { x: baseR * 1.3, y: -baseR * 0.25, z: 0, r: 0.5 },      // Outer right puff
+      { x: -baseR * 0.35, y: 0, z: baseR * 0.35, r: 0.7 },     // Front-left puff
+      { x: baseR * 0.35, y: 0, z: -baseR * 0.35, r: 0.7 }      // Back-right puff
+    ];
+    
+    spheres.forEach(s => {
+      const r = baseR * s.r;
+      const geom = new THREE.IcosahedronGeometry(r, 1);
       
-      const geom = new THREE.BoxGeometry(w, h, d);
+      // Apply vertex colors for vertical gradient (pink to white)
+      const position = geom.attributes.position;
+      const count = position.count;
+      const colors = [];
+      const colorBottom = new THREE.Color(0xfc8c82); // Warm sunset pink
+      const colorTop = new THREE.Color(0xffffff);    // Pure white
+      
+      for (let k = 0; k < count; k++) {
+        const y = position.getY(k);
+        // Normalize Y from [-r, r] to [0, 1]
+        const factor = (y + r) / (2 * r);
+        const c = new THREE.Color().copy(colorBottom).lerp(colorTop, factor);
+        colors.push(c.r, c.g, c.b);
+      }
+      geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      
       const mesh = new THREE.Mesh(geom, cloudMaterial);
-      // Offset blocks to make a clustered shape
-      mesh.position.set(
-        (Math.random() - 0.5) * 6,
-        (Math.random() - 0.5) * 2.0,
-        (Math.random() - 0.5) * 6
-      );
+      mesh.position.set(s.x, s.y, s.z);
       cloudGroup.add(mesh);
-    }
+    });
     
     // Position cloud high in the sky
     const cx = Math.random() * 400 - 200 + 80;
