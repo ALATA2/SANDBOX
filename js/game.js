@@ -453,7 +453,6 @@ function init() {
 
   // Handle pointerlock change
   let firstStart = true;
-  let isConfirmingExit = false;
 
   document.addEventListener('pointerlockchange', () => {
     if (document.pointerLockElement === game.renderer.domElement) {
@@ -480,7 +479,6 @@ function init() {
       if (game.controls) {
         game.controls.enabled = true;
       }
-      isConfirmingExit = false;
       
       stopDrone();
       stopCoreHover();
@@ -493,23 +491,27 @@ function init() {
         firstStart = false;
       }
     } else {
-      if (isConfirmingExit) {
-        // Show exit confirmation modal instead of blocker
-        const confirmModal = document.getElementById('confirm-modal');
-        if (confirmModal) {
-          confirmModal.style.display = 'flex';
-        }
-        game.pointerLocked = false;
-      } else {
-        // If feedback modal is open, do not show start menu blocker
+      // If we were inside the active gameplay and pointer lock is lost (e.g. Escape key, Alt-tab, etc.)
+      if (game.pointerLocked) {
         const feedbackModal = document.getElementById('feedback-modal');
         if (feedbackModal && feedbackModal.style.display === 'flex') {
+          // Peacefully lost lock because the feedback modal was opened via E key
           game.pointerLocked = false;
         } else {
-          blocker.style.display = 'flex';
+          // Always show the exit confirmation modal when game focus is lost
+          const confirmModal = document.getElementById('confirm-modal');
+          if (confirmModal) {
+            confirmModal.style.display = 'flex';
+          }
           game.pointerLocked = false;
-          startDrone();
+          game.paused = true;
+          if (game.controls) {
+            game.controls.enabled = false;
+          }
         }
+      } else {
+        // We were already outside active gameplay, just keep pointerLocked false
+        game.pointerLocked = false;
       }
       
       // Reset menu vibration classes
@@ -527,7 +529,6 @@ function init() {
     confirmYesBtn.addEventListener('click', () => {
       const confirmModal = document.getElementById('confirm-modal');
       if (confirmModal) confirmModal.style.display = 'none';
-      isConfirmingExit = false;
       
       // Go to main start menu blocker
       blocker.style.display = 'flex';
@@ -539,7 +540,6 @@ function init() {
     confirmNoBtn.addEventListener('click', () => {
       const confirmModal = document.getElementById('confirm-modal');
       if (confirmModal) confirmModal.style.display = 'none';
-      isConfirmingExit = false;
       
       // Re-lock and resume
       if (game.controls) {
@@ -548,15 +548,12 @@ function init() {
     });
   }
 
-  // Key listener for Pause (P) and Escape (Exit Confirmation)
+  // Key listener for Pause (P)
   document.addEventListener('keydown', (e) => {
     if (e.code === 'KeyP') {
-      if (game.pointerLocked && !isConfirmingExit) {
+      if (game.pointerLocked) {
         togglePause();
       }
-    }
-    if (e.code === 'Escape' && game.pointerLocked && !game.paused) {
-      isConfirmingExit = true;
     }
   });
 
