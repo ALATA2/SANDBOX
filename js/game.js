@@ -107,7 +107,7 @@ const presetCycles = {
       ambient: 0x0c0e1a,
       ambientIntensity: 0.45,
       sun: 0xaaccff,
-      sunIntensity: 0.7,
+      sunIntensity: 0.15,
       fogDensity: 0.018
     }
   },
@@ -139,7 +139,7 @@ const presetCycles = {
       ambient: 0x0f031b,
       ambientIntensity: 0.3,
       sun: 0x00ffff,
-      sunIntensity: 0.5,
+      sunIntensity: 0.1,
       fogDensity: 0.022
     }
   },
@@ -985,13 +985,25 @@ function animate() {
   const lightSourceDir = isDayTime ? sunDir : moonDir;
   game.lights.sun.position.copy(lightSourceDir);
 
+  // Set shadows dynamic: cast shadows during daytime, or at night only if the preset represents clear sky
+  const isClearSky = (currentPreset === 'sunset' || currentPreset === 'nebula');
+  game.lights.sun.castShadow = isDayTime || isClearSky;
+
   // Dynamic Atmospheric Interpolation (Day <-> Twilight <-> Night)
   const cycle = presetCycles[currentPreset];
   if (cycle) {
     let t = Math.abs(Math.sin(angle)); // 0.0 at horizon, 1.0 at Zenith
     if (!isDayTime) {
-      // Make it get dark almost immediately as the sun goes below the horizon
-      t = Math.pow(t, 0.08);
+      // Check if it is evening (sunset to midnight) or morning (midnight to dawn)
+      // angle is in [Math.PI, 2 * Math.PI] during the night
+      const isEvening = angle >= Math.PI && angle < 1.5 * Math.PI;
+      if (isEvening) {
+        // Sunset to midnight: get dark almost immediately
+        t = Math.pow(t, 0.08);
+      } else {
+        // Midnight to dawn: gradual smooth transition to twilight (dawn)
+        t = Math.pow(t, 1.0);
+      }
     }
 
     let targetState = isDayTime ? cycle.day : cycle.night;
