@@ -1001,8 +1001,9 @@ function animate() {
         // Sunset to midnight: get dark almost immediately
         t = Math.pow(t, 0.08);
       } else {
-        // Midnight to dawn: gradual smooth transition to twilight (dawn)
-        t = Math.pow(t, 1.0);
+        // Midnight to dawn: remain dark for most of the night (until 5 AM),
+        // then start slowly and smoothly dawning in the last phase.
+        t = Math.pow(t, 0.3);
       }
     }
 
