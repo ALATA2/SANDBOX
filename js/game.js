@@ -1412,59 +1412,136 @@ function createRooster() {
   
   const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.8, flatShading: true }); // black body
   const neckMaterial = new THREE.MeshStandardMaterial({ color: 0xd84315, roughness: 0.8, flatShading: true }); // golden-red head/neck
-  const combMaterial = new THREE.MeshStandardMaterial({ color: 0xff2222, roughness: 0.8, flatShading: true }); // red comb
-  const beakMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.8, flatShading: true }); // yellow beak/legs
+  const combMaterial = new THREE.MeshStandardMaterial({ color: 0xc62828, roughness: 0.8, flatShading: true }); // red comb/wattle
+  const beakMaterial = new THREE.MeshStandardMaterial({ color: 0xe0c068, roughness: 0.8, flatShading: true }); // yellow-beige beak/legs
   const tailMaterial = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8, flatShading: true }); // black tail
 
-  // 1. Body
-  const bodyGeom = new THREE.BoxGeometry(0.3, 0.35, 0.45);
+  // 1. Proud Plump Body (Main box + bulging chest)
+  const bodyGeom = new THREE.BoxGeometry(0.3, 0.36, 0.44);
   const body = new THREE.Mesh(bodyGeom, bodyMaterial);
-  body.position.y = 0.35;
+  body.position.set(0, 0.38, -0.02);
   body.castShadow = true;
   body.receiveShadow = true;
   group.add(body);
 
-  // 2. Neck & Head
-  const headGeom = new THREE.BoxGeometry(0.18, 0.35, 0.18);
+  const chestGeom = new THREE.BoxGeometry(0.28, 0.28, 0.2);
+  const chest = new THREE.Mesh(chestGeom, bodyMaterial);
+  chest.position.set(0, 0.46, 0.12);
+  chest.rotation.x = 0.25; // tilt up chest
+  chest.castShadow = true;
+  group.add(chest);
+
+  // 2. Curved Neck & Head (Lower S-neck + Upper head)
+  const lowerNeckGeom = new THREE.BoxGeometry(0.18, 0.26, 0.18);
+  lowerNeckGeom.translate(0, 0.13, 0); // pivot at base
+  const lowerNeck = new THREE.Mesh(lowerNeckGeom, neckMaterial);
+  lowerNeck.position.set(0, 0.52, 0.12);
+  lowerNeck.rotation.x = 0.35; // tilt forward
+  lowerNeck.castShadow = true;
+  group.add(lowerNeck);
+
+  const headGeom = new THREE.BoxGeometry(0.14, 0.22, 0.16);
+  headGeom.translate(0, 0.11, 0);
   const head = new THREE.Mesh(headGeom, neckMaterial);
-  head.position.set(0, 0.55, 0.15);
+  head.position.set(0, 0.72, 0.18);
+  head.rotation.x = -0.15; // tilt back slightly
   head.castShadow = true;
   group.add(head);
 
   // 3. Beak (pointing forward along +Z)
-  const beakGeom = new THREE.ConeGeometry(0.06, 0.15, 4);
+  const beakGeom = new THREE.ConeGeometry(0.045, 0.12, 4);
   beakGeom.rotateX(Math.PI / 2); // point forward
   const beak = new THREE.Mesh(beakGeom, beakMaterial);
-  beak.position.set(0, 0.62, 0.28);
+  beak.position.set(0, 0.78, 0.28);
   beak.castShadow = true;
   group.add(beak);
 
-  // 4. Comb (on top of head)
-  const combGeom = new THREE.BoxGeometry(0.04, 0.12, 0.18);
+  // 4. Comb (crest on top of head, curving back)
+  const combGeom = new THREE.BoxGeometry(0.035, 0.15, 0.22);
+  combGeom.translate(0, 0.075, -0.04);
   const comb = new THREE.Mesh(combGeom, combMaterial);
-  comb.position.set(0, 0.76, 0.12);
+  comb.position.set(0, 0.9, 0.16);
+  comb.rotation.x = -0.3; // tilt back
   comb.castShadow = true;
   group.add(comb);
 
-  // 5. Tail Feathers (sticking out back)
-  const tailGeom = new THREE.BoxGeometry(0.12, 0.28, 0.18);
-  tailGeom.translate(0, 0.14, -0.09);
-  const tail = new THREE.Mesh(tailGeom, tailMaterial);
-  tail.position.set(0, 0.35, -0.22);
-  tail.rotation.x = -0.4; // tilt up
-  tail.castShadow = true;
-  group.add(tail);
+  // 5. Red Wattle (under beak)
+  const wattleGeom = new THREE.BoxGeometry(0.03, 0.1, 0.07);
+  wattleGeom.translate(0, -0.05, 0);
+  const wattle = new THREE.Mesh(wattleGeom, combMaterial);
+  wattle.position.set(0, 0.72, 0.22);
+  wattle.castShadow = true;
+  group.add(wattle);
 
-  // 6. Legs & Feet
-  const leftLegGeom = new THREE.CylinderGeometry(0.02, 0.02, 0.22, 4);
+  // 6. Fanned Tail Feathers (staggered flat blades fanning out)
+  const tailGroup = new THREE.Group();
+  tailGroup.position.set(0, 0.44, -0.18);
+  
+  // Feather 1 (large center)
+  const f1Geom = new THREE.BoxGeometry(0.04, 0.38, 0.18);
+  f1Geom.translate(0, 0.19, -0.06);
+  const f1 = new THREE.Mesh(f1Geom, tailMaterial);
+  f1.rotation.x = -0.7; // angle up/back
+  f1.castShadow = true;
+  tailGroup.add(f1);
+
+  // Feather 2 (higher vertical angle)
+  const f2Geom = new THREE.BoxGeometry(0.035, 0.34, 0.16);
+  f2Geom.translate(0, 0.17, -0.05);
+  const f2 = new THREE.Mesh(f2Geom, tailMaterial);
+  f2.rotation.x = -0.35; // pointing more up
+  f2.castShadow = true;
+  tailGroup.add(f2);
+
+  // Feather 3 (lower horizontal angle)
+  const f3Geom = new THREE.BoxGeometry(0.035, 0.3, 0.15);
+  f3Geom.translate(0, 0.15, -0.04);
+  const f3 = new THREE.Mesh(f3Geom, tailMaterial);
+  f3.rotation.x = -1.05; // pointing further back
+  f3.castShadow = true;
+  tailGroup.add(f3);
+
+  group.add(tailGroup);
+
+  // 7. Legs & Detailed Feet (with toes)
+  const leftLegGeom = new THREE.CylinderGeometry(0.015, 0.015, 0.2, 4);
+  leftLegGeom.translate(0, -0.1, 0);
   const leftLeg = new THREE.Mesh(leftLegGeom, beakMaterial);
-  leftLeg.position.set(-0.08, 0.11, 0);
+  leftLeg.position.set(-0.08, 0.22, 0);
   leftLeg.castShadow = true;
   group.add(leftLeg);
 
+  // Left toes
+  const leftFoot = new THREE.Group();
+  leftFoot.position.set(-0.08, 0.02, 0);
+  
+  const toeGeom = new THREE.BoxGeometry(0.015, 0.012, 0.08);
+  toeGeom.translate(0, 0, 0.04); // pivot at back
+  
+  const toeCenter = new THREE.Mesh(toeGeom, beakMaterial);
+  toeCenter.castShadow = true;
+  leftFoot.add(toeCenter);
+  
+  const toeLeft = new THREE.Mesh(toeGeom, beakMaterial);
+  toeLeft.rotation.y = 0.35;
+  toeLeft.castShadow = true;
+  leftFoot.add(toeLeft);
+  
+  const toeRight = new THREE.Mesh(toeGeom, beakMaterial);
+  toeRight.rotation.y = -0.35;
+  toeRight.castShadow = true;
+  leftFoot.add(toeRight);
+  
+  group.add(leftFoot);
+
+  // Right Leg & Foot
   const rightLeg = leftLeg.clone();
   rightLeg.position.x = 0.08;
   group.add(rightLeg);
+
+  const rightFoot = leftFoot.clone();
+  rightFoot.position.x = 0.08;
+  group.add(rightFoot);
 
   // Scale the group slightly
   group.scale.setScalar(0.7);
