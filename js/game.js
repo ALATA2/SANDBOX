@@ -1401,10 +1401,11 @@ function initJoystick() {
 function createRooster() {
   const group = new THREE.Group();
   
-  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, flatShading: true }); // white body
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.8, flatShading: true }); // black body
+  const neckMaterial = new THREE.MeshStandardMaterial({ color: 0xd84315, roughness: 0.8, flatShading: true }); // golden-red head/neck
   const combMaterial = new THREE.MeshStandardMaterial({ color: 0xff2222, roughness: 0.8, flatShading: true }); // red comb
   const beakMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.8, flatShading: true }); // yellow beak/legs
-  const tailMaterial = new THREE.MeshStandardMaterial({ color: 0x1b4332, roughness: 0.8, flatShading: true }); // dark green tail
+  const tailMaterial = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8, flatShading: true }); // black tail
 
   // 1. Body
   const bodyGeom = new THREE.BoxGeometry(0.3, 0.35, 0.45);
@@ -1416,7 +1417,7 @@ function createRooster() {
 
   // 2. Neck & Head
   const headGeom = new THREE.BoxGeometry(0.18, 0.35, 0.18);
-  const head = new THREE.Mesh(headGeom, bodyMaterial);
+  const head = new THREE.Mesh(headGeom, neckMaterial);
   head.position.set(0, 0.55, 0.15);
   head.castShadow = true;
   group.add(head);

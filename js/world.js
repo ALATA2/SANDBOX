@@ -584,11 +584,12 @@ function createPineTree() {
   const pineGroup = new THREE.Group();
 
   const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x543d2b, roughness: 0.9, flatShading: true });
-  const foliageMaterial = new THREE.MeshStandardMaterial({ color: 0x275435, roughness: 0.82, flatShading: true });
+  const foliageMaterial1 = new THREE.MeshStandardMaterial({ color: 0x2e8b57, roughness: 0.8, flatShading: true }); // SeaGreen
+  const foliageMaterial2 = new THREE.MeshStandardMaterial({ color: 0x389a42, roughness: 0.8, flatShading: true }); // Vibrant Forest Green
 
   // 1. Detailed trunk
-  const trunkHeight = 4.5;
-  const trunkGeom = new THREE.CylinderGeometry(0.12, 0.28, trunkHeight, 5);
+  const trunkHeight = 5.0;
+  const trunkGeom = new THREE.CylinderGeometry(0.1, 0.26, trunkHeight, 5);
   // Shift pivot to base of trunk
   trunkGeom.translate(0, trunkHeight / 2, 0);
   const trunk = new THREE.Mesh(trunkGeom, trunkMaterial);
@@ -605,7 +606,7 @@ function createPineTree() {
     const stub = new THREE.Mesh(stubGeom, trunkMaterial);
     
     // Position along the trunk height
-    const sy = 0.6 + (i / stubCount) * 1.2 + Math.random() * 0.15;
+    const sy = 0.6 + (i / stubCount) * 0.8 + Math.random() * 0.15;
     stub.position.set(0, sy, 0);
     
     // Angle sticking outward and slightly downward
@@ -616,63 +617,58 @@ function createPineTree() {
     pineGroup.add(stub);
   }
 
-  // 3. Foliage: 4 overlapping 5-sided cones
-  const coneConfigs = [
-    { radius: 1.6, height: 2.4, y: 2.1 },
-    { radius: 1.3, height: 2.0, y: 3.4 },
-    { radius: 1.0, height: 1.6, y: 4.5 },
-    { radius: 0.65, height: 1.2, y: 5.4 }
-  ];
-
-  coneConfigs.forEach((conf, idx) => {
-    // Slight random variation per tree to look organic
-    const r = conf.radius * (0.9 + Math.random() * 0.2);
-    const h = conf.height * (0.9 + Math.random() * 0.2);
-    const yPos = conf.y;
-
-    const foliageGeom = new THREE.ConeGeometry(r, h, 5);
-    // Move pivot to bottom center of cone
-    foliageGeom.translate(0, h / 2, 0);
+  // 3. Foliage: 6 stacked layers of radiating flat shingle plates
+  const numLayers = 6;
+  for (let i = 0; i < numLayers; i++) {
+    const t = i / (numLayers - 1);
+    const yPos = 1.4 + t * 3.4; // distribute from Y=1.4 to 4.8
     
-    const foliageMesh = new THREE.Mesh(foliageGeom, foliageMaterial);
-    foliageMesh.position.y = yPos;
+    // Calculate tapered size of shingles at this layer
+    const l = 1.45 * (1.0 - t * 0.72); // length from trunk outward
+    const w = 0.72 * (1.0 - t * 0.72); // width of each plate
+    const th = 0.045; // thickness of plate
     
-    // Random y rotation to break symmetry
-    foliageMesh.rotation.y = Math.random() * Math.PI * 2;
-    foliageMesh.castShadow = true;
-    foliageMesh.receiveShadow = true;
+    // Number of shingles in this ring (more at bottom, fewer at top)
+    const N = Math.round(8 - t * 3); 
     
-    pineGroup.add(foliageMesh);
+    // Alternating rotation between layers to stagger the branch patterns
+    const stagger = (i % 2) * (Math.PI / N);
+    
+    // Alternate color between layers to add visual depth
+    const material = (i % 2 === 0) ? foliageMaterial1 : foliageMaterial2;
+    
+    // Dynamic trunk radius to position shingles offset from trunk surface
+    const trunkRadius = 0.26 - (yPos / trunkHeight) * 0.16;
+    const offset = trunkRadius * 0.5; // overlap into the trunk to prevent gaps
 
-    // 4. Detailed drooping branch tips around the base rim of each cone
-    const tipCount = 5; // Pentagonal symmetry
-    for (let k = 0; k < tipCount; k++) {
-      // Distribute radially
-      const angle = (k * Math.PI * 2) / tipCount + (Math.random() - 0.5) * 0.2;
-      const tipGroup = new THREE.Group();
+    const tilt = 0.44 + t * 0.08; // tilt downwards (steeper near the top crown)
+
+    for (let k = 0; k < N; k++) {
+      const angle = (k * Math.PI * 2) / N + stagger;
       
-      // Position at the rim of the cone bottom
-      const rx = Math.cos(angle) * r * 0.95;
-      const rz = Math.sin(angle) * r * 0.95;
-      tipGroup.position.set(rx, 0.05, rz); // close to bottom of cone
+      const shingleGeom = new THREE.BoxGeometry(w, th, l);
+      // Move pivot to the inner base of the shingle
+      shingleGeom.translate(0, 0, offset + l / 2);
       
-      // Face outward from center
-      tipGroup.rotation.y = -angle + Math.PI / 2;
+      const shingleMesh = new THREE.Mesh(shingleGeom, material);
+      shingleMesh.position.set(0, yPos, 0);
+      shingleMesh.rotation.x = tilt;
+      shingleMesh.rotation.y = angle;
+      shingleMesh.castShadow = true;
+      shingleMesh.receiveShadow = true;
       
-      // Small box branch tip drooping down
-      const tipLength = 0.35 + Math.random() * 0.2;
-      const tipWidth = 0.12 + Math.random() * 0.08;
-      const tipGeom = new THREE.BoxGeometry(tipWidth, 0.03, tipLength);
-      tipGeom.translate(0, 0, tipLength / 2); // pivot at base
-      
-      const tipMesh = new THREE.Mesh(tipGeom, foliageMaterial);
-      tipMesh.rotation.x = 0.3 + Math.random() * 0.25; // Droop down
-      tipMesh.castShadow = true;
-      tipGroup.add(tipMesh);
-      
-      foliageMesh.add(tipGroup);
+      pineGroup.add(shingleMesh);
     }
-  });
+  }
+
+  // 4. Sharp top crown cone to finish the tip of the tree
+  const crownGeom = new THREE.ConeGeometry(0.12, 0.75, 5);
+  crownGeom.translate(0, 0.375, 0); // pivot at base
+  const crown = new THREE.Mesh(crownGeom, foliageMaterial2);
+  crown.position.set(0, 4.8, 0);
+  crown.castShadow = true;
+  crown.receiveShadow = true;
+  pineGroup.add(crown);
 
   return pineGroup;
 }

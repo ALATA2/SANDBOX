@@ -1213,5 +1213,24 @@ body.is-mobile #interaction-prompt {
   box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(255,85,85,0.15);
 }
 
+/* Floating label for Arturo the Rooster */
+#arturo-label {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: rgba(18, 12, 28, 0.8);
+  border: 1px solid var(--accent-gold, #e6b800);
+  color: #fff;
+  padding: 5px 12px;
+  font-family: monospace;
+  font-size: 0.95rem;
+  font-weight: bold;
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 100;
+  white-space: nowrap;
+  box-shadow: 0 0 15px rgba(230, 184, 0, 0.35);
+  letter-spacing: 0.1em;
+}
+
 
 
