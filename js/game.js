@@ -24,7 +24,10 @@ export const game = {
   moonHaloMesh: null,
   time: 0,
   paused: false,
-  roosterMesh: null
+  roosterMesh: null,
+  crabs: [],
+  fishes: [],
+  seagulls: []
 };
 
 const blocker = document.getElementById('blocker');
@@ -390,6 +393,9 @@ function init() {
   const roosterSpawnY = getSurfaceHeightNear(28, 15, 28);
   game.roosterMesh.position.set(28, roosterSpawnY, 28);
   game.scene.add(game.roosterMesh);
+
+  // Spawn additional island life (crabs, fishes, seagulls)
+  spawnFauna();
 
   // Initialize atmospheric particles
   initMenuParticles();
@@ -1050,6 +1056,9 @@ function animate() {
       // Update Arturo Rooster
       updateRoosterBehavior(delta);
       
+      // Update Island Life Fauna (crabs, fishes, seagulls)
+      updateFauna(delta);
+      
       // Apply camera shake to playing camera if active
       if (cameraShake > 0) {
         const shakeX = (Math.random() - 0.5) * cameraShake * 0.08;
@@ -1566,6 +1575,488 @@ function updateArturoLabel() {
   } else {
     label.style.display = 'none';
   }
+}
+
+// Helper to create detailed low-poly crabs
+function createCrab() {
+  const group = new THREE.Group();
+  
+  const redMaterial = new THREE.MeshStandardMaterial({ color: 0xe63946, roughness: 0.7, flatShading: true }); // Crab red
+  const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.5 }); // Black eyes
+  const stalkMaterial = new THREE.MeshStandardMaterial({ color: 0xe63946, roughness: 0.7, flatShading: true });
+  
+  // 1. Body
+  const bodyGeom = new THREE.BoxGeometry(0.22, 0.09, 0.16);
+  const body = new THREE.Mesh(bodyGeom, redMaterial);
+  body.position.y = 0.08;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  group.add(body);
+  
+  // 2. Eyes on stalks
+  const leftStalk = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.08, 0.02), stalkMaterial);
+  leftStalk.position.set(-0.04, 0.14, 0.06);
+  leftStalk.castShadow = true;
+  group.add(leftStalk);
+  
+  const leftEye = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 0.035), eyeMaterial);
+  leftEye.position.set(-0.04, 0.18, 0.065);
+  leftEye.castShadow = true;
+  group.add(leftEye);
+  
+  const rightStalk = leftStalk.clone();
+  rightStalk.position.x = 0.04;
+  group.add(rightStalk);
+  
+  const rightEye = leftEye.clone();
+  rightEye.position.x = 0.04;
+  group.add(rightEye);
+
+  // 3. Claws (Pincers in front)
+  const leftArmGeom = new THREE.BoxGeometry(0.06, 0.04, 0.1);
+  leftArmGeom.translate(-0.03, 0, 0.05); // shift pivot
+  const leftArm = new THREE.Mesh(leftArmGeom, redMaterial);
+  leftArm.position.set(-0.08, 0.06, 0.06);
+  leftArm.rotation.y = 0.4;
+  leftArm.castShadow = true;
+  group.add(leftArm);
+  
+  const leftPincerGeom = new THREE.BoxGeometry(0.07, 0.07, 0.07);
+  const leftPincer = new THREE.Mesh(leftPincerGeom, redMaterial);
+  leftPincer.position.set(-0.13, 0.06, 0.13);
+  leftPincer.castShadow = true;
+  group.add(leftPincer);
+  
+  const rightArmGeom = new THREE.BoxGeometry(0.06, 0.04, 0.1);
+  rightArmGeom.translate(0.03, 0, 0.05);
+  const rightArm = new THREE.Mesh(rightArmGeom, redMaterial);
+  rightArm.position.set(0.08, 0.06, 0.06);
+  rightArm.rotation.y = -0.4;
+  rightArm.castShadow = true;
+  group.add(rightArm);
+  
+  const rightPincer = leftPincer.clone();
+  rightPincer.position.set(0.13, 0.06, 0.13);
+  group.add(rightPincer);
+
+  // 4. Six Legs (3 on each side)
+  group.legs = [];
+  const legGeom = new THREE.BoxGeometry(0.12, 0.02, 0.02);
+  legGeom.translate(0.06, 0, 0); // pivot at base
+  
+  for (let i = 0; i < 3; i++) {
+    // Left legs (point outwards along -X)
+    const legL = new THREE.Mesh(legGeom, redMaterial);
+    legL.position.set(-0.1, 0.05, -0.05 + i * 0.05);
+    legL.rotation.y = Math.PI - 0.3 + i * 0.3; // point leftward/angled
+    legL.rotation.z = -0.3; // angle down
+    legL.castShadow = true;
+    group.add(legL);
+    group.legs.push(legL);
+    
+    // Right legs (point outwards along +X)
+    const legR = new THREE.Mesh(legGeom, redMaterial);
+    legR.position.set(0.1, 0.05, -0.05 + i * 0.05);
+    legR.rotation.y = 0.3 - i * 0.3; // point rightward/angled
+    legR.rotation.z = 0.3; // angle down
+    legR.castShadow = true;
+    group.add(legR);
+    group.legs.push(legR);
+  }
+  
+  group.scale.setScalar(0.7);
+  return group;
+}
+
+// Helper to create detailed low-poly fishes
+function createFish() {
+  const group = new THREE.Group();
+  
+  // Bright orange/yellow tropical theme or neon blue
+  const colors = [0xff7a00, 0x00b4d8, 0xffd166, 0xef476f];
+  const chosenColor = colors[Math.floor(Math.random() * colors.length)];
+  
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: chosenColor, roughness: 0.5, flatShading: true });
+  const finMaterial = new THREE.MeshStandardMaterial({ color: chosenColor, roughness: 0.5, flatShading: true });
+  const accentMaterial = new THREE.MeshStandardMaterial({ color: 0xfff9e6, roughness: 0.5, flatShading: true });
+  const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.5 });
+  
+  // 1. Streamlined compressed body
+  const bodyGeom = new THREE.BoxGeometry(0.08, 0.16, 0.28);
+  const body = new THREE.Mesh(bodyGeom, bodyMaterial);
+  body.castShadow = true;
+  body.receiveShadow = true;
+  group.add(body);
+  
+  // 2. Eyes
+  const leftEye = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.025, 0.025), eyeMaterial);
+  leftEye.position.set(-0.042, 0.03, 0.08);
+  group.add(leftEye);
+  
+  const rightEye = leftEye.clone();
+  rightEye.position.x = 0.042;
+  group.add(rightEye);
+  
+  // 3. Tail Fin (animated back/forth)
+  const tailGroup = new THREE.Group();
+  tailGroup.position.set(0, 0, -0.14); // position at back of body
+  
+  const tailFinGeom = new THREE.BoxGeometry(0.02, 0.13, 0.09);
+  tailFinGeom.translate(0, 0, -0.045); // pivot at base
+  const tailFin = new THREE.Mesh(tailFinGeom, finMaterial);
+  tailFin.castShadow = true;
+  tailGroup.add(tailFin);
+  
+  // Accent tip on tail fin
+  const tailTipGeom = new THREE.BoxGeometry(0.022, 0.08, 0.03);
+  tailTipGeom.translate(0, 0, -0.08);
+  const tailTip = new THREE.Mesh(tailTipGeom, accentMaterial);
+  tailFin.add(tailTip);
+  
+  group.add(tailGroup);
+  group.tail = tailGroup; // store reference for animation
+  
+  // 4. Pectoral Fins (side fins)
+  const leftFinGeom = new THREE.BoxGeometry(0.07, 0.015, 0.05);
+  leftFinGeom.translate(-0.035, 0, 0); // pivot at body side
+  const leftFin = new THREE.Mesh(leftFinGeom, finMaterial);
+  leftFin.position.set(-0.04, -0.02, 0.02);
+  leftFin.rotation.z = -0.4;
+  leftFin.rotation.y = 0.2;
+  leftFin.castShadow = true;
+  group.add(leftFin);
+  
+  const rightFinGeom = new THREE.BoxGeometry(0.07, 0.015, 0.05);
+  rightFinGeom.translate(0.035, 0, 0);
+  const rightFin = new THREE.Mesh(rightFinGeom, finMaterial);
+  rightFin.position.set(0.04, -0.02, 0.02);
+  rightFin.rotation.z = 0.4;
+  rightFin.rotation.y = -0.2;
+  rightFin.castShadow = true;
+  group.add(rightFin);
+  
+  group.scale.setScalar(0.7);
+  return group;
+}
+
+// Helper to create detailed low-poly flying seagulls
+function createSeagull() {
+  const group = new THREE.Group();
+  
+  const whiteMaterial = new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.6, flatShading: true }); // white body
+  const greyMaterial = new THREE.MeshStandardMaterial({ color: 0x777777, roughness: 0.6, flatShading: true });  // wingtips
+  const beakMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.5, flatShading: true });  // yellow beak
+  
+  // 1. Body
+  const bodyGeom = new THREE.BoxGeometry(0.12, 0.1, 0.35);
+  const body = new THREE.Mesh(bodyGeom, whiteMaterial);
+  body.castShadow = true;
+  body.receiveShadow = true;
+  group.add(body);
+  
+  // 2. Beak (pointing forward along +Z)
+  const beakGeom = new THREE.ConeGeometry(0.03, 0.11, 4);
+  beakGeom.rotateX(Math.PI / 2);
+  const beak = new THREE.Mesh(beakGeom, beakMaterial);
+  beak.position.set(0, 0.02, 0.21);
+  beak.castShadow = true;
+  group.add(beak);
+  
+  // 3. Wings
+  const wingYShift = 0.03;
+  
+  // Left Wing Group (pivot at body side)
+  const leftWingGroup = new THREE.Group();
+  leftWingGroup.position.set(-0.06, wingYShift, 0);
+  
+  const leftWingGeom = new THREE.BoxGeometry(0.42, 0.015, 0.11);
+  leftWingGeom.translate(-0.21, 0, 0); // pivot at base
+  const leftWing = new THREE.Mesh(leftWingGeom, whiteMaterial);
+  leftWing.castShadow = true;
+  leftWingGroup.add(leftWing);
+  
+  const leftTipGeom = new THREE.BoxGeometry(0.12, 0.013, 0.09);
+  leftTipGeom.translate(-0.45, 0, -0.01);
+  const leftTip = new THREE.Mesh(leftTipGeom, greyMaterial);
+  leftWing.add(leftTip);
+  
+  group.add(leftWingGroup);
+  group.leftWing = leftWingGroup;
+  
+  // Right Wing Group
+  const rightWingGroup = new THREE.Group();
+  rightWingGroup.position.set(0.06, wingYShift, 0);
+  
+  const rightWingGeom = new THREE.BoxGeometry(0.42, 0.015, 0.11);
+  rightWingGeom.translate(0.21, 0, 0);
+  const rightWing = new THREE.Mesh(rightWingGeom, whiteMaterial);
+  rightWing.castShadow = true;
+  rightWingGroup.add(rightWing);
+  
+  const rightTipGeom = new THREE.BoxGeometry(0.12, 0.013, 0.09);
+  rightTipGeom.translate(0.45, 0, -0.01);
+  const rightTip = new THREE.Mesh(rightTipGeom, greyMaterial);
+  rightWing.add(rightTip);
+  
+  group.add(rightWingGroup);
+  group.rightWing = rightWingGroup;
+  
+  group.scale.setScalar(0.75);
+  return group;
+}
+
+// Spawns crabs, fishes, and seagulls in their respective ecological niches
+function spawnFauna() {
+  const spacing = world.spacing;
+  const mapWidth = world.sizeX * spacing;
+  const mapLength = world.sizeZ * spacing;
+  
+  // 1. Spawn Crabs on the sandy shore (Height Y between 4.05 and 5.6)
+  let spawnedCrabs = 0;
+  let attempts = 0;
+  while (spawnedCrabs < 5 && attempts < 150) {
+    attempts++;
+    const rx = Math.random() * (mapWidth - 10) + 5;
+    const rz = Math.random() * (mapLength - 10) + 5;
+    const ry = getSurfaceHeightNear(rx, 15, rz);
+    
+    if (ry >= 4.05 && ry <= 5.6) {
+      const crab = createCrab();
+      crab.position.set(rx, ry, rz);
+      
+      crab.state = 'idle';
+      crab.timer = 1.0 + Math.random() * 2.0;
+      crab.target = new THREE.Vector3(rx, ry, rz);
+      
+      game.scene.add(crab);
+      game.crabs.push(crab);
+      spawnedCrabs++;
+    }
+  }
+  
+  // 2. Spawn Fish submerged in water (Surface terrain Y < 3.7)
+  let spawnedFish = 0;
+  attempts = 0;
+  while (spawnedFish < 8 && attempts < 200) {
+    attempts++;
+    const rx = Math.random() * (mapWidth - 6) + 3;
+    const rz = Math.random() * (mapLength - 6) + 3;
+    const terrainY = getSurfaceHeightNear(rx, 15, rz);
+    
+    if (terrainY < 3.7) {
+      const fish = createFish();
+      const ry = 1.5 + Math.random() * 1.8; // Under water level (4.0)
+      fish.position.set(rx, ry, rz);
+      
+      fish.velocity = new THREE.Vector3(
+        (Math.random() - 0.5) * 1.2,
+        (Math.random() - 0.5) * 0.3,
+        (Math.random() - 0.5) * 1.2
+      );
+      fish.swimTimer = 2.0 + Math.random() * 3.0;
+      fish.targetY = ry;
+      
+      game.scene.add(fish);
+      game.fishes.push(fish);
+      spawnedFish++;
+    }
+  }
+  
+  // 3. Spawn Seagulls in the sky (Y = 11 to 16)
+  for (let i = 0; i < 4; i++) {
+    const seagull = createSeagull();
+    
+    const cx = mapWidth / 2 + (Math.random() - 0.5) * 20;
+    const cz = mapLength / 2 + (Math.random() - 0.5) * 20;
+    const radius = 8.0 + Math.random() * 12.0;
+    const height = 11.0 + Math.random() * 5.0;
+    const speed = 0.55 + Math.random() * 0.3; // radians per second
+    const angle = Math.random() * Math.PI * 2;
+    
+    seagull.orbit = { cx, cz, radius, height, speed, angle };
+    
+    const sx = cx + Math.cos(angle) * radius;
+    const sz = cz + Math.sin(angle) * radius;
+    seagull.position.set(sx, height, sz);
+    
+    game.scene.add(seagull);
+    game.seagulls.push(seagull);
+  }
+}
+
+// Drives AI state machines and animations for fauna
+function updateFauna(delta) {
+  const time = game.time;
+  const playerPos = game.controls.getObject().position;
+  const spacing = world.spacing;
+  const mapWidth = world.sizeX * spacing;
+  const mapLength = world.sizeZ * spacing;
+
+  // 1. Shore Crabs (wander or scuttle away from player)
+  game.crabs.forEach(crab => {
+    crab.timer -= delta;
+    
+    const distToPlayer = crab.position.distanceTo(playerPos);
+    const isFleeing = distToPlayer < 5.0;
+    
+    if (isFleeing) {
+      crab.state = 'fleeing';
+      const dir = crab.position.clone().sub(playerPos);
+      dir.y = 0;
+      dir.normalize();
+      
+      const speed = 2.2;
+      crab.position.addScaledVector(dir, speed * delta);
+      
+      const targetAngle = Math.atan2(dir.x, dir.z);
+      crab.rotation.y = targetAngle;
+      
+      if (crab.legs) {
+        crab.legs.forEach((leg, idx) => {
+          const phase = idx % 2 === 0 ? 1 : -1;
+          leg.rotation.y = (idx % 2 === 0 ? 0.3 : Math.PI - 0.3) + Math.sin(time * 30.0) * 0.45 * phase;
+        });
+      }
+      
+      crab.position.x = Math.max(3, Math.min(mapWidth - 3, crab.position.x));
+      crab.position.z = Math.max(3, Math.min(mapLength - 3, crab.position.z));
+      crab.position.y = getSurfaceHeightNear(crab.position.x, 15, crab.position.z);
+      
+      if (crab.position.y < 4.0 || crab.position.y > 6.0) {
+        const toCenter = new THREE.Vector3(mapWidth / 2, 4.2, mapLength / 2).sub(crab.position);
+        toCenter.y = 0;
+        toCenter.normalize();
+        crab.position.addScaledVector(toCenter, speed * delta);
+        crab.position.y = getSurfaceHeightNear(crab.position.x, 15, crab.position.z);
+      }
+    } else {
+      if (crab.state === 'fleeing') {
+        crab.state = 'idle';
+        crab.timer = 1.0 + Math.random() * 2.0;
+      }
+      
+      if (crab.state === 'idle') {
+        if (crab.legs) {
+          crab.legs.forEach((leg, idx) => {
+            leg.rotation.y = (idx % 2 === 0 ? 0.3 : Math.PI - 0.3);
+          });
+        }
+        
+        if (crab.timer <= 0) {
+          crab.state = 'walking';
+          crab.timer = 4.0 + Math.random() * 4.0;
+          
+          let attempts = 0;
+          let tx = crab.position.x;
+          let tz = crab.position.z;
+          let ty = crab.position.y;
+          while (attempts < 15) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 2.0 + Math.random() * 4.0;
+            tx = crab.position.x + Math.cos(angle) * dist;
+            tz = crab.position.z + Math.sin(angle) * dist;
+            
+            tx = Math.max(3, Math.min(mapWidth - 3, tx));
+            tz = Math.max(3, Math.min(mapLength - 3, tz));
+            ty = getSurfaceHeightNear(tx, 15, tz);
+            if (ty >= 4.05 && ty <= 5.8) break;
+            attempts++;
+          }
+          crab.target.set(tx, ty, tz);
+        }
+      } else if (crab.state === 'walking') {
+        const dir = crab.target.clone().sub(crab.position);
+        dir.y = 0;
+        const dist = dir.length();
+        
+        if (dist < 0.15 || crab.timer <= 0) {
+          crab.state = 'idle';
+          crab.timer = 1.5 + Math.random() * 3.0;
+        } else {
+          dir.normalize();
+          const speed = 0.6;
+          crab.position.addScaledVector(dir, speed * delta);
+          crab.position.y = getSurfaceHeightNear(crab.position.x, 15, crab.position.z);
+          
+          const targetAngle = Math.atan2(dir.x, dir.z);
+          crab.rotation.y = targetAngle;
+          
+          if (crab.legs) {
+            crab.legs.forEach((leg, idx) => {
+              const phase = idx % 2 === 0 ? 1 : -1;
+              leg.rotation.y = (idx % 2 === 0 ? 0.3 : Math.PI - 0.3) + Math.sin(time * 12.0) * 0.3 * phase;
+            });
+          }
+        }
+      }
+    }
+  });
+
+  // 2. Submerged Fish (steer in water, wiggle tails)
+  game.fishes.forEach(fish => {
+    fish.swimTimer -= delta;
+    
+    if (fish.swimTimer <= 0) {
+      fish.swimTimer = 2.0 + Math.random() * 3.0;
+      fish.velocity.set(
+        (Math.random() - 0.5) * 1.5,
+        (Math.random() - 0.5) * 0.3,
+        (Math.random() - 0.5) * 1.5
+      );
+      fish.targetY = 1.3 + Math.random() * 2.0;
+    }
+    
+    fish.position.addScaledVector(fish.velocity, delta);
+    fish.position.y += (fish.targetY - fish.position.y) * delta * 1.5;
+    
+    const terrainY = getSurfaceHeightNear(fish.position.x, 15, fish.position.z);
+    
+    if (terrainY > 3.8 || fish.position.x < 2 || fish.position.x > mapWidth - 2 || fish.position.z < 2 || fish.position.z > mapLength - 2) {
+      const toCenter = new THREE.Vector3(mapWidth / 2, fish.position.y, mapLength / 2).sub(fish.position);
+      toCenter.y = 0;
+      toCenter.normalize();
+      
+      if (terrainY > 3.8) {
+        fish.velocity.copy(toCenter).negate().multiplyScalar(1.2);
+      } else {
+        fish.velocity.copy(toCenter).multiplyScalar(1.2);
+      }
+      fish.swimTimer = 2.0;
+    }
+    
+    const swimDir = fish.velocity.clone();
+    swimDir.y = 0;
+    if (swimDir.lengthSq() > 0.001) {
+      swimDir.normalize();
+      const targetAngle = Math.atan2(swimDir.x, swimDir.z);
+      fish.rotation.y = targetAngle;
+    }
+    
+    if (fish.tail) {
+      fish.tail.rotation.y = Math.sin(time * 14.0) * 0.45;
+    }
+  });
+
+  // 3. Flying Seagulls (circular orbit, flap wings)
+  game.seagulls.forEach(gull => {
+    const orb = gull.orbit;
+    
+    orb.angle += orb.speed * delta;
+    
+    const targetX = orb.cx + Math.cos(orb.angle) * orb.radius;
+    const targetZ = orb.cz + Math.sin(orb.angle) * orb.radius;
+    
+    gull.position.set(targetX, orb.height, targetZ);
+    
+    const tx = -Math.sin(orb.angle);
+    const tz = Math.cos(orb.angle);
+    gull.rotation.y = Math.atan2(tx, tz);
+    
+    if (gull.leftWing && gull.rightWing) {
+      gull.leftWing.rotation.z = Math.sin(time * 8.5) * 0.48;
+      gull.rightWing.rotation.z = -Math.sin(time * 8.5) * 0.48;
+    }
+  });
 }
 
 export function togglePause() {
