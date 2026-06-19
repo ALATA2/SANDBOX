@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { initControls, updateControls, joystickValues, triggerMobileJump } from './controls.js';
-import { initWorld, updateWorld, world, getSurfaceHeightNear } from './world.js';
+import { initWorld, updateWorld, world, getSurfaceHeightNear, checkInWater } from './world.js';
 import { initPlayer, updatePlayer, triggerToolSwing } from './player.js';
 import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard } from './interact.js';
 import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute } from './audio.js';
@@ -464,6 +464,12 @@ function init() {
         feedbackModal.style.display = 'none';
       }
       
+      // Close inventory overlay if pointer is locked
+      const inventoryOverlay = document.getElementById('inventory-overlay');
+      if (inventoryOverlay) {
+        inventoryOverlay.style.display = 'none';
+      }
+      
       // Close confirmation modal & pause screen on relock
       const confirmModal = document.getElementById('confirm-modal');
       if (confirmModal) {
@@ -494,8 +500,12 @@ function init() {
       // If we were inside the active gameplay and pointer lock is lost (e.g. Escape key, Alt-tab, etc.)
       if (game.pointerLocked) {
         const feedbackModal = document.getElementById('feedback-modal');
-        if (feedbackModal && feedbackModal.style.display === 'flex') {
-          // Peacefully lost lock because the feedback modal was opened via E key
+        const inventoryOverlay = document.getElementById('inventory-overlay');
+        const isPeacefulUnlock = (feedbackModal && feedbackModal.style.display === 'flex') ||
+                                 (inventoryOverlay && inventoryOverlay.style.display === 'flex');
+        
+        if (isPeacefulUnlock) {
+          // Peacefully lost lock because a modal was opened
           game.pointerLocked = false;
         } else {
           // Always show the exit confirmation modal when game focus is lost
@@ -1047,9 +1057,8 @@ function animate() {
   // Check underwater state
   let isSubmerged = false;
   if (game.pointerLocked && game.controls && game.controls.getObject) {
-    if (game.controls.getObject().position.y < 4.8) {
-      isSubmerged = true;
-    }
+    const camPos = game.controls.getObject().position;
+    isSubmerged = checkInWater(camPos.x, camPos.y, camPos.z);
   }
   updateUnderwaterVisuals(isSubmerged);
 

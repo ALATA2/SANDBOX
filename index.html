@@ -15,13 +15,13 @@
       "imports": {
         "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
         "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/",
-        "./js/controls.js": "./js/controls.js?v=0.029",
-        "./js/world.js": "./js/world.js?v=0.029",
-        "./js/player.js": "./js/player.js?v=0.029",
-        "./js/interact.js": "./js/interact.js?v=0.029",
-        "./js/audio.js": "./js/audio.js?v=0.029",
-        "./js/lang.js": "./js/lang.js?v=0.029",
-        "./js/game.js": "./js/game.js?v=0.029"
+        "./js/controls.js": "./js/controls.js?v=0.031",
+        "./js/world.js": "./js/world.js?v=0.031",
+        "./js/player.js": "./js/player.js?v=0.031",
+        "./js/interact.js": "./js/interact.js?v=0.031",
+        "./js/audio.js": "./js/audio.js?v=0.031",
+        "./js/lang.js": "./js/lang.js?v=0.031",
+        "./js/game.js": "./js/game.js?v=0.031"
       }
     }
   </script>
@@ -339,12 +339,83 @@
 
   <!-- Mobile Pause Button -->
   <button id="mobile-pause-btn" class="mobile-only">⏸️</button>
+  <button id="mobile-inv-btn" class="mobile-only">🎒</button>
 
   <!-- Pause Screen Overlay -->
   <div id="pause-overlay" style="display: none;">
     <div class="pause-box">
       <h1 style="color: var(--accent-gold); text-shadow: 0 0 15px rgba(230,184,0,0.4); margin: 0 0 10px 0; font-size: 1.8rem; letter-spacing: 0.15em;">GIOCO IN PAUSA</h1>
       <p style="color: #ccc; margin: 0; font-size: 0.9rem; letter-spacing: 0.05em;">PREMI <span style="color: var(--accent-gold); font-weight: bold;">P</span> PER RIPRENDERE</p>
+    </div>
+  </div>
+
+  <!-- Inventory Overlay -->
+  <div id="inventory-overlay" style="display: none;">
+    <div class="inventory-box">
+      <!-- Title Bar -->
+      <div class="inventory-header">
+        <h1 data-translate="inv_title">INVENTORY</h1>
+        <button id="inventory-close-btn" class="inv-close-btn">✖</button>
+      </div>
+      
+      <!-- Body Grid (Two columns) -->
+      <div class="inventory-body">
+        <!-- Left Side: Bag & Crafting -->
+        <div class="inv-left-column">
+          <!-- Bag -->
+          <div class="inv-section">
+            <h2 data-translate="inv_my_bag" class="inv-section-title">MY BAG</h2>
+            <div id="inv-bag-grid" class="inv-grid">
+              <!-- Dynamically populated slots -->
+            </div>
+          </div>
+          
+          <!-- Crafting -->
+          <div class="inv-section" style="margin-top: 15px; flex: 1;">
+            <h2 data-translate="inv_crafting" class="inv-section-title">CRAFTING STATION</h2>
+            <div id="inv-crafting-list" class="inv-crafting-list">
+              <!-- Dynamically populated recipes -->
+            </div>
+          </div>
+        </div>
+        
+        <!-- Right Side: Character & Clothing -->
+        <div class="inv-right-column">
+          <h2 data-translate="inv_character" class="inv-section-title">CHARACTER</h2>
+          <div class="inv-character-panel">
+            <div class="character-preview-container">
+              <svg class="char-outline" viewBox="0 0 100 150">
+                <!-- Head -->
+                <circle cx="50" cy="20" r="10" stroke="var(--accent-gold)" stroke-width="1.5" fill="none" />
+                <!-- Torso -->
+                <path d="M 35 32 L 65 32 L 60 85 L 40 85 Z" stroke="var(--accent-gold)" stroke-width="1.5" fill="none" />
+                <!-- Left arm -->
+                <path d="M 33 34 L 18 68 L 22 70 L 33 42" stroke="var(--accent-gold)" stroke-width="1.5" fill="none" />
+                <!-- Right arm -->
+                <path d="M 67 34 L 82 68 L 78 70 L 67 42" stroke="var(--accent-gold)" stroke-width="1.5" fill="none" />
+                <!-- Left leg -->
+                <path d="M 42 85 L 35 135 L 26 135" stroke="var(--accent-gold)" stroke-width="1.5" fill="none" />
+                <!-- Right leg -->
+                <path d="M 58 85 L 65 135 L 74 135" stroke="var(--accent-gold)" stroke-width="1.5" fill="none" />
+              </svg>
+            </div>
+            
+            <div class="clothing-slots-container">
+              <div class="clothing-slot" data-slot="head"></div>
+              <div class="clothing-slot" data-slot="torso"></div>
+              <div class="clothing-slot" data-slot="legs"></div>
+              <div class="clothing-slot" data-slot="feet"></div>
+            </div>
+          </div>
+          
+          <!-- Character stats modifiers -->
+          <div class="clothing-stats-display">
+            <div class="stat-mod-row"><span class="stat-name" data-translate="inv_stat_energy">Stamina Decay</span> <span id="stat-mod-energy" class="stat-value">100%</span></div>
+            <div class="stat-mod-row"><span class="stat-name" data-translate="inv_stat_hydration">Hydration Decay</span> <span id="stat-mod-hydration" class="stat-value">100%</span></div>
+            <div class="stat-mod-row"><span class="stat-name" data-translate="inv_stat_speed">Speed Bonus</span> <span id="stat-mod-speed" class="stat-value">+0%</span></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -373,9 +444,9 @@
   </div>
 
   <!-- Version Tag for Deployment Tracking -->
-  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.029</div>
+  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.031</div>
 
   <!-- Main JS entry point as an ES Module -->
-  <script type="module" src="js/game.js?v=0.029"></script>
+  <script type="module" src="js/game.js?v=0.031"></script>
 </body>
 </html>

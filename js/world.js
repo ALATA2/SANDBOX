@@ -11,6 +11,7 @@ export const world = {
   density: null, // Flat Float32Array
   terrainMesh: null,
   waterMesh: null,
+  waterActive: null, // 3D Uint8Array for connected water cells
   oreDeposits: [], // Array of meshes representing ore nodes
   sceneryMeshes: [], // Trees, rocks, etc.
   trees: [], // Array of active tree groups for Axe chopping
@@ -341,6 +342,7 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
         const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
         if (dist < gRadius) {
+          if (y === 0) continue; // Bedrock is indestructible!
           const currentDens = getDensity(x, y, z);
           // Subtract density (air has negative density)
           const reduction = depth * (1.0 - dist / gRadius);
@@ -354,7 +356,176 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
   // Regenerate terrain mesh if anything changed
   if (modified) {
     buildMarchingCubesMesh();
+    updateWaterGrid();
+    if (world.waterMesh) {
+      const newWaterGeom = buildWaterGeometry();
+      const oldWaterGeom = world.waterMesh.geometry;
+      world.waterMesh.geometry = newWaterGeom;
+      oldWaterGeom.dispose();
+    }
   }
+}
+
+// 3D BFS to flood fill water cells connected to the map boundaries
+export function updateWaterGrid() {
+  const size = world.sizeX * world.sizeY * world.sizeZ;
+  if (!world.waterActive) {
+    world.waterActive = new Uint8Array(size);
+  } else {
+    world.waterActive.fill(0);
+  }
+
+  const queue = [];
+  const visited = world.waterActive;
+
+  function getIdx(x, y, z) {
+    return x * world.sizeY * world.sizeZ + y * world.sizeZ + z;
+  }
+
+  const maxWaterY = 2; // Water level 4.0m corresponds to grid index y = 2 (up to 4.8m)
+
+  // 1. Add all border air voxels at y <= maxWaterY to the queue
+  for (let y = 0; y <= maxWaterY; y++) {
+    for (let x = 0; x < world.sizeX; x++) {
+      for (let z of [0, world.sizeZ - 1]) {
+        if (getDensity(x, y, z) <= 0.15) {
+          const idx = getIdx(x, y, z);
+          visited[idx] = 1;
+          queue.push(x, y, z);
+        }
+      }
+    }
+    for (let z = 1; z < world.sizeZ - 1; z++) {
+      for (let x of [0, world.sizeX - 1]) {
+        if (getDensity(x, y, z) <= 0.15) {
+          const idx = getIdx(x, y, z);
+          visited[idx] = 1;
+          queue.push(x, y, z);
+        }
+      }
+    }
+  }
+
+  // 2. BFS Traversal
+  let head = 0;
+  const dirs = [
+    [1, 0, 0], [-1, 0, 0],
+    [0, 1, 0], [0, -1, 0],
+    [0, 0, 1], [0, 0, -1]
+  ];
+
+  while (head < queue.length) {
+    const cx = queue[head++];
+    const cy = queue[head++];
+    const cz = queue[head++];
+
+    for (let i = 0; i < dirs.length; i++) {
+      const nx = cx + dirs[i][0];
+      const ny = cy + dirs[i][1];
+      const nz = cz + dirs[i][2];
+
+      if (nx >= 0 && nx < world.sizeX &&
+          ny >= 0 && ny <= maxWaterY &&
+          nz >= 0 && nz < world.sizeZ) {
+        
+        const nIdx = getIdx(nx, ny, nz);
+        if (visited[nIdx] === 0 && getDensity(nx, ny, nz) <= 0.15) {
+          visited[nIdx] = 1;
+          queue.push(nx, ny, nz);
+        }
+      }
+    }
+  }
+}
+
+// Build a dynamic BufferGeometry for water, only rendering quads in active water columns
+export function buildWaterGeometry() {
+  const positions = [];
+  const colors = [];
+  const depths = [];
+
+  const spacing = world.spacing;
+  const cx = world.sizeX / 2;
+  const cz = world.sizeZ / 2;
+  
+  const colorShallow = new THREE.Color(0x00dfc0); // Luminous beach teal
+  const colorDeep = new THREE.Color(0x093f60);    // Vibrant deep ocean blue
+  const tempColor = new THREE.Color();
+
+  function addQuad(x1, z1, x2, z2, isOuter) {
+    const verts = [
+      [x1, z1], [x2, z1], [x1, z2],
+      [x2, z1], [x2, z2], [x1, z2]
+    ];
+
+    for (let i = 0; i < 6; i++) {
+      const vx = verts[i][0];
+      const vz = verts[i][1];
+      
+      const localX = vx - cx * spacing;
+      const localY = vz - cz * spacing;
+
+      positions.push(localX, localY, 0); // Z is 0 (will be displaced by waves)
+
+      let depth = 4.0;
+      if (!isOuter) {
+        const groundY = getSurfaceHeightNear(vx, 5.0, vz);
+        depth = Math.max(0, 4.0 - groundY);
+      }
+
+      const t = Math.min(1.0, depth / 4.0);
+      tempColor.copy(colorShallow).lerp(colorDeep, t);
+      colors.push(tempColor.r, tempColor.g, tempColor.b);
+      depths.push(depth);
+    }
+  }
+
+  // 1. Outer Ocean (4 large quads)
+  addQuad(-150, 64, 214, 150, true);
+  addQuad(-150, -150, 214, 0, true);
+  addQuad(-150, 0, 0, 64, true);
+  addQuad(64, 0, 214, 64, true);
+
+  // 2. Inner Ocean cells
+  for (let x = 0; x < world.sizeX; x++) {
+    for (let z = 0; z < world.sizeZ; z++) {
+      const idx = x * world.sizeY * world.sizeZ + 2 * world.sizeZ + z;
+      if (world.waterActive && world.waterActive[idx] === 1) {
+        const x1 = x * spacing;
+        const x2 = (x + 1) * spacing;
+        const z1 = z * spacing;
+        const z2 = (z + 1) * spacing;
+        addQuad(x1, z1, x2, z2, false);
+      }
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setAttribute('depth', new THREE.Float32BufferAttribute(depths, 1));
+  geometry.computeVertexNormals();
+
+  return geometry;
+}
+
+// Check if a specific world coordinate (px, py, pz) is inside active water
+export function checkInWater(px, py, pz) {
+  const spacing = world.spacing;
+  const gx = Math.floor(px / spacing);
+  const gy = Math.floor(py / spacing);
+  const gz = Math.floor(pz / spacing);
+  
+  // If coordinates are outside grid bounds, it's open ocean, check height
+  if (gx < 0 || gx >= world.sizeX || gz < 0 || gz >= world.sizeZ) {
+    return py < 4.0;
+  }
+  
+  if (gy < 0) return true; // below bedrock
+  if (gy >= world.sizeY) return false;
+  
+  const idx = gx * world.sizeY * world.sizeZ + gy * world.sizeZ + gz;
+  return world.waterActive && world.waterActive[idx] === 1;
 }
 
 // Bilinear density interpolation at a specific grid height (y)
@@ -805,40 +976,8 @@ function spawnScenery() {
   const cz = world.sizeZ / 2;
 
   // 1. Crystal Water Plane with Depth Color Gradients
-  const waterGeometry = new THREE.PlaneGeometry(300, 300, 32, 32);
-  
-  // Calculate vertex colors and depth attributes based on terrain depth
-  const positionAttribute = waterGeometry.attributes.position;
-  const colors = [];
-  const depths = [];
-  const colorShallow = new THREE.Color(0x00dfc0); // Luminous beach teal
-  const colorDeep = new THREE.Color(0x093f60);    // Vibrant deep ocean blue
-  
-  const tempColor = new THREE.Color();
-  
-  for (let i = 0; i < positionAttribute.count; i++) {
-    const vx = positionAttribute.getX(i);
-    const vy = positionAttribute.getY(i); // geometry Y is mapped to world Z after rotation
-    
-    // In world coordinates, the vertex position is:
-    const worldX = (cx * spacing) + vx;
-    const worldZ = (cz * spacing) + vy; // note PlaneGeometry Y maps to world Z
-    
-    // Find the ground height at this point. Water surface is at Y = 4.0
-    const groundY = getSurfaceHeightNear(worldX, 5.0, worldZ);
-    const depth = Math.max(0, 4.0 - groundY);
-    
-    // Smoothly interpolate between shallow turquoise and deep blue based on depth
-    // If depth is 0 (shore), it's shallow. If depth is 4 meters or more, it's deep.
-    const t = Math.min(1.0, depth / 4.0);
-    tempColor.copy(colorShallow).lerp(colorDeep, t);
-    
-    colors.push(tempColor.r, tempColor.g, tempColor.b);
-    depths.push(depth);
-  }
-  
-  waterGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  waterGeometry.setAttribute('depth', new THREE.Float32BufferAttribute(depths, 1));
+  updateWaterGrid();
+  const waterGeometry = buildWaterGeometry();
   
   const waterMaterial = new THREE.MeshStandardMaterial({
     vertexColors: true, // Enable vertex colors!

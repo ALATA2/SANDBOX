@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { game } from './game.js';
-import { getSurfaceHeightNear, checkCollision } from './world.js';
+import { getSurfaceHeightNear, checkCollision, checkInWater } from './world.js';
+import { player } from './player.js';
 
 // Movement state variables
 export let moveForward = false;
@@ -89,7 +90,7 @@ export function updateControls(delta) {
   const position = playerObj.position;
 
   // 1. Water check: Wading or swimming slows down movement and dampens gravity
-  const inWater = position.y < 4.8; // Water level is 4.0
+  const inWater = checkInWater(position.x, position.y - 1.0, position.z);
   
   // Apply gravity / buoyancy force
   if (inWater) {
@@ -139,8 +140,12 @@ export function updateControls(delta) {
   const right = new THREE.Vector3();
   right.crossVectors(forward, game.camera.up).normalize();
 
+  // Apply speed boost from equipped boots
+  const hasBoots = player.equipped && player.equipped.feet === 'wooden_boots';
+  const speedMultiplier = hasBoots ? 1.15 : 1.0;
+
   // Apply acceleration input
-  const moveSpeed = inWater ? 28.0 : 45.0; // Acceleration force
+  const moveSpeed = (inWater ? 28.0 : 45.0) * speedMultiplier; // Acceleration force
   if (game.isMobile) {
     velocity.addScaledVector(forward, direction.z * moveSpeed * delta);
     velocity.addScaledVector(right, direction.x * moveSpeed * delta);
@@ -155,7 +160,7 @@ export function updateControls(delta) {
 
   // Cap horizontal speed to keep movement smooth
   const horizontalVelocity = new THREE.Vector2(velocity.x, velocity.z);
-  const maxSpeed = inWater ? 2.5 : 5.0;
+  const maxSpeed = (inWater ? 2.5 : 5.0) * speedMultiplier;
   if (horizontalVelocity.length() > maxSpeed) {
     horizontalVelocity.setLength(maxSpeed);
     velocity.x = horizontalVelocity.x;
@@ -221,7 +226,8 @@ export function updateControls(delta) {
 }
 
 export function triggerMobileJump() {
-  const inWater = game.controls && game.controls.getObject && game.controls.getObject().position.y < 4.8;
+  const p = game.controls && game.controls.getObject && game.controls.getObject().position;
+  const inWater = p && checkInWater(p.x, p.y - 1.0, p.z);
   if (canJump) {
     velocity.y = 8.5; // Jump vertical velocity
     canJump = false;

@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { game } from './game.js';
 import { moveForward, moveBackward, moveLeft, moveRight } from './controls.js';
+import { getTranslation } from './lang.js';
+import { playSelect } from './audio.js';
 
 export const player = {
   health: 100,
@@ -25,7 +27,17 @@ export const player = {
     stone: 1,
     wood: 5,
     leaves: 4,
-    rope: 2
+    rope: 2,
+    straw_hat: 0,
+    explorer_vest: 1, // Start with explorer vest
+    grass_pants: 0,
+    wooden_boots: 0
+  },
+  equipped: {
+    head: null,
+    torso: null,
+    legs: null,
+    feet: null
   }
 };
 
@@ -54,11 +66,13 @@ export function initPlayer() {
   // 4. Set starting slot selection
   selectSlot(6); // Slot 7 (index 6, Pickaxe)
 
-  // 5. Setup Keyboard listener for slot swapping (1-8 keys)
+  // 5. Setup Keyboard listener for slot swapping (1-8 keys) and inventory toggle
   document.addEventListener('keydown', (e) => {
     if (e.key >= '1' && e.key <= '8') {
       const idx = parseInt(e.key) - 1;
       selectSlot(idx);
+    } else if (e.key === 'i' || e.key === 'I') {
+      toggleInventory();
     }
   });
 
@@ -69,13 +83,51 @@ export function initPlayer() {
     }
   });
 
+  // Setup scroll wheel listener for slot swapping
+  document.addEventListener('wheel', (e) => {
+    if (game.pointerLocked && !game.paused) {
+      let idx = player.selectedSlot;
+      if (e.deltaY > 0) {
+        idx = (idx + 1) % 8;
+      } else if (e.deltaY < 0) {
+        idx = (idx - 1 + 8) % 8;
+      }
+      selectSlot(idx);
+    }
+  });
+
   // Setup slot clicks
   document.querySelectorAll('.hotbar-slot').forEach(slot => {
     slot.addEventListener('click', (e) => {
       const idx = parseInt(slot.getAttribute('data-slot'));
-      selectSlot(idx);
+      if (!isNaN(idx)) selectSlot(idx);
     });
   });
+
+  // Setup inventory close button click
+  const closeBtn = document.getElementById('inventory-close-btn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      toggleInventory();
+    });
+  }
+
+  // Setup clothing slot click listeners to unequip
+  document.querySelectorAll('.clothing-slot').forEach(slot => {
+    slot.addEventListener('click', () => {
+      const slotType = slot.getAttribute('data-slot');
+      unequipItem(slotType);
+    });
+  });
+
+  // Setup mobile backpack button click
+  const mobileInvBtn = document.getElementById('mobile-inv-btn');
+  if (mobileInvBtn) {
+    mobileInvBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      toggleInventory();
+    });
+  }
 }
 
 // Draw a beautiful low-poly Spear
@@ -315,8 +367,17 @@ export function updatePlayer(delta) {
   }
 
   // 3. Update Player Stats decay (Health, Energy, Hydration)
+  // Apply buffs from equipped clothing
+  const hasHat = player.equipped && player.equipped.head === 'straw_hat';
+  const hasVest = player.equipped && player.equipped.torso === 'explorer_vest';
+  const hasPants = player.equipped && player.equipped.legs === 'grass_pants';
+
+  const hydrationDecayRate = 0.7 * (hasHat ? 0.75 : 1.0);
+  const energyDecayRate = 3.5 * (hasVest ? 0.8 : 1.0);
+  const healthDamageRate = 2.5 * (hasPants ? 0.7 : 1.0);
+
   // Hydration decays slowly over time
-  player.hydration = Math.max(0, player.hydration - 0.7 * delta);
+  player.hydration = Math.max(0, player.hydration - hydrationDecayRate * delta);
   
   // Energy decays slightly, recovers if standing still
   let isWalking = false;
@@ -326,14 +387,14 @@ export function updatePlayer(delta) {
   }
   
   if (isWalking) {
-    player.energy = Math.max(0, player.energy - 3.5 * delta);
+    player.energy = Math.max(0, player.energy - energyDecayRate * delta);
   } else {
     player.energy = Math.min(100, player.energy + 8.0 * delta); // recover
   }
 
   // Health decays if starved or dehydrated
   if (player.hydration <= 0 || player.energy <= 0) {
-    player.health = Math.max(0, player.health - 2.5 * delta);
+    player.health = Math.max(0, player.health - healthDamageRate * delta);
   }
 
   // 4. Update HUD UI elements
@@ -385,11 +446,252 @@ export function updatePlayer(delta) {
 // Display float message in screen (+1 Ore)
 export function showHudMessage(text) {
   const el = document.getElementById('hud-message');
-  el.innerText = text;
-  el.classList.add('visible');
+  if (el) {
+    el.innerText = text;
+    el.classList.add('visible');
+    
+    // Clear after 1.5 seconds
+    setTimeout(() => {
+      el.classList.remove('visible');
+    }, 1500);
+  }
+}
+
+// Toggle Inventory Overlay
+export function toggleInventory() {
+  const overlay = document.getElementById('inventory-overlay');
+  if (!overlay) return;
   
-  // Clear after 1.5 seconds
-  setTimeout(() => {
-    el.classList.remove('visible');
-  }, 1500);
+  if (overlay.style.display === 'flex') {
+    if (game.controls) {
+      game.controls.lock(); // This will trigger pointerlockchange to close overlay and unpause game
+    }
+  } else {
+    overlay.style.display = 'flex';
+    game.paused = true;
+    if (game.controls) {
+      game.controls.unlock();
+    }
+    renderInventoryUI();
+  }
+}
+
+// Render Inventory Overlay Panels
+export function renderInventoryUI() {
+  // 1. Render My Bag Grid
+  const bagGrid = document.getElementById('inv-bag-grid');
+  if (!bagGrid) return;
+  bagGrid.innerHTML = '';
+
+  // All inventory item definitions
+  const items = [
+    { id: 'wood', name: 'Wood', icon: '🪵', labelKey: 'hotbar.wood' },
+    { id: 'stone', name: 'Stone', icon: '🪨', labelKey: 'hotbar.stone' },
+    { id: 'leaves', name: 'Leaves', icon: '🍃', labelKey: 'hotbar.leaves' },
+    { id: 'rope', name: 'Rope', icon: '🧵', labelKey: 'hotbar.rope' },
+    { id: 'ore', name: 'Gold Ore', icon: '🪙', labelKey: 'hotbar.ore' },
+    { id: 'straw_hat', name: 'Straw Hat', icon: '👒', labelKey: 'inv.straw_hat' },
+    { id: 'explorer_vest', name: 'Explorer Vest', icon: '🦺', labelKey: 'inv.explorer_vest' },
+    { id: 'grass_pants', name: 'Grass Pants', icon: '👖', labelKey: 'inv.grass_pants' },
+    { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', labelKey: 'inv.wooden_boots' }
+  ];
+
+  // Render items the player actually has
+  let slotsCreated = 0;
+  items.forEach(item => {
+    const count = player.inventory[item.id] || 0;
+    if (count > 0) {
+      slotsCreated++;
+      const slot = document.createElement('div');
+      slot.className = 'inv-slot';
+      slot.innerHTML = `
+        <span class="inv-slot-icon">${item.icon}</span>
+        <span class="inv-slot-label">${getTranslation(item.labelKey) || item.name}</span>
+        <span class="inv-slot-count">x${count}</span>
+      `;
+      slot.addEventListener('click', () => {
+        equipItem(item.id);
+      });
+      bagGrid.appendChild(slot);
+    }
+  });
+
+  // Fill up to 15 slots with empty slots for clean grid aesthetics
+  for (let i = slotsCreated; i < 15; i++) {
+    const emptySlot = document.createElement('div');
+    emptySlot.className = 'inv-slot empty';
+    emptySlot.innerHTML = `<span class="inv-slot-icon" style="opacity: 0.15;">⏹</span>`;
+    bagGrid.appendChild(emptySlot);
+  }
+
+  // 2. Render Crafting List
+  const craftingList = document.getElementById('inv-crafting-list');
+  if (craftingList) {
+    craftingList.innerHTML = '';
+    const recipes = [
+      { id: 'rope', name: 'Rope', icon: '🧵', cost: { leaves: 3 }, costText: '3 Leaves', labelKey: 'hotbar.rope', descKey: 'recipe.rope' },
+      { id: 'straw_hat', name: 'Straw Hat', icon: '👒', cost: { leaves: 6, rope: 2 }, costText: '6 Leaves, 2 Ropes', labelKey: 'inv.straw_hat', descKey: 'recipe.straw_hat' },
+      { id: 'grass_pants', name: 'Grass Pants', icon: '👖', cost: { leaves: 8, rope: 3 }, costText: '8 Leaves, 3 Ropes', labelKey: 'inv.grass_pants', descKey: 'recipe.grass_pants' },
+      { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', cost: { wood: 4, rope: 2 }, costText: '4 Wood, 2 Ropes', labelKey: 'inv.wooden_boots', descKey: 'recipe.wooden_boots' }
+    ];
+
+    recipes.forEach(recipe => {
+      let isAffordable = true;
+      for (const res in recipe.cost) {
+        if ((player.inventory[res] || 0) < recipe.cost[res]) {
+          isAffordable = false;
+        }
+      }
+
+      const itemEl = document.createElement('div');
+      itemEl.className = 'crafting-item';
+      
+      const localizedName = getTranslation(recipe.labelKey) || recipe.name;
+      const localizedCost = getTranslation(recipe.descKey) || recipe.costText;
+
+      itemEl.innerHTML = `
+        <div class="crafting-info">
+          <div class="crafting-title-row">
+            <span class="crafting-icon">${recipe.icon}</span>
+            <span class="crafting-title">${localizedName}</span>
+          </div>
+          <span class="crafting-cost">${localizedCost}</span>
+        </div>
+        <button class="craft-btn ${isAffordable ? 'active' : ''}" ${isAffordable ? '' : 'disabled'}>CRAFT</button>
+      `;
+
+      const btn = itemEl.querySelector('.craft-btn');
+      btn.addEventListener('click', () => {
+        if (isAffordable) {
+          // Deduct
+          for (const res in recipe.cost) {
+            player.inventory[res] -= recipe.cost[res];
+          }
+          // Add
+          player.inventory[recipe.id] = (player.inventory[recipe.id] || 0) + 1;
+          
+          playSelect(); // audio feedback
+
+          // Sync & Render
+          syncHotbarCounts();
+          renderInventoryUI();
+        }
+      });
+
+      craftingList.appendChild(itemEl);
+    });
+  }
+
+  // 3. Render Clothing Slots
+  const clothingSlots = {
+    head: { id: 'straw_hat', name: 'Straw Hat', icon: '👒', labelKey: 'inv.straw_hat' },
+    torso: { id: 'explorer_vest', name: 'Explorer Vest', icon: '🦺', labelKey: 'inv.explorer_vest' },
+    legs: { id: 'grass_pants', name: 'Grass Pants', icon: '👖', labelKey: 'inv.grass_pants' },
+    feet: { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', labelKey: 'inv.wooden_boots' }
+  };
+
+  for (const slotType in clothingSlots) {
+    const el = document.querySelector(`.clothing-slot[data-slot="${slotType}"]`);
+    if (el) {
+      const equippedId = player.equipped[slotType];
+      if (equippedId) {
+        const itemInfo = clothingSlots[slotType];
+        el.classList.remove('empty');
+        el.innerHTML = `
+          <span class="clothing-slot-type">${slotType.toUpperCase()}</span>
+          <div class="clothing-slot-content">
+            <span class="slot-icon">${itemInfo.icon}</span>
+            <span class="slot-text">${getTranslation(itemInfo.labelKey) || itemInfo.name}</span>
+          </div>
+        `;
+      } else {
+        el.classList.add('empty');
+        el.innerHTML = `
+          <span class="clothing-slot-type">${slotType.toUpperCase()}</span>
+          <div class="clothing-slot-content">
+            <span class="slot-icon" style="opacity: 0.25;">📁</span>
+            <span class="slot-text">${getTranslation('inv.empty') || '[Empty]'}</span>
+          </div>
+        `;
+      }
+    }
+  }
+
+  // 4. Update Stats Modifiers Labels
+  const hasHat = player.equipped.head === 'straw_hat';
+  const hasVest = player.equipped.torso === 'explorer_vest';
+  const hasBoots = player.equipped.feet === 'wooden_boots';
+
+  document.getElementById('stat-mod-energy').innerText = hasVest ? '80%' : '100%';
+  document.getElementById('stat-mod-hydration').innerText = hasHat ? '75%' : '100%';
+  document.getElementById('stat-mod-speed').innerText = hasBoots ? '+15%' : '+0%';
+}
+
+// Equip wearable item
+function equipItem(itemId) {
+  let slotType = null;
+  if (itemId === 'straw_hat') slotType = 'head';
+  else if (itemId === 'explorer_vest') slotType = 'torso';
+  else if (itemId === 'grass_pants') slotType = 'legs';
+  else if (itemId === 'wooden_boots') slotType = 'feet';
+
+  if (!slotType) return; // not wearable
+
+  const currentEquipped = player.equipped[slotType];
+  if (currentEquipped) {
+    player.inventory[currentEquipped] = (player.inventory[currentEquipped] || 0) + 1;
+  }
+
+  player.equipped[slotType] = itemId;
+  player.inventory[itemId]--;
+
+  playSelect(); // audio feedback
+  renderInventoryUI();
+}
+
+// Unequip wearable item
+function unequipItem(slotType) {
+  const equippedId = player.equipped[slotType];
+  if (!equippedId) return;
+
+  player.equipped[slotType] = null;
+  player.inventory[equippedId] = (player.inventory[equippedId] || 0) + 1;
+
+  playSelect(); // audio feedback
+  renderInventoryUI();
+}
+
+// Sync HUD Hotbar counts
+export function syncHotbarCounts() {
+  const slot4 = document.querySelector('.hotbar-slot[data-slot="3"]');
+  if (slot4) {
+    const count = slot4.querySelector('.slot-count');
+    if (count) count.innerText = `x${player.inventory.leaves || 0}`;
+  }
+  const slot5 = document.querySelector('.hotbar-slot[data-slot="4"]');
+  if (slot5) {
+    const count = slot5.querySelector('.slot-count');
+    if (count) count.innerText = `x${player.inventory.rope || 0}`;
+  }
+  const slot6 = document.querySelector('.hotbar-slot[data-slot="5"]');
+  if (slot6) {
+    const count = slot6.querySelector('.slot-count');
+    if (count) count.innerText = `x${player.inventory.wood || 0}`;
+  }
+  const slot8 = document.querySelector('.hotbar-slot[data-slot="7"]');
+  if (slot8) {
+    const label = slot8.querySelector('.slot-label');
+    const count = slot8.querySelector('.slot-count');
+    const icon = slot8.querySelector('.slot-icon');
+    
+    if (player.inventory.ore > 0) {
+      if (label) label.innerText = getTranslation('hotbar.ore') || 'Ore';
+      if (icon) icon.innerText = "🪙";
+      if (count) count.innerText = `x${player.inventory.ore}`;
+    } else {
+      if (label) label.innerText = getTranslation('hotbar.stone') || 'Stone';
+      if (icon) icon.innerText = "🪨";
+      if (count) count.innerText = `x${player.inventory.stone || 0}`;
+    }
+  }
 }
