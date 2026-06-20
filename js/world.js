@@ -564,16 +564,16 @@ export function checkInWater(px, py, pz) {
 
 // Bilinear density interpolation at a specific grid height (y)
 export function getDensity2DInterpolated(gx, y, gz) {
-  const x0 = Math.floor(gx);
-  const z0 = Math.floor(gz);
-
   // If coordinates are out of grid bounds, treat it as air (-1.0)
-  if (x0 < 0 || x0 >= world.sizeX - 1 || z0 < 0 || z0 >= world.sizeZ - 1) {
+  if (gx < 0 || gx >= world.sizeX || gz < 0 || gz >= world.sizeZ) {
     return -1.0;
   }
 
-  const x1 = x0 + 1;
-  const z1 = z0 + 1;
+  const x0 = Math.floor(gx);
+  const z0 = Math.floor(gz);
+
+  const x1 = Math.min(x0 + 1, world.sizeX - 1);
+  const z1 = Math.min(z0 + 1, world.sizeZ - 1);
 
   const tx = gx - x0;
   const tz = gz - z0;
@@ -624,20 +624,20 @@ export function getDensityInterpolated(px, py, pz) {
   const gy = py / spacing;
   const gz = pz / spacing;
 
+  // If coordinates are out of grid bounds, treat it as air (-1.0)
+  if (gx < 0 || gx >= world.sizeX || 
+      gy < 0 || gy >= world.sizeY || 
+      gz < 0 || gz >= world.sizeZ) {
+    return -1.0;
+  }
+
   const x0 = Math.floor(gx);
   const y0 = Math.floor(gy);
   const z0 = Math.floor(gz);
 
-  // If coordinates are out of grid bounds, treat it as air (-1.0)
-  if (x0 < 0 || x0 >= world.sizeX - 1 || 
-      y0 < 0 || y0 >= world.sizeY - 1 || 
-      z0 < 0 || z0 >= world.sizeZ - 1) {
-    return -1.0;
-  }
-
-  const x1 = x0 + 1;
-  const y1 = y0 + 1;
-  const z1 = z0 + 1;
+  const x1 = Math.min(x0 + 1, world.sizeX - 1);
+  const y1 = Math.min(y0 + 1, world.sizeY - 1);
+  const z1 = Math.min(z0 + 1, world.sizeZ - 1);
 
   const tx = gx - x0;
   const ty = gy - y0;
