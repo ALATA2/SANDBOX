@@ -799,23 +799,24 @@ function createPineTree() {
     pineGroup.add(stub);
   }
 
-  // 3. Foliage: 9 layers of realistic drooping folded leaves
-  const numLayers = 9;
+  // 3. Foliage: 11 layers of dense evergreen branches matching the reference
+  const numLayers = 11;
   for (let i = 0; i < numLayers; i++) {
     const t = i / (numLayers - 1);
-    const yPos = 1.2 + t * 3.8; // distribute from Y=1.2 to 5.0
+    // Non-linear power distribution clusters layers closer towards the top crown
+    const yPos = 1.0 + Math.pow(t, 0.7) * 4.15; // distribute from Y=1.0 to 5.15
     
     // Calculate tapered size of branch at this layer
-    const L = 1.85 * (1.0 - t * 0.76);        // Length of the branch outward
-    const W = 0.62 * (1.0 - t * 0.66);        // Width of the branch base
-    const H_inner = 0.16 * (1.0 - t * 0.66);  // Height of the fold at the trunk
-    const tipDroop = 0.52 * (1.0 - t * 0.76); // How much the tip droops below the base
+    const L = 1.95 * (1.0 - Math.pow(t, 0.85) * 0.78);        // Length of the branch outward
+    const W = 0.75 * (1.0 - Math.pow(t, 0.85) * 0.68);        // Width of the branch base
+    const H_inner = 0.22 * (1.0 - t * 0.7);                   // Height of the fold at the trunk
+    const tipDroop = 0.65 * (1.0 - t * 0.78);                 // How much the tip droops below the base
     
     // Number of branches in this layer (more at bottom, fewer at top)
-    const N = Math.round(9 - t * 4); 
+    const N = Math.round(10 - t * 5); 
     
-    // Alternating rotation between layers to stagger the branch patterns
-    const stagger = (i % 2) * (Math.PI / N);
+    // Alternating stagger and some offset variation to break perfect radial alignment
+    const stagger = (i % 2) * (Math.PI / N) + (i * 0.2);
     
     // Alternate color between layers to add visual depth
     const material = (i % 2 === 0) ? foliageMaterial1 : foliageMaterial2;
@@ -828,20 +829,72 @@ function createPineTree() {
       
       const branchGeom = new THREE.BufferGeometry();
       
-      // We model each branch as a folded paper tent (shallow inverted V) that tapers to a point
-      // Vertices: v0 (inner peak), v1 (inner left), v2 (inner right), v3 (outer tip)
+      // We model each branch as a 2-segment, 3-cross-section folded plate.
+      // Cross-sections along local Z (outward from trunk):
+      // 1. Inner (Z = baseZ)
+      // 2. Middle (Z = midZ)
+      // 3. Tip (Z = tipZ)
       const baseZ = -trunkRadius * 0.8;
+      const midZ = baseZ + (L - baseZ) * 0.5;
+      const tipZ = L;
       
+      // Widths at each section
+      const W_inner = W;
+      const W_mid = W * 0.85;
+      const W_tip = W * 0.40;
+      
+      // Vertical offsets (droop and fold crease)
+      // Crease fold is highest in center and tapers down towards the outer edges
+      const ySide_inner = 0;
+      const yCenter_inner = H_inner;
+      
+      const ySide_mid = -tipDroop * 0.35;
+      const yCenter_mid = ySide_mid + H_inner * 0.6;
+      
+      const ySide_tip = -tipDroop;
+      const yCenter_tip = ySide_tip + H_inner * 0.2;
+      
+      // 8 triangles forming a curved, folded, shingled branch
       const vertices = new Float32Array([
-        // Left side triangle: v0, v1, v3
-        0, H_inner, baseZ,    // v0
-        -W / 2, 0, baseZ,     // v1
-        0, -tipDroop, L,      // v3
+        // Left side, Inner to Mid: InnerCenter, InnerLeft, MidLeft
+        0, yCenter_inner, baseZ,
+        -W_inner / 2, ySide_inner, baseZ,
+        -W_mid / 2, ySide_mid, midZ,
         
-        // Right side triangle: v0, v3, v2
-        0, H_inner, baseZ,    // v0
-        0, -tipDroop, L,      // v3
-        W / 2, 0, baseZ       // v2
+        // Left side, Inner to Mid: InnerCenter, MidLeft, MidCenter
+        0, yCenter_inner, baseZ,
+        -W_mid / 2, ySide_mid, midZ,
+        0, yCenter_mid, midZ,
+        
+        // Right side, Inner to Mid: InnerCenter, MidRight, InnerRight
+        0, yCenter_inner, baseZ,
+        W_mid / 2, ySide_mid, midZ,
+        W_inner / 2, ySide_inner, baseZ,
+        
+        // Right side, Inner to Mid: InnerCenter, MidCenter, MidRight
+        0, yCenter_inner, baseZ,
+        0, yCenter_mid, midZ,
+        W_mid / 2, ySide_mid, midZ,
+        
+        // Left side, Mid to Tip: MidCenter, MidLeft, TipLeft
+        0, yCenter_mid, midZ,
+        -W_mid / 2, ySide_mid, midZ,
+        -W_tip / 2, ySide_tip, tipZ,
+        
+        // Left side, Mid to Tip: MidCenter, TipLeft, TipCenter
+        0, yCenter_mid, midZ,
+        -W_tip / 2, ySide_tip, tipZ,
+        0, yCenter_tip, tipZ,
+        
+        // Right side, Mid to Tip: MidCenter, TipRight, MidRight
+        0, yCenter_mid, midZ,
+        W_tip / 2, ySide_tip, tipZ,
+        W_mid / 2, ySide_mid, midZ,
+        
+        // Right side, Mid to Tip: MidCenter, TipCenter, TipRight
+        0, yCenter_mid, midZ,
+        0, yCenter_tip, tipZ,
+        W_tip / 2, ySide_tip, tipZ
       ]);
       
       branchGeom.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
@@ -861,6 +914,15 @@ function createPineTree() {
       pineGroup.add(branchMesh);
     }
   }
+
+  // 4. Add a vertical crown cone at the top of the trunk to cap the tree's tip cleanly
+  const crownConeGeom = new THREE.ConeGeometry(0.24, 0.7, 5);
+  crownConeGeom.translate(0, 0.35, 0);
+  const crownCone = new THREE.Mesh(crownConeGeom, foliageMaterial1);
+  crownCone.position.set(0, 5.15, 0); // Cap it right at the top
+  crownCone.castShadow = true;
+  crownCone.receiveShadow = true;
+  pineGroup.add(crownCone);
 
   // Random rotation on the entire tree to make each instance unique
   pineGroup.rotation.y = Math.random() * Math.PI * 2;
