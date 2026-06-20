@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { game } from './game.js';
 import { getSurfaceHeightNear, checkCollision, checkInWater } from './world.js';
-import { player } from './player.js';
+import { player, showHudMessage } from './player.js';
 
 // Movement state variables
 export let moveForward = false;
@@ -220,6 +220,17 @@ export function updateControls(delta) {
   // Safety net: if player falls below the world or coordinates become NaN, teleport them safely to the center of the island
   if (position.y < -40.0 || Number.isNaN(position.x) || Number.isNaN(position.y) || Number.isNaN(position.z)) {
     console.warn("Safety net triggered! Player position:", position.x, position.y, position.z, "Velocity Y:", velocity.y);
+    let reason = "Safety Reset: ";
+    if (position.y < -40.0) {
+      reason += `Fell below -40 (Y=${position.y.toFixed(1)})`;
+    } else if (Number.isNaN(position.x)) {
+      reason += "NaN X";
+    } else if (Number.isNaN(position.y)) {
+      reason += "NaN Y";
+    } else if (Number.isNaN(position.z)) {
+      reason += "NaN Z";
+    }
+    showHudMessage(reason);
     position.set(32, 12, 32);
     velocity.set(0, 0, 0);
   }
