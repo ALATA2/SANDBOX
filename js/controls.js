@@ -115,6 +115,10 @@ export function updateControls(delta) {
   velocity.x -= velocity.x * friction * delta;
   velocity.z -= velocity.z * friction * delta;
 
+  if (Number.isNaN(velocity.z)) {
+    showHudMessage("NaN Z: after friction");
+  }
+
   // Reset direction vector
   if (game.isMobile) {
     direction.x = joystickValues.x;
@@ -140,6 +144,10 @@ export function updateControls(delta) {
   const right = new THREE.Vector3();
   right.crossVectors(forward, game.camera.up).normalize();
 
+  if (Number.isNaN(forward.z)) {
+    showHudMessage(`NaN Z: forward.z NaN! camDir.x=${camDir.x.toFixed(3)}, camDir.z=${camDir.z.toFixed(3)}`);
+  }
+
   // Apply speed boost from equipped boots
   const hasBoots = player.equipped && player.equipped.feet === 'wooden_boots';
   const speedMultiplier = hasBoots ? 1.15 : 1.0;
@@ -158,6 +166,10 @@ export function updateControls(delta) {
     }
   }
 
+  if (Number.isNaN(velocity.z)) {
+    showHudMessage("NaN Z: after addScaledVector");
+  }
+
   // Cap horizontal speed to keep movement smooth
   const horizontalVelocity = new THREE.Vector2(velocity.x, velocity.z);
   const maxSpeed = (inWater ? 2.5 : 5.0) * speedMultiplier;
@@ -165,6 +177,10 @@ export function updateControls(delta) {
     horizontalVelocity.setLength(maxSpeed);
     velocity.x = horizontalVelocity.x;
     velocity.z = horizontalVelocity.z;
+  }
+
+  if (Number.isNaN(velocity.z)) {
+    showHudMessage("NaN Z: after speed cap");
   }
 
   // 2. Sliding Wall Collision Detection
@@ -184,6 +200,10 @@ export function updateControls(delta) {
   const nextZ = position.z + velocity.z * delta;
   const isColZ = checkCollision(position.x, position.y - 0.4, nextZ) || 
                  checkCollision(position.x, position.y - 1.2, nextZ);
+
+  if (Number.isNaN(nextZ)) {
+    showHudMessage(`NaN Z: nextZ NaN! pos.z=${position.z.toFixed(2)}, vel.z=${velocity.z.toFixed(2)}`);
+  }
 
   if (!isColZ) {
     position.z = nextZ;
