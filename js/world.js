@@ -450,6 +450,14 @@ export function buildWaterGeometry() {
   const colorDeep = new THREE.Color(0x093f60);    // Vibrant deep ocean blue
   const tempColor = new THREE.Color();
 
+  const startX = -20.8;
+  const endX = 84.8;
+  const startZ = -20.8;
+  const endZ = 84.8;
+
+  const cellCountX = Math.round((endX - startX) / spacing);
+  const cellCountZ = Math.round((endZ - startZ) / spacing);
+
   function isWaterActiveAt(vx, vz) {
     const gx = Math.floor(vx / spacing);
     const gz = Math.floor(vz / spacing);
@@ -460,22 +468,48 @@ export function buildWaterGeometry() {
     return world.waterActive && world.waterActive[idx] === 1;
   }
 
-  function addQuad(x1, z1, x2, z2, isOuter) {
+  function isCellActive(cx, cz) {
+    if (cx < 0 || cx >= cellCountX || cz < 0 || cz >= cellCountZ) {
+      return true;
+    }
+    const vx = startX + (cx + 0.5) * spacing;
+    const vz = startZ + (cz + 0.5) * spacing;
+    return isWaterActiveAt(vx, vz);
+  }
+
+  function isVertexActive(gx, gz) {
+    for (let dx = -1; dx <= 0; dx++) {
+      for (let dz = -1; dz <= 0; dz++) {
+        if (isCellActive(gx + dx, gz + dz)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function addQuad(x1, z1, x2, z2, ix, iz, isOuter) {
     const verts = [
-      [x1, z1], [x1, z2], [x2, z1],
-      [x2, z1], [x1, z2], [x2, z2]
+      { x: x1, z: z1, gx: ix, gz: iz },
+      { x: x1, z: z2, gx: ix, gz: iz + 1 },
+      { x: x2, z: z1, gx: ix + 1, gz: iz },
+      { x: x2, z: z1, gx: ix + 1, gz: iz },
+      { x: x1, z: z2, gx: ix, gz: iz + 1 },
+      { x: x2, z: z2, gx: ix + 1, gz: iz + 1 }
     ];
 
     for (let i = 0; i < 6; i++) {
-      const vx = verts[i][0];
-      const vz = verts[i][1];
+      const vx = verts[i].x;
+      const vz = verts[i].z;
+      const vgx = verts[i].gx;
+      const vgz = verts[i].gz;
       
       // Push directly in world X-Z coordinates (Y is height, initially 0, modified by waves)
       positions.push(vx, 0, vz);
 
       let depth = 4.0;
       if (!isOuter) {
-        if (isWaterActiveAt(vx, vz)) {
+        if (isVertexActive(vgx, vgz)) {
           const groundY = getSurfaceHeightNear(vx, 5.0, vz);
           depth = Math.max(0, 4.0 - groundY);
         } else {
@@ -497,15 +531,10 @@ export function buildWaterGeometry() {
       const nextX = Math.min(x2, x + stepX);
       for (let z = z1; z < z2; z += stepZ) {
         const nextZ = Math.min(z2, z + stepZ);
-        addQuad(x, z, nextX, nextZ, isOuter);
+        addQuad(x, z, nextX, nextZ, 0, 0, isOuter);
       }
     }
   }
-
-  const startX = -20.8;
-  const endX = 84.8;
-  const startZ = -20.8;
-  const endZ = 84.8;
 
   // 1. Outer Ocean (Segmented Sectors to match waves)
   // Sector 1: Top
@@ -518,8 +547,6 @@ export function buildWaterGeometry() {
   addSegmentedSector(endX, startZ, 214, endZ, true);
 
   // 2. Inner Ocean cells
-  const cellCountX = Math.round((endX - startX) / spacing);
-  const cellCountZ = Math.round((endZ - startZ) / spacing);
   for (let ix = 0; ix < cellCountX; ix++) {
     const x1 = startX + ix * spacing;
     const x2 = x1 + spacing;
@@ -527,9 +554,26 @@ export function buildWaterGeometry() {
       const z1 = startZ + iz * spacing;
       const z2 = z1 + spacing;
       
-      // Render the cell if water is active at its center
-      if (isWaterActiveAt((x1 + x2) / 2, (z1 + z2) / 2)) {
-        addQuad(x1, z1, x2, z2, false);
+      // Render the cell if water is active at its center, or if any of its 8 neighbors is active
+      let shouldRender = false;
+      if (isCellActive(ix, iz)) {
+        shouldRender = true;
+      } else {
+        // Check 8 neighbors
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dz = -1; dz <= 1; dz++) {
+            if (dx === 0 && dz === 0) continue;
+            if (isCellActive(ix + dx, iz + dz)) {
+              shouldRender = true;
+              break;
+            }
+          }
+          if (shouldRender) break;
+        }
+      }
+
+      if (shouldRender) {
+        addQuad(x1, z1, x2, z2, ix, iz, false);
       }
     }
   }
