@@ -445,8 +445,6 @@ export function buildWaterGeometry() {
   const depths = [];
 
   const spacing = world.spacing;
-  const cx = world.sizeX / 2;
-  const cz = world.sizeZ / 2;
   
   const colorShallow = new THREE.Color(0x00dfc0); // Luminous beach teal
   const colorDeep = new THREE.Color(0x093f60);    // Vibrant deep ocean blue
@@ -462,10 +460,8 @@ export function buildWaterGeometry() {
       const vx = verts[i][0];
       const vz = verts[i][1];
       
-      const localX = vx - cx * spacing;
-      const localY = vz - cz * spacing;
-
-      positions.push(localX, localY, 0); // Z is 0 (will be displaced by waves)
+      // Push directly in world X-Z coordinates (Y is height, initially 0, modified by waves)
+      positions.push(vx, 0, vz);
 
       let depth = 4.0;
       if (!isOuter) {
@@ -1051,8 +1047,7 @@ function spawnScenery() {
     emissive: new THREE.Color(0x09202e) // Subtle glow so the water looks luminous and alive
   });
   world.waterMesh = new THREE.Mesh(waterGeometry, waterMaterial);
-  world.waterMesh.rotation.x = -Math.PI / 2;
-  world.waterMesh.position.set(cx * spacing, 4.0, cz * spacing); // Water height
+  world.waterMesh.position.set(0, 4.0, 0); // Directly at coordinate origin, Y=4.0 height (no rotation needed)
   game.scene.add(world.waterMesh);
 
   // 2. Low-Poly Trees and Rocks

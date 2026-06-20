@@ -933,14 +933,14 @@ function animate() {
     
     for (let i = 0; i < positionAttribute.count; i++) {
       const vx = positionAttribute.getX(i);
-      const vy = positionAttribute.getY(i);
+      const vz = positionAttribute.getZ(i); // Read world Z directly (geometry is not rotated)
       const depth = depthAttribute ? depthAttribute.getX(i) : 4.0;
       
-      let zVal = 0;
+      let yVal = 0; // Local Y is height (instead of Z, since geometry is not rotated)
       
       // Calculate deep water wave (smooth rolling waves)
       const deepWave = Math.sin(vx * 0.12 + time * 1.6) * 0.18 + 
-                       Math.cos(vy * 0.12 + time * 1.2) * 0.18;
+                       Math.cos(vz * 0.12 + time * 1.2) * 0.18;
                        
       if (depth < 2.0) {
         // Near the shore (shallow depth): fade in fast, tight ripples (increspature)
@@ -948,19 +948,19 @@ function animate() {
         
         // Fast, high-frequency shore ripples
         const shoreRipple = Math.sin(vx * 0.45 + time * 3.5) * 0.05 + 
-                            Math.cos(vy * 0.45 + time * 2.8) * 0.05;
+                            Math.cos(vz * 0.45 + time * 2.8) * 0.05;
                             
         // Blend between large waves and small ripples near the shore
         // Scale down the final amplitude slightly close to the sand to avoid harsh clipping
         const amplitudeFactor = 0.4 + 0.6 * (depth / 2.0); // go down to 40% height right at the shore
         
-        zVal = (deepWave * (1.0 - rippleFactor) + shoreRipple * rippleFactor) * amplitudeFactor;
+        yVal = (deepWave * (1.0 - rippleFactor) + shoreRipple * rippleFactor) * amplitudeFactor;
       } else {
         // Deep ocean: standard smooth rolling waves
-        zVal = deepWave;
+        yVal = deepWave;
       }
       
-      positionAttribute.setZ(i, zVal);
+      positionAttribute.setY(i, yVal); // Set Y instead of Z
     }
     positionAttribute.needsUpdate = true;
     world.waterMesh.geometry.computeVertexNormals();
