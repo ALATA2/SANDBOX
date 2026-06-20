@@ -452,8 +452,8 @@ export function buildWaterGeometry() {
 
   function addQuad(x1, z1, x2, z2, isOuter) {
     const verts = [
-      [x1, z1], [x2, z1], [x1, z2],
-      [x2, z1], [x2, z2], [x1, z2]
+      [x1, z1], [x1, z2], [x2, z1],
+      [x2, z1], [x1, z2], [x2, z2]
     ];
 
     for (let i = 0; i < 6; i++) {
@@ -1044,6 +1044,7 @@ function spawnScenery() {
     transparent: true,
     opacity: 0.90,
     flatShading: true,
+    side: THREE.DoubleSide,
     emissive: new THREE.Color(0x09202e) // Subtle glow so the water looks luminous and alive
   });
   world.waterMesh = new THREE.Mesh(waterGeometry, waterMaterial);
