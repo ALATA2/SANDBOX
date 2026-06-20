@@ -450,6 +450,16 @@ export function buildWaterGeometry() {
   const colorDeep = new THREE.Color(0x093f60);    // Vibrant deep ocean blue
   const tempColor = new THREE.Color();
 
+  function isWaterActiveAt(vx, vz) {
+    const gx = Math.floor(vx / spacing);
+    const gz = Math.floor(vz / spacing);
+    if (gx < 0 || gx >= world.sizeX || gz < 0 || gz >= world.sizeZ) {
+      return true; // Open ocean is always active
+    }
+    const idx = gx * world.sizeY * world.sizeZ + 2 * world.sizeZ + gz;
+    return world.waterActive && world.waterActive[idx] === 1;
+  }
+
   function addQuad(x1, z1, x2, z2, isOuter) {
     const verts = [
       [x1, z1], [x1, z2], [x2, z1],
@@ -465,8 +475,12 @@ export function buildWaterGeometry() {
 
       let depth = 4.0;
       if (!isOuter) {
-        const groundY = getSurfaceHeightNear(vx, 5.0, vz);
-        depth = Math.max(0, 4.0 - groundY);
+        if (isWaterActiveAt(vx, vz)) {
+          const groundY = getSurfaceHeightNear(vx, 5.0, vz);
+          depth = Math.max(0, 4.0 - groundY);
+        } else {
+          depth = 0;
+        }
       }
 
       const t = Math.min(1.0, depth / 4.0);
@@ -476,21 +490,45 @@ export function buildWaterGeometry() {
     }
   }
 
-  // 1. Outer Ocean (4 large quads)
-  addQuad(-150, 64, 214, 150, true);
-  addQuad(-150, -150, 214, 0, true);
-  addQuad(-150, 0, 0, 64, true);
-  addQuad(64, 0, 214, 64, true);
+  function addSegmentedSector(x1, z1, x2, z2, isOuter) {
+    const stepX = 8.0;
+    const stepZ = 8.0;
+    for (let x = x1; x < x2; x += stepX) {
+      const nextX = Math.min(x2, x + stepX);
+      for (let z = z1; z < z2; z += stepZ) {
+        const nextZ = Math.min(z2, z + stepZ);
+        addQuad(x, z, nextX, nextZ, isOuter);
+      }
+    }
+  }
+
+  const startX = -20.8;
+  const endX = 84.8;
+  const startZ = -20.8;
+  const endZ = 84.8;
+
+  // 1. Outer Ocean (Segmented Sectors to match waves)
+  // Sector 1: Top
+  addSegmentedSector(-150, endZ, 214, 150, true);
+  // Sector 2: Bottom
+  addSegmentedSector(-150, -150, 214, startZ, true);
+  // Sector 3: Left
+  addSegmentedSector(-150, startZ, startX, endZ, true);
+  // Sector 4: Right
+  addSegmentedSector(endX, startZ, 214, endZ, true);
 
   // 2. Inner Ocean cells
-  for (let x = 0; x < world.sizeX; x++) {
-    for (let z = 0; z < world.sizeZ; z++) {
-      const idx = x * world.sizeY * world.sizeZ + 2 * world.sizeZ + z;
-      if (world.waterActive && world.waterActive[idx] === 1) {
-        const x1 = x * spacing;
-        const x2 = (x + 1) * spacing;
-        const z1 = z * spacing;
-        const z2 = (z + 1) * spacing;
+  const cellCountX = Math.round((endX - startX) / spacing);
+  const cellCountZ = Math.round((endZ - startZ) / spacing);
+  for (let ix = 0; ix < cellCountX; ix++) {
+    const x1 = startX + ix * spacing;
+    const x2 = x1 + spacing;
+    for (let iz = 0; iz < cellCountZ; iz++) {
+      const z1 = startZ + iz * spacing;
+      const z2 = z1 + spacing;
+      
+      // Render the cell if water is active at its center
+      if (isWaterActiveAt((x1 + x2) / 2, (z1 + z2) / 2)) {
         addQuad(x1, z1, x2, z2, false);
       }
     }
