@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { initControls, updateControls, joystickValues, triggerMobileJump } from './controls.js';
-import { initWorld, updateWorld, world, getSurfaceHeightNear, checkInWater } from './world.js';
+import { initWorld, updateWorld, world, getSurfaceHeightNear, checkInWater, getWaterHeightAt } from './world.js';
 import { initPlayer, updatePlayer, triggerToolSwing } from './player.js';
 import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard } from './interact.js';
 import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute } from './audio.js';
@@ -934,17 +934,23 @@ function animate() {
     for (let i = 0; i < positionAttribute.count; i++) {
       const vx = positionAttribute.getX(i);
       const vz = positionAttribute.getZ(i); // Read world Z directly (geometry is not rotated)
-      const depth = depthAttribute ? depthAttribute.getX(i) : 4.0;
       
-      let yVal = 0; // Local Y is height (instead of Z, since geometry is not rotated)
+      const maxDepth = depthAttribute ? depthAttribute.getX(i) : 4.0;
+      const groundY = 4.0 - maxDepth;
+      
+      const baseHeight = getWaterHeightAt(vx, vz);
+      const currentDepth = Math.max(0, baseHeight - groundY);
+      const relativeBaseHeight = baseHeight - 4.0;
+      
+      let yVal = relativeBaseHeight; // Local Y is height relative to the mesh position of Y=4.0
       
       // Calculate deep water wave (smooth rolling waves)
       const deepWave = Math.sin(vx * 0.12 + time * 1.6) * 0.18 + 
                        Math.cos(vz * 0.12 + time * 1.2) * 0.18;
-                       
-      if (depth < 2.0) {
+                        
+      if (currentDepth < 2.0) {
         // Near the shore (shallow depth): fade in fast, tight ripples (increspature)
-        const rippleFactor = (2.0 - depth) / 2.0; // 1.0 at shore, 0.0 at 2m depth
+        const rippleFactor = (2.0 - currentDepth) / 2.0; // 1.0 at shore, 0.0 at 2m depth
         
         // Fast, high-frequency shore ripples
         const shoreRipple = Math.sin(vx * 0.45 + time * 3.5) * 0.05 + 
@@ -952,12 +958,12 @@ function animate() {
                             
         // Blend between large waves and small ripples near the shore
         // Scale down the final amplitude slightly close to the sand to avoid harsh clipping
-        const amplitudeFactor = 0.4 + 0.6 * (depth / 2.0); // go down to 40% height right at the shore
+        const amplitudeFactor = 0.4 + 0.6 * (currentDepth / 2.0); // go down to 40% height right at the shore
         
-        yVal = (deepWave * (1.0 - rippleFactor) + shoreRipple * rippleFactor) * amplitudeFactor;
+        yVal += (deepWave * (1.0 - rippleFactor) + shoreRipple * rippleFactor) * amplitudeFactor;
       } else {
         // Deep ocean: standard smooth rolling waves
-        yVal = deepWave;
+        yVal += deepWave;
       }
       
       positionAttribute.setY(i, yVal); // Set Y instead of Z

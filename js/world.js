@@ -12,6 +12,7 @@ export const world = {
   terrainMesh: null,
   waterMesh: null,
   waterActive: null, // 3D Uint8Array for connected water cells
+  waterHeights: null, // 2D Float32Array for dynamic height filling
   oreDeposits: [], // Array of meshes representing ore nodes
   sceneryMeshes: [], // Trees, rocks, etc.
   trees: [], // Array of active tree groups for Axe chopping
@@ -19,6 +20,56 @@ export const world = {
   feedbackBoard: null, // Feedback Board Mesh
   clouds: [] // Array of cloud meshes
 };
+
+// Water grid limits and cell counts
+export const WATER_START_X = -20.8;
+export const WATER_START_Z = -20.8;
+export const WATER_CELLS_X = 66;
+export const WATER_CELLS_Z = 66;
+
+export function isWaterActiveAt(vx, vz) {
+  const spacing = world.spacing;
+  const gx = Math.floor(vx / spacing);
+  const gz = Math.floor(vz / spacing);
+  if (gx < 0 || gx >= world.sizeX || gz < 0 || gz >= world.sizeZ) {
+    return true; // Open ocean is always active
+  }
+  const idx = gx * world.sizeY * world.sizeZ + 2 * world.sizeZ + gz;
+  return world.waterActive && world.waterActive[idx] === 1;
+}
+
+export function isCellActive(cx, cz) {
+  const spacing = world.spacing;
+  if (cx < 0 || cx >= WATER_CELLS_X || cz < 0 || cz >= WATER_CELLS_Z) {
+    return true;
+  }
+  const vx = WATER_START_X + (cx + 0.5) * spacing;
+  const vz = WATER_START_Z + (cz + 0.5) * spacing;
+  return isWaterActiveAt(vx, vz);
+}
+
+export function isVertexActive(gx, gz) {
+  for (let dx = -1; dx <= 0; dx++) {
+    for (let dz = -1; dz <= 0; dz++) {
+      if (isCellActive(gx + dx, gz + dz)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+export function getWaterHeightAt(vx, vz) {
+  if (!world.waterHeights) return 4.0;
+  const spacing = world.spacing;
+  const gx = Math.round((vx - WATER_START_X) / spacing);
+  const gz = Math.round((vz - WATER_START_Z) / spacing);
+  if (gx < 0 || gx > WATER_CELLS_X || gz < 0 || gz > WATER_CELLS_Z) {
+    return 4.0;
+  }
+  const idx = gx * (WATER_CELLS_Z + 1) + gz;
+  return world.waterHeights[idx] !== undefined ? world.waterHeights[idx] : 4.0;
+}
 
 // Indexing helper for 3D array flattened
 function getGridIndex(x, y, z) {
@@ -450,43 +501,14 @@ export function buildWaterGeometry() {
   const colorDeep = new THREE.Color(0x093f60);    // Vibrant deep ocean blue
   const tempColor = new THREE.Color();
 
-  const startX = -20.8;
+  const startX = WATER_START_X;
   const endX = 84.8;
-  const startZ = -20.8;
+  const startZ = WATER_START_Z;
   const endZ = 84.8;
 
-  const cellCountX = Math.round((endX - startX) / spacing);
-  const cellCountZ = Math.round((endZ - startZ) / spacing);
+  const cellCountX = WATER_CELLS_X;
+  const cellCountZ = WATER_CELLS_Z;
 
-  function isWaterActiveAt(vx, vz) {
-    const gx = Math.floor(vx / spacing);
-    const gz = Math.floor(vz / spacing);
-    if (gx < 0 || gx >= world.sizeX || gz < 0 || gz >= world.sizeZ) {
-      return true; // Open ocean is always active
-    }
-    const idx = gx * world.sizeY * world.sizeZ + 2 * world.sizeZ + gz;
-    return world.waterActive && world.waterActive[idx] === 1;
-  }
-
-  function isCellActive(cx, cz) {
-    if (cx < 0 || cx >= cellCountX || cz < 0 || cz >= cellCountZ) {
-      return true;
-    }
-    const vx = startX + (cx + 0.5) * spacing;
-    const vz = startZ + (cz + 0.5) * spacing;
-    return isWaterActiveAt(vx, vz);
-  }
-
-  function isVertexActive(gx, gz) {
-    for (let dx = -1; dx <= 0; dx++) {
-      for (let dz = -1; dz <= 0; dz++) {
-        if (isCellActive(gx + dx, gz + dz)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
 
   function addQuad(x1, z1, x2, z2, ix, iz, isOuter) {
     const verts = [
@@ -1117,6 +1139,21 @@ function spawnScenery() {
 
   // 1. Crystal Water Plane with Depth Color Gradients
   updateWaterGrid();
+
+  // Initialize waterHeights Float32Array to default target heights
+  const size = (WATER_CELLS_X + 1) * (WATER_CELLS_Z + 1);
+  world.waterHeights = new Float32Array(size);
+  for (let gx = 0; gx <= WATER_CELLS_X; gx++) {
+    const vx = WATER_START_X + gx * spacing;
+    for (let gz = 0; gz <= WATER_CELLS_Z; gz++) {
+      const vz = WATER_START_Z + gz * spacing;
+      const idx = gx * (WATER_CELLS_Z + 1) + gz;
+      const active = isVertexActive(gx, gz);
+      const groundY = getSurfaceHeightNear(vx, 5.0, vz);
+      world.waterHeights[idx] = active ? 4.0 : Math.min(4.0, groundY);
+    }
+  }
+
   const waterGeometry = buildWaterGeometry();
   
   const waterMaterial = new THREE.MeshStandardMaterial({
@@ -1600,6 +1637,9 @@ export function updateWorld(delta) {
     world.lighthouseBeam.rotation.y += 0.8 * delta;
   }
 
+  // Update dynamic water level filling
+  updateWaterHeights(delta);
+
   // Keep trees, rocks, and starfish snapped to the deformed terrain
   world.sceneryMeshes.forEach(item => {
     const pos = item.mesh.position;
@@ -1637,5 +1677,26 @@ export function updateWorld(delta) {
         cloud.position.x = -150;
       }
     });
+  }
+}
+
+function updateWaterHeights(delta) {
+  if (!world.waterHeights) return;
+  const spacing = world.spacing;
+  for (let gx = 0; gx <= WATER_CELLS_X; gx++) {
+    const vx = WATER_START_X + gx * spacing;
+    for (let gz = 0; gz <= WATER_CELLS_Z; gz++) {
+      const vz = WATER_START_Z + gz * spacing;
+      const idx = gx * (WATER_CELLS_Z + 1) + gz;
+      
+      const active = isVertexActive(gx, gz);
+      const groundY = getSurfaceHeightNear(vx, 5.0, vz);
+      
+      const targetY = active ? 4.0 : Math.min(4.0, groundY);
+      const currentY = world.waterHeights[idx];
+      
+      // Interpolate water height towards target with a fill rate of 3.0 (fills in ~1.5s)
+      world.waterHeights[idx] = currentY + (targetY - currentY) * 3.0 * delta;
+    }
   }
 }

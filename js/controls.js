@@ -9,6 +9,9 @@ export let moveForward = false;
 export let moveBackward = false;
 export let moveLeft = false;
 export let moveRight = false;
+export let moveUp = false;
+export let moveDown = false;
+export let shiftPressed = false;
 export let canJump = false;
 export let joystickValues = { x: 0, y: 0 };
 
@@ -47,12 +50,19 @@ export function initControls() {
         moveRight = true;
         break;
       case 'Space':
+        moveUp = true;
         if (canJump) {
           velocity.y = 8.5; // Jump vertical velocity
           canJump = false;
-        } else if (game.controls.getObject().position.y < 5.5) {
-          velocity.y = 3.5; // Swim up velocity in water
         }
+        break;
+      case 'KeyC':
+      case 'ControlLeft':
+        moveDown = true;
+        break;
+      case 'ShiftLeft':
+      case 'ShiftRight':
+        shiftPressed = true;
         break;
     }
   };
@@ -75,6 +85,17 @@ export function initControls() {
       case 'KeyD':
         moveRight = false;
         break;
+      case 'Space':
+        moveUp = false;
+        break;
+      case 'KeyC':
+      case 'ControlLeft':
+        moveDown = false;
+        break;
+      case 'ShiftLeft':
+      case 'ShiftRight':
+        shiftPressed = false;
+        break;
     }
   };
 
@@ -92,19 +113,34 @@ export function updateControls(delta) {
   // 1. Water check: Wading or swimming slows down movement and dampens gravity
   const inWater = checkInWater(position.x, position.y - 1.0, position.z);
   
+  // Get forward and right relative camera vectors
+  const camDir = new THREE.Vector3();
+  game.camera.getWorldDirection(camDir);
+
   // Apply gravity / buoyancy force
   if (inWater) {
-    // If player is below water surface (5.0), apply buoyancy to make them float
     const waterSurfaceY = 5.0; // Water level (4.0) + eye height offset to keep head above water
-    if (position.y < waterSurfaceY) {
-      // Push up towards water surface
-      velocity.y += (waterSurfaceY - position.y) * 4.0 * delta;
-      // Dampen downward velocity in water
-      if (velocity.y < -1.0) velocity.y *= 0.8;
+    const isMovingForward = game.isMobile ? (direction.z > 0.1) : moveForward;
+    
+    if (moveUp) {
+      velocity.y += 12.0 * delta;
+    } else if (moveDown) {
+      velocity.y -= 12.0 * delta;
+    } else if (position.y < waterSurfaceY) {
+      // If we are underwater and not pressing swim keys, buoyancy floats us up
+      // unless we are actively swimming down by looking down
+      const isSwimmingDown = isMovingForward && camDir.y < -0.15;
+      if (!isSwimmingDown) {
+        velocity.y += (waterSurfaceY - position.y) * 4.0 * delta;
+        if (velocity.y < -1.0) velocity.y *= 0.8;
+      }
     } else {
-      // Normal gravity in water
       velocity.y -= 8.0 * delta;
     }
+    
+    // Cap vertical velocity in water for controlled swimming
+    if (velocity.y > 3.0) velocity.y = 3.0;
+    if (velocity.y < -3.0) velocity.y = -3.0;
   } else {
     // Normal gravity on land
     velocity.y -= 24.0 * delta;
@@ -131,12 +167,10 @@ export function updateControls(delta) {
     direction.normalize(); // Ensure uniform diagonal speed
   }
 
-  // Get forward and right relative camera vectors
-  const camDir = new THREE.Vector3();
-  game.camera.getWorldDirection(camDir);
-  
-  // Project vectors horizontally (ignore Y for flat WASD movement)
-  const forward = new THREE.Vector3(camDir.x, 0, camDir.z).normalize();
+  // Project forward vector. If in water, allow Y component to steer vertical swimming
+  const forward = inWater
+    ? camDir.clone().normalize()
+    : new THREE.Vector3(camDir.x, 0, camDir.z).normalize();
   const right = new THREE.Vector3();
   right.crossVectors(forward, game.camera.up).normalize();
 
@@ -144,8 +178,12 @@ export function updateControls(delta) {
   const hasBoots = player.equipped && player.equipped.feet === 'wooden_boots';
   const speedMultiplier = hasBoots ? 1.15 : 1.0;
 
+  // Walking vs Running Speed Scale (Walk at 60% speed, run at 100%)
+  const isRunning = shiftPressed || game.isMobile;
+  const speedScale = isRunning ? 1.0 : 0.6;
+
   // Apply acceleration input
-  const moveSpeed = (inWater ? 28.0 : 45.0) * speedMultiplier; // Acceleration force
+  const moveSpeed = (inWater ? 28.0 : 45.0) * speedMultiplier * speedScale; // Acceleration force
   if (game.isMobile) {
     velocity.addScaledVector(forward, direction.z * moveSpeed * delta);
     velocity.addScaledVector(right, direction.x * moveSpeed * delta);
@@ -160,11 +198,11 @@ export function updateControls(delta) {
 
   // Cap horizontal speed to keep movement smooth
   const horizontalVelocity = new THREE.Vector2(velocity.x, velocity.z);
-  const maxSpeed = (inWater ? 2.5 : 5.0) * speedMultiplier;
+  const maxSpeed = (inWater ? 2.5 : 5.0) * speedMultiplier * speedScale;
   if (horizontalVelocity.length() > maxSpeed) {
     horizontalVelocity.setLength(maxSpeed);
     velocity.x = horizontalVelocity.x;
-    velocity.z = horizontalVelocity.y; // Fix: Vector2 has components x and y (representing velocity.z)
+    velocity.z = horizontalVelocity.y;
   }
 
   // 2. Sliding Wall Collision Detection
