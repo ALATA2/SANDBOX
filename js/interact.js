@@ -140,15 +140,83 @@ export function updateInteraction(delta) {
   }
 }
 
-// Route raycast based on held tool (Spear vs Axe vs Pickaxe)
+// Route raycast based on held tool (Spear vs Axe vs Pickaxe, or custom stick/cane)
 function performToolsRaycast() {
-  if (player.selectedSlot === 0) {
+  if (performCaneRaycast()) {
+    return;
+  }
+
+  if (player.selectedSlot === 0 || player.activeCustomItem === 'stick' || player.activeCustomItem === 'cane') {
     performSpearRaycast();
   } else if (player.selectedSlot === 6) {
     performMiningRaycast();
   } else if (player.selectedSlot === 1) {
     performWoodcuttingRaycast();
   }
+}
+
+// Raycast for cane plants
+function performCaneRaycast() {
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), game.camera);
+
+  const caneMeshes = [];
+  const meshToGroupMap = new Map();
+
+  world.canes.forEach(group => {
+    if (group.userData && !group.userData.broken) {
+      group.traverse(child => {
+        if (child.isMesh) {
+          caneMeshes.push(child);
+          meshToGroupMap.set(child, group);
+        }
+      });
+    }
+  });
+
+  const intersections = raycaster.intersectObjects(caneMeshes);
+
+  if (intersections.length > 0 && intersections[0].distance < 4.0) {
+    const hit = intersections[0];
+    const hitMesh = hit.object;
+    const caneGroup = meshToGroupMap.get(hitMesh);
+
+    if (caneGroup && caneGroup.userData) {
+      playWoodChop();
+
+      const hitNormal = hit.face.normal.clone().applyQuaternion(hitMesh.getWorldQuaternion(new THREE.Quaternion()));
+      spawnDebris(hit.point, hitNormal, 'cane');
+
+      caneGroup.userData.health -= 1;
+      showHudMessage(getTranslation('msg_cane_hit') || 'Hit cane!');
+
+      if (caneGroup.userData.health <= 0) {
+        caneGroup.userData.broken = true;
+        game.scene.remove(caneGroup);
+
+        // Remove from world.sceneryMeshes
+        const scenIdx = world.sceneryMeshes.findIndex(item => item.mesh === caneGroup);
+        if (scenIdx > -1) world.sceneryMeshes.splice(scenIdx, 1);
+
+        // Remove from world.canes
+        const caneIdx = world.canes.indexOf(caneGroup);
+        if (caneIdx > -1) world.canes.splice(caneIdx, 1);
+
+        // Spawn 2 extra cane debris
+        for (let i = 0; i < 2; i++) {
+          const spawnPos = caneGroup.position.clone();
+          spawnPos.x += (Math.random() - 0.5) * 1.0;
+          spawnPos.z += (Math.random() - 0.5) * 1.0;
+          const groundY = getSurfaceHeightNear(spawnPos.x, 15, spawnPos.z);
+          spawnPos.y = groundY + 0.15;
+          spawnDebris(spawnPos, new THREE.Vector3(0, 1, 0), 'cane');
+        }
+
+        showHudMessage(getTranslation('msg_cane_broken') || 'Cane broken!');
+      }
+      return true; // Hit handled
+    }
+  }
+  return false;
 }
 
 // Raycast for hunting crabs/fishes when holding the Spear
@@ -367,6 +435,14 @@ export function spawnDebris(position, normal, type) {
   } else if (type === 'cooked_meat') {
     geom = new THREE.BoxGeometry(0.16, 0.1, 0.1);
     mat = new THREE.MeshStandardMaterial({ color: 0x5c2e16, roughness: 0.9, flatShading: true });
+  } else if (type === 'stick') {
+    geom = new THREE.CylinderGeometry(0.015, 0.015, 0.4, 5);
+    geom.rotateZ(Math.PI / 2);
+    mat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9, flatShading: true });
+  } else if (type === 'cane') {
+    geom = new THREE.CylinderGeometry(0.02, 0.02, 0.5, 5);
+    geom.rotateZ(Math.PI / 2);
+    mat = new THREE.MeshStandardMaterial({ color: 0x556b2f, roughness: 0.8, flatShading: true });
   } else {
     geom = new THREE.DodecahedronGeometry(0.12, 0);
     mat = new THREE.MeshStandardMaterial({ color: 0x8a7f76, roughness: 0.9, flatShading: true });
@@ -386,12 +462,14 @@ export function spawnDebris(position, normal, type) {
     .normalize()
     .multiplyScalar(3.0 + Math.random() * 2.0);
 
+  const lifeTime = (type === 'stick' || type === 'cane') ? 999999 : 25.0;
+
   const debrisObj = {
     mesh: mesh,
     velocity: velocity,
     type: type,
     onGround: false,
-    lifeTime: 25.0 // Debris decays after 25s if not collected
+    lifeTime: lifeTime
   };
 
   game.scene.add(mesh);
@@ -456,7 +534,7 @@ function checkHarvestablePrompt() {
   let minDist = 2.2; // Maximum collection distance
 
   activeDebris.forEach(debris => {
-    if (debris.type === 'ore' || debris.type === 'wood' || debris.type === 'raw_crab' || debris.type === 'raw_fish' || debris.type === 'cooked_meat') {
+    if (debris.type === 'ore' || debris.type === 'wood' || debris.type === 'raw_crab' || debris.type === 'raw_fish' || debris.type === 'cooked_meat' || debris.type === 'stick' || debris.type === 'cane') {
       const dist = playerPos.distanceTo(debris.mesh.position);
       if (dist < minDist) {
         minDist = dist;
@@ -509,6 +587,10 @@ function checkHarvestablePrompt() {
       rawPrompt = getTranslation('interact_harvest_fish') || 'PRESS E TO HARVEST RAW FISH';
     } else if (closestDebris.type === 'cooked_meat') {
       rawPrompt = getTranslation('interact_harvest_cooked') || 'PRESS E TO HARVEST COOKED MEAT';
+    } else if (closestDebris.type === 'stick') {
+      rawPrompt = getTranslation('interact_harvest_stick') || 'PRESS E TO COLLECT STICK';
+    } else if (closestDebris.type === 'cane') {
+      rawPrompt = getTranslation('interact_harvest_cane') || 'PRESS E TO COLLECT CANE';
     } else {
       rawPrompt = 'PRESS E TO HARVEST';
     }
@@ -581,6 +663,12 @@ export function harvestClosestDebris() {
   } else if (closestDebris.type === 'cooked_meat') {
     player.inventory.cooked_meat += 1;
     showHudMessage(getTranslation('msg_collected_cooked') || '+1 Cooked Meat');
+  } else if (closestDebris.type === 'stick') {
+    player.inventory.stick += 1;
+    showHudMessage(getTranslation('msg_collected_stick') || '+1 Stick');
+  } else if (closestDebris.type === 'cane') {
+    player.inventory.cane += 1;
+    showHudMessage(getTranslation('msg_collected_cane') || '+1 Cane');
   }
 
   closestDebris = null;

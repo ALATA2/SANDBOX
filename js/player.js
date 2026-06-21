@@ -16,6 +16,9 @@ export const player = {
   spearMesh: null,
   pickaxeMesh: null,
   axeMesh: null,
+  stickMesh: null,
+  caneMesh: null,
+  activeCustomItem: null,
   
   // Tool swing animation states
   swingTimer: 0,
@@ -36,7 +39,9 @@ export const player = {
     raw_fish: 0,
     raw_crab: 0,
     cooked_meat: 0,
-    campfire: 0
+    campfire: 0,
+    stick: 0,
+    cane: 0
   },
   equipped: {
     head: null,
@@ -67,6 +72,12 @@ export function initPlayer() {
 
   // Build Low-Poly 3D Axe
   buildAxeModel();
+
+  // Build Low-Poly 3D Stick
+  buildStickModel();
+
+  // Build Low-Poly 3D Cane
+  buildCaneModel();
 
   // 4. Set starting slot selection
   selectSlot(6); // Slot 7 (index 6, Pickaxe)
@@ -285,6 +296,45 @@ function buildAxeModel() {
   player.axeMesh.visible = false;
 }
 
+// Draw a simple low-poly Stick
+function buildStickModel() {
+  player.stickMesh = new THREE.Group();
+  const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9, flatShading: true });
+  
+  const geom = new THREE.CylinderGeometry(0.015, 0.015, 0.7, 5);
+  const mesh = new THREE.Mesh(geom, woodMaterial);
+  mesh.position.y = 0.2;
+  mesh.rotation.z = -0.15;
+  player.stickMesh.add(mesh);
+  
+  player.handGroup.add(player.stickMesh);
+  player.stickMesh.visible = false;
+}
+
+// Draw a segmented low-poly Cane (reed/bamboo)
+function buildCaneModel() {
+  player.caneMesh = new THREE.Group();
+  const caneMaterial = new THREE.MeshStandardMaterial({ color: 0x556b2f, roughness: 0.8, flatShading: true });
+  
+  // Segmented green cylinder (3 nodes)
+  for (let i = 0; i < 3; i++) {
+    const geom = new THREE.CylinderGeometry(0.012, 0.012, 0.22, 5);
+    const mesh = new THREE.Mesh(geom, caneMaterial);
+    mesh.position.y = 0.05 + i * 0.23;
+    player.caneMesh.add(mesh);
+    
+    // Joint ring
+    const ringGeom = new THREE.CylinderGeometry(0.016, 0.016, 0.02, 5);
+    const ring = new THREE.Mesh(ringGeom, caneMaterial);
+    ring.position.y = 0.05 + i * 0.23 + 0.11;
+    player.caneMesh.add(ring);
+  }
+  
+  player.caneMesh.rotation.z = -0.15;
+  player.handGroup.add(player.caneMesh);
+  player.caneMesh.visible = false;
+}
+
 // Select active slot
 export function selectSlot(index) {
   player.selectedSlot = index;
@@ -303,6 +353,9 @@ export function selectSlot(index) {
     player.spearMesh.visible = false;
     player.pickaxeMesh.visible = false;
     player.axeMesh.visible = false;
+    if (player.stickMesh) player.stickMesh.visible = false;
+    if (player.caneMesh) player.caneMesh.visible = false;
+    player.activeCustomItem = null;
 
     if (index === 0) {
       player.spearMesh.visible = true; // Spear
@@ -502,7 +555,9 @@ export function renderInventoryUI() {
     { id: 'straw_hat', name: 'Straw Hat', icon: '👒', labelKey: 'inv.straw_hat' },
     { id: 'explorer_vest', name: 'Explorer Vest', icon: '🦺', labelKey: 'inv.explorer_vest' },
     { id: 'grass_pants', name: 'Grass Pants', icon: '👖', labelKey: 'inv.grass_pants' },
-    { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', labelKey: 'inv.wooden_boots' }
+    { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', labelKey: 'inv.wooden_boots' },
+    { id: 'stick', name: 'Stick', icon: '🦯', labelKey: 'inv.stick' },
+    { id: 'cane', name: 'Cane', icon: '🎋', labelKey: 'inv.cane' }
   ];
 
   // Render items the player actually has
@@ -650,6 +705,12 @@ function equipItem(itemId) {
     return;
   }
 
+  if (itemId === 'stick' || itemId === 'cane') {
+    toggleInventory(); // close inventory
+    equipCustomItem(itemId);
+    return;
+  }
+
   let slotType = null;
   if (itemId === 'straw_hat') slotType = 'head';
   else if (itemId === 'explorer_vest') slotType = 'torso';
@@ -668,6 +729,32 @@ function equipItem(itemId) {
 
   playSelect(); // audio feedback
   renderInventoryUI();
+}
+
+// Equip a custom hand weapon directly (deselecting hotbar)
+export function equipCustomItem(itemId) {
+  if (!player.inventory[itemId] || player.inventory[itemId] <= 0) return;
+
+  player.activeCustomItem = itemId;
+  player.selectedSlot = -1; // Deselect hotbar slots
+
+  // Remove selection highlight from hotbar in HUD
+  document.querySelectorAll('.hotbar-slot').forEach(slot => {
+    slot.classList.remove('selected');
+  });
+
+  // Hide standard tools
+  if (player.spearMesh && player.pickaxeMesh && player.axeMesh) {
+    player.spearMesh.visible = false;
+    player.pickaxeMesh.visible = false;
+    player.axeMesh.visible = false;
+  }
+
+  // Show custom held model
+  if (player.stickMesh) player.stickMesh.visible = (itemId === 'stick');
+  if (player.caneMesh) player.caneMesh.visible = (itemId === 'cane');
+
+  playSelect();
 }
 
 // Consume food and modify player stats

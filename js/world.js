@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { edgeTable, triTable } from './mctable.js';
 import { game } from './game.js';
+import { spawnDebris } from './interact.js';
 
 // World Configuration
 export const world = {
@@ -19,7 +20,8 @@ export const world = {
   lighthouseBeam: null, // Rotating lighthouse beam
   feedbackBoard: null, // Feedback Board Mesh
   clouds: [], // Array of cloud meshes
-  campfires: [] // Array of placed campfire groups
+  campfires: [], // Array of placed campfire groups
+  canes: [] // Array of active cane plant groups
 };
 
 // Water grid limits and cell counts
@@ -1499,6 +1501,43 @@ function spawnScenery() {
 
   // 9. Spawn Sky Clouds
   spawnClouds();
+
+  // 10. Spawn Shoreline Cane Plants (marshy shoreline spot)
+  world.canes = [];
+  const caneSpotX = 12 * spacing;
+  const caneSpotZ = 28 * spacing;
+  for (let i = 0; i < 5; i++) {
+    const rx = caneSpotX + (Math.random() - 0.5) * 5.0;
+    const rz = caneSpotZ + (Math.random() - 0.5) * 5.0;
+    const ry = getSurfaceHeightNear(rx, 15, rz);
+    
+    // Shore beach checks
+    if (ry >= 3.7 && ry <= 5.5) {
+      const plant = createCanePlant();
+      plant.position.set(rx, ry, rz);
+      plant.scale.setScalar(0.75 + Math.random() * 0.3);
+      plant.userData = {
+        health: 2,
+        maxHealth: 2,
+        broken: false
+      };
+      game.scene.add(plant);
+      world.sceneryMeshes.push({ mesh: plant, type: 'cane' });
+      world.canes.push(plant);
+    }
+  }
+
+  // 11. Spawn 3 Abandoned Starting Sticks near player spawn point
+  const stickLocations = [
+    new THREE.Vector3(23.5 * spacing, 0, 26.5 * spacing),
+    new THREE.Vector3(26.5 * spacing, 0, 23.5 * spacing),
+    new THREE.Vector3(27.0 * spacing, 0, 27.0 * spacing)
+  ];
+  stickLocations.forEach(pos => {
+    const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
+    pos.y = groundY + 0.1;
+    spawnDebris(pos, new THREE.Vector3(0, 1, 0), 'stick');
+  });
 }
 
 // Spawns a 3D wooden bulletin feedback board on the island
@@ -1653,6 +1692,8 @@ export function updateWorld(delta) {
       item.mesh.position.y = groundY - 0.5;
     } else if (item.type === 'starfish') {
       item.mesh.position.y = groundY + 0.01;
+    } else if (item.type === 'cane') {
+      item.mesh.position.y = groundY;
     }
   });
 
@@ -1803,4 +1844,56 @@ function updateWaterHeights(delta) {
       world.waterHeights[idx] = currentY + (targetY - currentY) * 3.0 * delta;
     }
   }
+}
+
+// Builds a 3D low-poly cane cluster containing 4-5 green segmented stalks made of cylinders
+export function createCanePlant() {
+  const caneGroup = new THREE.Group();
+  caneGroup.name = "cane_plant";
+  
+  const caneMaterial = new THREE.MeshStandardMaterial({ color: 0x6b8e23, roughness: 0.8, flatShading: true });
+  
+  // Create 4-5 tall stalks angled slightly outwards
+  const stalkCount = 4 + Math.floor(Math.random() * 2);
+  for (let i = 0; i < stalkCount; i++) {
+    const stalk = new THREE.Group();
+    
+    // Position radially
+    const angle = (i * Math.PI * 2) / stalkCount;
+    const radius = 0.12 + Math.random() * 0.08;
+    stalk.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+    
+    // Stalk height
+    const height = 1.4 + Math.random() * 0.7;
+    const segments = 4;
+    const segHeight = height / segments;
+    
+    let parent = stalk;
+    for (let j = 0; j < segments; j++) {
+      const bottomR = 0.035 - j * 0.003;
+      const topR = 0.031 - j * 0.003;
+      const geom = new THREE.CylinderGeometry(topR, bottomR, segHeight, 5);
+      geom.translate(0, segHeight / 2, 0); // pivot at base of segment
+      const mesh = new THREE.Mesh(geom, caneMaterial);
+      
+      if (j === 0) {
+        // base segment tilt
+        mesh.rotation.z = (Math.random() - 0.5) * 0.15;
+        mesh.rotation.x = (Math.random() - 0.5) * 0.15;
+      } else {
+        // stack segment tilt
+        mesh.position.y = segHeight * 0.95;
+        mesh.rotation.z = (Math.random() - 0.5) * 0.08;
+      }
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      
+      parent.add(mesh);
+      parent = mesh;
+    }
+    
+    caneGroup.add(stalk);
+  }
+  
+  return caneGroup;
 }
