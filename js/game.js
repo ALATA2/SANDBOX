@@ -552,6 +552,8 @@ function init() {
       game.pointerLocked = false;
       stopAmbientSounds();
       startDrone();
+      
+      firstStart = true; // Reset starting spawn coordinates trigger
     });
   }
   if (confirmNoBtn) {
@@ -1200,9 +1202,12 @@ function animate() {
     // Update floating name tag position
     updateArturoLabel();
   } else {
-    if (menuParticles) menuParticles.visible = true;
+    const blocker = document.getElementById('blocker');
+    const isMainMenu = blocker && blocker.style.display !== 'none';
+    if (menuParticles) menuParticles.visible = isMainMenu;
+
     // Cinematic menu rotation of the camera wrapper (game.controls.getObject())
-    if (game.controls && game.controls.getObject) {
+    if (isMainMenu && game.controls && game.controls.getObject) {
       updateWorld(delta); // Let the lighthouse beam rotate in the menu
       updateMenuParticles(delta); // Let atmospheric particles float
       
