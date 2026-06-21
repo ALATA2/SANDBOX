@@ -18,7 +18,8 @@ export const world = {
   trees: [], // Array of active tree groups for Axe chopping
   lighthouseBeam: null, // Rotating lighthouse beam
   feedbackBoard: null, // Feedback Board Mesh
-  clouds: [] // Array of cloud meshes
+  clouds: [], // Array of cloud meshes
+  campfires: [] // Array of placed campfire groups
 };
 
 // Water grid limits and cell counts
@@ -1678,6 +1679,109 @@ export function updateWorld(delta) {
       }
     });
   }
+
+  // Snap and animate campfire flickers
+  if (world.campfires) {
+    world.campfires.forEach(campfire => {
+      const pos = campfire.position;
+      const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
+      campfire.position.y = groundY;
+
+      if (campfire.userData) {
+        campfire.userData.flickerTime += delta * 12;
+        const scaleVal = 0.9 + Math.sin(campfire.userData.flickerTime) * 0.15 + (Math.random() - 0.5) * 0.08;
+        if (campfire.userData.flame) {
+          campfire.userData.flame.scale.set(scaleVal, scaleVal * 1.2, scaleVal);
+        }
+        if (campfire.userData.light) {
+          campfire.userData.light.intensity = 1.2 + Math.sin(campfire.userData.flickerTime * 1.5) * 0.3 + (Math.random() - 0.5) * 0.15;
+        }
+      }
+    });
+  }
+}
+
+// Builds a low-poly 3D campfire model with crossed wooden log cylinders and a central conical flame
+export function createCampfireMesh(isHologram) {
+  const campfireGroup = new THREE.Group();
+  campfireGroup.name = "campfire";
+
+  let logMaterial, flameMaterial;
+  if (isHologram) {
+    logMaterial = new THREE.MeshBasicMaterial({
+      color: 0x00ff88,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.4
+    });
+    flameMaterial = logMaterial;
+  } else {
+    logMaterial = new THREE.MeshStandardMaterial({
+      color: 0x5c3d24,
+      roughness: 0.9,
+      flatShading: true
+    });
+    flameMaterial = new THREE.MeshStandardMaterial({
+      color: 0xff5500,
+      emissive: 0xffaa00,
+      emissiveIntensity: 0.8,
+      flatShading: true
+    });
+  }
+
+  // 3 logs crossing each other
+  const logGeom = new THREE.CylinderGeometry(0.04, 0.04, 0.6, 5);
+  logGeom.rotateZ(Math.PI / 2);
+
+  const log1 = new THREE.Mesh(logGeom, logMaterial);
+  log1.position.y = 0.02;
+  log1.rotation.y = 0;
+  log1.rotation.z = 0.15;
+  log1.castShadow = !isHologram;
+  log1.receiveShadow = !isHologram;
+  campfireGroup.add(log1);
+
+  const log2 = new THREE.Mesh(logGeom, logMaterial);
+  log2.position.y = 0.02;
+  log2.rotation.y = Math.PI / 3;
+  log2.rotation.z = -0.15;
+  log2.castShadow = !isHologram;
+  log2.receiveShadow = !isHologram;
+  campfireGroup.add(log2);
+
+  const log3 = new THREE.Mesh(logGeom, logMaterial);
+  log3.position.y = 0.02;
+  log3.rotation.y = -Math.PI / 3;
+  log3.rotation.z = 0.1;
+  log3.castShadow = !isHologram;
+  log3.receiveShadow = !isHologram;
+  campfireGroup.add(log3);
+
+  // Flame cone
+  const flameGeom = new THREE.ConeGeometry(0.18, 0.35, 5);
+  flameGeom.translate(0, 0.175, 0); // pivot at base
+  const flame = new THREE.Mesh(flameGeom, flameMaterial);
+  flame.position.y = 0.03;
+  flame.name = "flame";
+  campfireGroup.add(flame);
+
+  if (!isHologram) {
+    // Flickering orange point light
+    const light = new THREE.PointLight(0xff7700, 1.5, 8);
+    light.position.set(0, 0.4, 0);
+    light.castShadow = true;
+    light.shadow.bias = -0.002;
+    campfireGroup.add(light);
+    
+    // Add user data to animate flicker/flame scale
+    campfireGroup.userData = {
+      light: light,
+      flame: flame,
+      flickerTime: 0
+    };
+  }
+
+  return campfireGroup;
 }
 
 function updateWaterHeights(delta) {

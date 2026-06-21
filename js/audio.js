@@ -1,17 +1,33 @@
 // Web Audio API Procedural Sound Synthesizer for ARCHIPELAGO Menu
 
 let audioCtx = null;
+let masterFilter = null;
 let droneOscs = [];
 let droneGain = null;
 let droneFilter = null;
 let filterLfo = null;
 let isMuted = localStorage.getItem('game_audio_muted') === 'true';
 
+// Ambient sounds state
+let ambientGain = null;
+let waveFilter = null;
+let windFilter = null;
+let waveLfo = null;
+let windLfo = null;
+let ambientNoise = null;
+
 // Initialize Audio Context on first interaction
 function initAudio() {
   if (audioCtx) return;
   // Support standard and webkit audio context
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  
+  // Create master biquad filter for submerged / lowpass effects
+  masterFilter = audioCtx.createBiquadFilter();
+  masterFilter.type = 'lowpass';
+  masterFilter.frequency.setValueAtTime(20000, audioCtx.currentTime); // default fully open
+  masterFilter.Q.setValueAtTime(1.0, audioCtx.currentTime);
+  masterFilter.connect(audioCtx.destination);
 }
 
 export function setMute(muted) {
@@ -19,11 +35,14 @@ export function setMute(muted) {
   localStorage.setItem('game_audio_muted', muted);
   if (muted) {
     stopDrone();
+    stopAmbientSounds();
   } else {
     // If blocker is active (not pointer locked), start drone
     const blocker = document.getElementById('blocker');
     if (blocker && blocker.style.display !== 'none') {
       startDrone();
+    } else {
+      startAmbientSounds();
     }
   }
 }
@@ -90,7 +109,7 @@ export function startDrone() {
   });
 
   droneFilter.connect(droneGain);
-  droneGain.connect(audioCtx.destination);
+  droneGain.connect(masterFilter || audioCtx.destination);
 }
 
 // Fade out and stop ambient drone
@@ -149,7 +168,7 @@ export function playHover() {
 
   osc.connect(filter);
   filter.connect(gain);
-  gain.connect(audioCtx.destination);
+  gain.connect(masterFilter || audioCtx.destination);
 
   osc.start(time);
   osc.stop(time + 0.15);
@@ -173,7 +192,7 @@ export function playSelect() {
   gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
 
   osc.connect(gain);
-  gain.connect(audioCtx.destination);
+  gain.connect(masterFilter || audioCtx.destination);
 
   osc.start(time);
   osc.stop(time + 0.22);
@@ -203,7 +222,7 @@ export function startCoreHover() {
   coreHoverGain.gain.linearRampToValueAtTime(0.12, time + 0.3);
 
   coreHoverOsc.connect(coreHoverGain);
-  coreHoverGain.connect(audioCtx.destination);
+  coreHoverGain.connect(masterFilter || audioCtx.destination);
 
   coreHoverOsc.start(time);
 }
@@ -254,7 +273,7 @@ export function playLaunch() {
 
   riser.connect(riserFilter);
   riserFilter.connect(riserGain);
-  riserGain.connect(audioCtx.destination);
+  riserGain.connect(masterFilter || audioCtx.destination);
   riser.start(time);
   riser.stop(time + 1.05);
 
@@ -283,7 +302,7 @@ export function playLaunch() {
 
   noise.connect(noiseFilter);
   noiseFilter.connect(noiseGain);
-  noiseGain.connect(audioCtx.destination);
+  noiseGain.connect(masterFilter || audioCtx.destination);
   noise.start(explodeTime);
   noise.stop(explodeTime + 2.0);
 
@@ -298,7 +317,7 @@ export function playLaunch() {
   subGain.gain.exponentialRampToValueAtTime(0.001, explodeTime + 1.5);
 
   sub.connect(subGain);
-  subGain.connect(audioCtx.destination);
+  subGain.connect(masterFilter || audioCtx.destination);
   sub.start(explodeTime);
   sub.stop(explodeTime + 1.6);
 }
@@ -321,8 +340,176 @@ export function playWoodChop() {
   gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
 
   osc.connect(gain);
-  gain.connect(audioCtx.destination);
+  gain.connect(masterFilter || audioCtx.destination);
 
   osc.start(time);
   osc.stop(time + 0.16);
+}
+
+// Muffle/Unmuffle master audio filter dynamically when diving
+export function setSubmergedAudio(submerged) {
+  initAudio();
+  if (!audioCtx || !masterFilter) return;
+  const time = audioCtx.currentTime;
+  masterFilter.frequency.cancelScheduledValues(time);
+  masterFilter.frequency.setValueAtTime(masterFilter.frequency.value, time);
+  if (submerged) {
+    // Muffle high frequencies underwater (exponential transition down to 320 Hz)
+    masterFilter.frequency.exponentialRampToValueAtTime(320, time + 0.4);
+  } else {
+    // Restore full spectrum on surface
+    masterFilter.frequency.exponentialRampToValueAtTime(20000, time + 0.3);
+  }
+}
+
+// Procedural wave and wind noise ambient loops
+export function startAmbientSounds() {
+  if (isMuted) return;
+  initAudio();
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  if (ambientNoise) return; // already active
+
+  const time = audioCtx.currentTime;
+
+  // 1. Create noise buffer
+  const bufferSize = audioCtx.sampleRate * 4.0; // 4 seconds loop
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+
+  ambientNoise = audioCtx.createBufferSource();
+  ambientNoise.buffer = buffer;
+  ambientNoise.loop = true;
+
+  // 2. Wave Filter & Modulator (slow rolling lowpass waves)
+  waveFilter = audioCtx.createBiquadFilter();
+  waveFilter.type = 'lowpass';
+  waveFilter.frequency.setValueAtTime(380, time);
+
+  waveLfo = audioCtx.createOscillator();
+  waveLfo.type = 'sine';
+  waveLfo.frequency.setValueAtTime(0.12, time); // ~8 seconds wave period
+
+  const waveLfoGain = audioCtx.createGain();
+  waveLfoGain.gain.setValueAtTime(220, time); // sweep range +/- 220 Hz
+
+  waveLfo.connect(waveLfoGain);
+  waveLfoGain.connect(waveFilter.frequency);
+
+  // 3. Wind Filter & Modulator (hissing bandpass wind)
+  windFilter = audioCtx.createBiquadFilter();
+  windFilter.type = 'bandpass';
+  windFilter.frequency.setValueAtTime(750, time);
+  windFilter.Q.setValueAtTime(1.8, time);
+
+  windLfo = audioCtx.createOscillator();
+  windLfo.type = 'sine';
+  windLfo.frequency.setValueAtTime(0.07, time); // slow wind shifting
+
+  const windLfoGain = audioCtx.createGain();
+  windLfoGain.gain.setValueAtTime(280, time);
+
+  windLfo.connect(windLfoGain);
+  windLfoGain.connect(windFilter.frequency);
+
+  // 4. Mix Gain Nodes
+  ambientGain = audioCtx.createGain();
+  ambientGain.gain.setValueAtTime(0, time);
+  ambientGain.gain.linearRampToValueAtTime(0.12, time + 2.0); // fade in smoothly
+
+  const waveGain = audioCtx.createGain();
+  waveGain.gain.setValueAtTime(0.75, time);
+
+  const windGain = audioCtx.createGain();
+  windGain.gain.setValueAtTime(0.25, time);
+
+  // Connection routing
+  ambientNoise.connect(waveFilter);
+  waveFilter.connect(waveGain);
+
+  ambientNoise.connect(windFilter);
+  windFilter.connect(windGain);
+
+  waveGain.connect(ambientGain);
+  windGain.connect(ambientGain);
+
+  ambientGain.connect(masterFilter || audioCtx.destination);
+
+  // Start oscillators
+  waveLfo.start(time);
+  windLfo.start(time);
+  ambientNoise.start(time);
+}
+
+// Fade out and stop ambient sounds
+export function stopAmbientSounds() {
+  if (!audioCtx || !ambientNoise) return;
+
+  const time = audioCtx.currentTime;
+  const gainNode = ambientGain;
+  const noiseNode = ambientNoise;
+  const lfo1 = waveLfo;
+  const lfo2 = windLfo;
+
+  // Clear references immediately
+  ambientGain = null;
+  ambientNoise = null;
+  waveFilter = null;
+  windFilter = null;
+  waveLfo = null;
+  windLfo = null;
+
+  if (gainNode) {
+    gainNode.gain.cancelScheduledValues(time);
+    gainNode.gain.setValueAtTime(gainNode.gain.value, time);
+    gainNode.gain.linearRampToValueAtTime(0, time + 1.0);
+
+    setTimeout(() => {
+      try { noiseNode.stop(); } catch(e) {}
+      try { lfo1.stop(); } catch(e) {}
+      try { lfo2.stop(); } catch(e) {}
+      try { gainNode.disconnect(); } catch(e) {}
+    }, 1100);
+  }
+}
+
+// Sizzling noise for meat cooking on campfire
+export function playSizzling() {
+  if (isMuted) return;
+  initAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  const time = audioCtx.currentTime;
+
+  // Sizzling is high-frequency crackly white noise
+  const bufferSize = audioCtx.sampleRate * 1.5; // 1.5 seconds sizzling duration
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.setValueAtTime(3200, time);
+  filter.Q.setValueAtTime(2.2, time);
+
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.12, time);
+  gain.gain.linearRampToValueAtTime(0.12, time + 1.0);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 1.5);
+
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(masterFilter || audioCtx.destination);
+
+  noise.start(time);
+  noise.stop(time + 1.5);
 }

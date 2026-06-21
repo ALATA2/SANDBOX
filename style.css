@@ -1603,5 +1603,31 @@ body.is-mobile #mobile-inv-btn {
   font-weight: bold;
 }
 
+/* Underwater Ripple Overlay */
+#underwater-ripple {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2; /* behind HUD (10) but in front of canvas (1) */
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(0, 223, 192, 0.05) 0%, rgba(9, 63, 96, 0.25) 100%);
+  backdrop-filter: blur(2.2px);
+  -webkit-backdrop-filter: blur(2.2px);
+  animation: waveMotion 6s ease-in-out infinite alternate;
+}
+
+@keyframes waveMotion {
+  0% {
+    backdrop-filter: blur(2.0px) hue-rotate(0deg);
+    -webkit-backdrop-filter: blur(2.0px) hue-rotate(0deg);
+  }
+  100% {
+    backdrop-filter: blur(2.6px) hue-rotate(15deg);
+    -webkit-backdrop-filter: blur(2.6px) hue-rotate(15deg);
+  }
+}
+
 
 

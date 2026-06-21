@@ -3,7 +3,7 @@ import { initControls, updateControls, joystickValues, triggerMobileJump } from 
 import { initWorld, updateWorld, world, getSurfaceHeightNear, checkInWater, getWaterHeightAt } from './world.js';
 import { initPlayer, updatePlayer, triggerToolSwing } from './player.js';
 import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard } from './interact.js';
-import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute } from './audio.js';
+import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute, setSubmergedAudio, startAmbientSounds, stopAmbientSounds } from './audio.js';
 import { setLanguage, currentLang } from './lang.js';
 
 // Global Game State
@@ -29,6 +29,8 @@ export const game = {
   fishes: [],
   seagulls: []
 };
+
+let underwaterParticles = null;
 
 const blocker = document.getElementById('blocker');
 const startButton = document.getElementById('start-button');
@@ -399,6 +401,7 @@ function init() {
 
   // Initialize atmospheric particles
   initMenuParticles();
+  initUnderwaterParticles();
 
   // Apply default lighting preset color adjustments
   applyPreset('sunset');
@@ -485,9 +488,9 @@ function init() {
       if (game.controls) {
         game.controls.enabled = true;
       }
-      
       stopDrone();
       stopCoreHover();
+      startAmbientSounds(); // Play ambient waves and wind during gameplay
       cameraShake = 6.0; // Extra screen impact shake when entering world
       
       if (firstStart) {
@@ -507,6 +510,8 @@ function init() {
         if (isPeacefulUnlock) {
           // Peacefully lost lock because a modal was opened
           game.pointerLocked = false;
+          stopAmbientSounds();
+          startDrone();
         } else {
           // Always show the exit confirmation modal when game focus is lost
           const confirmModal = document.getElementById('confirm-modal');
@@ -518,6 +523,8 @@ function init() {
           if (game.controls) {
             game.controls.enabled = false;
           }
+          stopAmbientSounds();
+          startDrone();
         }
       } else {
         // We were already outside active gameplay, just keep pointerLocked false
@@ -543,6 +550,7 @@ function init() {
       // Go to main start menu blocker
       blocker.style.display = 'flex';
       game.pointerLocked = false;
+      stopAmbientSounds();
       startDrone();
     });
   }
@@ -716,6 +724,36 @@ function initMenuParticles() {
   game.scene.add(menuParticles);
 }
 
+function initUnderwaterParticles() {
+  const particleCount = 120;
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(particleCount * 3);
+  const velocities = new Float32Array(particleCount);
+
+  for (let i = 0; i < particleCount; i++) {
+    positions[i * 3 + 0] = (Math.random() - 0.5) * 15;
+    positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 15;
+    velocities[i] = 0.5 + Math.random() * 1.5;
+  }
+
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+  const material = new THREE.PointsMaterial({
+    color: 0xffffff,
+    size: 0.05,
+    transparent: true,
+    opacity: 0.6,
+    depthWrite: false
+  });
+
+  underwaterParticles = new THREE.Points(geometry, material);
+  underwaterParticles.visible = false;
+  underwaterParticles.userData = { velocities: velocities };
+  
+  game.scene.add(underwaterParticles);
+}
+
 // Apply Atmospheric Preset & Particle parameters
 function applyPreset(presetName) {
   const preset = presets[presetName];
@@ -882,6 +920,20 @@ function updateUnderwaterVisuals(submerged) {
   if (submerged === wasSubmerged) return;
   wasSubmerged = submerged;
   
+  // Apply low-pass sweep for immersion
+  setSubmergedAudio(submerged);
+
+  // Toggle screen-space HTML/CSS wavy ripple distortion overlay
+  const overlay = document.getElementById('underwater-ripple');
+  if (overlay) {
+    overlay.style.display = submerged ? 'block' : 'none';
+  }
+
+  // Toggle 3D underwater bubble points system
+  if (underwaterParticles) {
+    underwaterParticles.visible = submerged;
+  }
+
   const preset = presets[currentPreset];
   if (!preset) return;
   
@@ -914,6 +966,53 @@ function updateUnderwaterVisuals(submerged) {
     // Restores original preset visual values when emerging
     applyPreset(currentPreset);
   }
+}
+
+// Increment upward position of bubbles and wrap them around camera
+function updateUnderwaterParticles(delta) {
+  if (!underwaterParticles || !underwaterParticles.visible) return;
+
+  const positions = underwaterParticles.geometry.attributes.position.array;
+  const velocities = underwaterParticles.userData.velocities;
+  const count = positions.length / 3;
+  const camPos = game.camera.position;
+
+  for (let i = 0; i < count; i++) {
+    // 1. Rise up
+    positions[i * 3 + 1] += velocities[i] * delta;
+
+    // 2. Sinusoidal float wobble
+    positions[i * 3] += Math.sin(game.time * 2 + i) * 0.05 * delta;
+    positions[i * 3 + 2] += Math.cos(game.time * 2 + i) * 0.05 * delta;
+
+    // 3. Dynamic wrap bounds around camera position (e.g. 7.5x5.0x7.5 box)
+    const dx = positions[i * 3] - camPos.x;
+    const dy = positions[i * 3 + 1] - camPos.y;
+    const dz = positions[i * 3 + 2] - camPos.z;
+
+    const rangeX = 7.5;
+    const rangeY = 5.0;
+    const rangeZ = 7.5;
+
+    if (dx < -rangeX) positions[i * 3] += rangeX * 2;
+    if (dx > rangeX) positions[i * 3] -= rangeX * 2;
+
+    if (dy < -rangeY) {
+      positions[i * 3 + 1] += rangeY * 2;
+      positions[i * 3] = camPos.x + (Math.random() - 0.5) * rangeX * 2;
+      positions[i * 3 + 2] = camPos.z + (Math.random() - 0.5) * rangeZ * 2;
+    }
+    if (dy > rangeY) {
+      positions[i * 3 + 1] -= rangeY * 2;
+      positions[i * 3] = camPos.x + (Math.random() - 0.5) * rangeX * 2;
+      positions[i * 3 + 2] = camPos.z + (Math.random() - 0.5) * rangeZ * 2;
+    }
+
+    if (dz < -rangeZ) positions[i * 3 + 2] += rangeZ * 2;
+    if (dz > rangeZ) positions[i * 3 + 2] -= rangeZ * 2;
+  }
+
+  underwaterParticles.geometry.attributes.position.needsUpdate = true;
 }
 
 // Main Game Loop
@@ -1083,6 +1182,9 @@ function animate() {
       
       // Update Island Life Fauna (crabs, fishes, seagulls)
       updateFauna(delta);
+      
+      // Update underwater bubble particles
+      updateUnderwaterParticles(delta);
       
       // Apply camera shake to playing camera if active
       if (cameraShake > 0) {

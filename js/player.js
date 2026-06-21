@@ -3,6 +3,7 @@ import { game } from './game.js';
 import { moveForward, moveBackward, moveLeft, moveRight } from './controls.js';
 import { getTranslation } from './lang.js';
 import { playSelect } from './audio.js';
+import { startCampfirePlacement } from './interact.js';
 
 export const player = {
   health: 100,
@@ -31,7 +32,11 @@ export const player = {
     straw_hat: 0,
     explorer_vest: 1, // Start with explorer vest
     grass_pants: 0,
-    wooden_boots: 0
+    wooden_boots: 0,
+    raw_fish: 0,
+    raw_crab: 0,
+    cooked_meat: 0,
+    campfire: 0
   },
   equipped: {
     head: null,
@@ -490,6 +495,10 @@ export function renderInventoryUI() {
     { id: 'leaves', name: 'Leaves', icon: '🍃', labelKey: 'hotbar.leaves' },
     { id: 'rope', name: 'Rope', icon: '🧵', labelKey: 'hotbar.rope' },
     { id: 'ore', name: 'Gold Ore', icon: '🪙', labelKey: 'hotbar.ore' },
+    { id: 'raw_fish', name: 'Raw Fish', icon: '🐟', labelKey: 'inv.raw_fish' },
+    { id: 'raw_crab', name: 'Raw Crab', icon: '🦀', labelKey: 'inv.raw_crab' },
+    { id: 'cooked_meat', name: 'Cooked Meat', icon: '🍖', labelKey: 'inv.cooked_meat' },
+    { id: 'campfire', name: 'Campfire', icon: '🔥', labelKey: 'inv.campfire' },
     { id: 'straw_hat', name: 'Straw Hat', icon: '👒', labelKey: 'inv.straw_hat' },
     { id: 'explorer_vest', name: 'Explorer Vest', icon: '🦺', labelKey: 'inv.explorer_vest' },
     { id: 'grass_pants', name: 'Grass Pants', icon: '👖', labelKey: 'inv.grass_pants' },
@@ -530,6 +539,7 @@ export function renderInventoryUI() {
     craftingList.innerHTML = '';
     const recipes = [
       { id: 'rope', name: 'Rope', icon: '🧵', cost: { leaves: 3 }, costText: '3 Leaves', labelKey: 'hotbar.rope', descKey: 'recipe.rope' },
+      { id: 'campfire', name: 'Campfire', icon: '🔥', cost: { wood: 4, stone: 2 }, costText: '4 Wood, 2 Stone', labelKey: 'inv.campfire', descKey: 'recipe.campfire' },
       { id: 'straw_hat', name: 'Straw Hat', icon: '👒', cost: { leaves: 6, rope: 2 }, costText: '6 Leaves, 2 Ropes', labelKey: 'inv.straw_hat', descKey: 'recipe.straw_hat' },
       { id: 'grass_pants', name: 'Grass Pants', icon: '👖', cost: { leaves: 8, rope: 3 }, costText: '8 Leaves, 3 Ropes', labelKey: 'inv.grass_pants', descKey: 'recipe.grass_pants' },
       { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', cost: { wood: 4, rope: 2 }, costText: '4 Wood, 2 Ropes', labelKey: 'inv.wooden_boots', descKey: 'recipe.wooden_boots' }
@@ -627,8 +637,19 @@ export function renderInventoryUI() {
   document.getElementById('stat-mod-speed').innerText = hasBoots ? '+15%' : '+0%';
 }
 
-// Equip wearable item
+// Equip wearable item or use item
 function equipItem(itemId) {
+  if (itemId === 'raw_fish' || itemId === 'raw_crab' || itemId === 'cooked_meat') {
+    consumeFood(itemId);
+    return;
+  }
+
+  if (itemId === 'campfire') {
+    toggleInventory(); // close inventory
+    startCampfirePlacement();
+    return;
+  }
+
   let slotType = null;
   if (itemId === 'straw_hat') slotType = 'head';
   else if (itemId === 'explorer_vest') slotType = 'torso';
@@ -644,6 +665,28 @@ function equipItem(itemId) {
 
   player.equipped[slotType] = itemId;
   player.inventory[itemId]--;
+
+  playSelect(); // audio feedback
+  renderInventoryUI();
+}
+
+// Consume food and modify player stats
+function consumeFood(itemId) {
+  if (!player.inventory[itemId] || player.inventory[itemId] <= 0) return;
+
+  player.inventory[itemId]--;
+
+  if (itemId === 'cooked_meat') {
+    player.energy = Math.min(100, player.energy + 40);
+    player.health = Math.min(100, player.health + 20);
+    player.hydration = Math.min(100, player.hydration + 5);
+    showHudMessage(getTranslation('msg_ate_cooked') || 'Ate cooked meat! +20 HP, +40 Energy');
+  } else {
+    // raw fish or raw crab
+    player.energy = Math.min(100, player.energy + 8);
+    player.health = Math.max(0, player.health - 5);
+    showHudMessage(getTranslation('msg_ate_raw') || 'Ate raw food! Drained 5 HP, +8 Energy');
+  }
 
   playSelect(); // audio feedback
   renderInventoryUI();

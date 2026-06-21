@@ -1,28 +1,48 @@
 import * as THREE from 'three';
 import { game } from './game.js';
-import { world, deformTerrainLowPoly, getSurfaceHeightNear } from './world.js';
+import { world, deformTerrainLowPoly, getSurfaceHeightNear, createCampfireMesh } from './world.js';
 import { player, showHudMessage, selectSlot } from './player.js';
 import { getTranslation } from './lang.js';
-import { playWoodChop } from './audio.js';
+import { playWoodChop, playSelect, playSizzling } from './audio.js';
 
 let raycaster;
 const activeDebris = [];
 let closestDebris = null;
 export let nearFeedbackBoard = false;
+let closestCampfireForCooking = null;
+let campfireHologram = null;
 
 // Initialize Raycasting and keyboard listeners for interaction
 export function initInteraction() {
   raycaster = new THREE.Raycaster();
 
-  // Listen for the "E" harvest key
+  // Listen for the "E" harvest key and Escape for campfire cancel
   document.addEventListener('keydown', (e) => {
+    if (game.isPlacingCampfire && e.key === 'Escape') {
+      cancelCampfirePlacement();
+      return;
+    }
+
     if (game.pointerLocked && e.code === 'KeyE') {
       if (nearFeedbackBoard) {
         if (typeof window.openFeedbackBoard === 'function') {
           window.openFeedbackBoard();
         }
+      } else if (closestCampfireForCooking) {
+        cookRawMeat();
       } else if (closestDebris) {
         harvestClosestDebris();
+      }
+    }
+  });
+
+  // Listen for placing/canceling campfires via mouse buttons
+  document.addEventListener('mousedown', (e) => {
+    if (game.isPlacingCampfire && game.pointerLocked) {
+      if (e.button === 0) { // Left click
+        placeCampfire();
+      } else if (e.button === 2) { // Right click
+        cancelCampfirePlacement();
       }
     }
   });
@@ -35,6 +55,31 @@ export function updateInteraction(delta) {
 
   // Check if any debris is near the player to show the "PRESS E" prompt
   checkHarvestablePrompt();
+
+  // Update campfire placement hologram positioning
+  if (game.isPlacingCampfire && campfireHologram) {
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), game.camera);
+    const targets = [];
+    if (world.terrainMesh) targets.push(world.terrainMesh);
+    const intersections = raycaster.intersectObjects(targets);
+    if (intersections.length > 0 && intersections[0].distance < 6.0) {
+      campfireHologram.position.copy(intersections[0].point);
+      campfireHologram.visible = true;
+    } else {
+      const dir = new THREE.Vector3();
+      game.camera.getWorldDirection(dir);
+      dir.y = 0;
+      dir.normalize();
+      
+      const playerPos = game.controls.getObject().position;
+      const targetPos = playerPos.clone().addScaledVector(dir, 3.0);
+      const groundY = getSurfaceHeightNear(targetPos.x, 15, targetPos.z);
+      targetPos.y = groundY;
+      
+      campfireHologram.position.copy(targetPos);
+      campfireHologram.visible = true;
+    }
+  }
 
   // If the player is swinging a tool, check for hit at the peak of the swing
   // The swing duration is 0.25s. We cast a ray near the start (e.g. when swinging is active)
@@ -95,12 +140,68 @@ export function updateInteraction(delta) {
   }
 }
 
-// Route raycast based on held tool (Axe vs Pickaxe)
+// Route raycast based on held tool (Spear vs Axe vs Pickaxe)
 function performToolsRaycast() {
-  if (player.selectedSlot === 6) {
+  if (player.selectedSlot === 0) {
+    performSpearRaycast();
+  } else if (player.selectedSlot === 6) {
     performMiningRaycast();
   } else if (player.selectedSlot === 1) {
     performWoodcuttingRaycast();
+  }
+}
+
+// Raycast for hunting crabs/fishes when holding the Spear
+function performSpearRaycast() {
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), game.camera);
+
+  const faunaMeshes = [];
+  const meshToGroupMap = new Map();
+
+  game.crabs.forEach(group => {
+    group.traverse(child => {
+      if (child.isMesh) {
+        faunaMeshes.push(child);
+        meshToGroupMap.set(child, { type: 'crab', group: group });
+      }
+    });
+  });
+
+  game.fishes.forEach(group => {
+    group.traverse(child => {
+      if (child.isMesh) {
+        faunaMeshes.push(child);
+        meshToGroupMap.set(child, { type: 'fish', group: group });
+      }
+    });
+  });
+
+  const intersections = raycaster.intersectObjects(faunaMeshes);
+
+  if (intersections.length > 0 && intersections[0].distance < 4.0) {
+    const hit = intersections[0];
+    const hitMesh = hit.object;
+    const hitInfo = meshToGroupMap.get(hitMesh);
+
+    if (hitInfo) {
+      playWoodChop(); // reuse sharp wood chop sound as general hit impact
+      const targetGroup = hitInfo.group;
+      const hitNormal = hit.face.normal.clone().applyQuaternion(hitMesh.getWorldQuaternion(new THREE.Quaternion()));
+
+      game.scene.remove(targetGroup);
+
+      if (hitInfo.type === 'crab') {
+        const idx = game.crabs.indexOf(targetGroup);
+        if (idx > -1) game.crabs.splice(idx, 1);
+        spawnDebris(hit.point, hitNormal, 'raw_crab');
+        showHudMessage(getTranslation('msg_hunted_crab') || 'Hunted crab!');
+      } else {
+        const idx = game.fishes.indexOf(targetGroup);
+        if (idx > -1) game.fishes.splice(idx, 1);
+        spawnDebris(hit.point, hitNormal, 'raw_fish');
+        showHudMessage(getTranslation('msg_hunted_fish') || 'Hunted fish!');
+      }
+    }
   }
 }
 
@@ -247,7 +348,7 @@ function performMiningRaycast() {
 }
 
 // Spawns a physical low-poly debris chunk that falls and bounces
-function spawnDebris(position, normal, type) {
+export function spawnDebris(position, normal, type) {
   let geom, mat;
   if (type === 'wood') {
     geom = new THREE.CylinderGeometry(0.06, 0.06, 0.35, 5); // horizontal low-poly log
@@ -256,6 +357,16 @@ function spawnDebris(position, normal, type) {
   } else if (type === 'ore') {
     geom = new THREE.DodecahedronGeometry(0.12, 0);
     mat = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.2, metalness: 0.9, emissive: 0xffa500, emissiveIntensity: 0.2, flatShading: true });
+  } else if (type === 'raw_crab') {
+    geom = new THREE.BoxGeometry(0.15, 0.08, 0.15);
+    mat = new THREE.MeshStandardMaterial({ color: 0xe05544, roughness: 0.8, flatShading: true });
+  } else if (type === 'raw_fish') {
+    geom = new THREE.ConeGeometry(0.08, 0.25, 4);
+    geom.rotateX(Math.PI / 2);
+    mat = new THREE.MeshStandardMaterial({ color: 0xa8b7c0, roughness: 0.5, flatShading: true });
+  } else if (type === 'cooked_meat') {
+    geom = new THREE.BoxGeometry(0.16, 0.1, 0.1);
+    mat = new THREE.MeshStandardMaterial({ color: 0x5c2e16, roughness: 0.9, flatShading: true });
   } else {
     geom = new THREE.DodecahedronGeometry(0.12, 0);
     mat = new THREE.MeshStandardMaterial({ color: 0x8a7f76, roughness: 0.9, flatShading: true });
@@ -336,7 +447,7 @@ function updateDebrisPhysics(delta) {
   }
 }
 
-// Detect if any gold ore or wood log is close to display E prompt
+// Detect if any collectible debris or campfire is close to display E prompt
 function checkHarvestablePrompt() {
   if (!game.controls) return;
 
@@ -345,8 +456,7 @@ function checkHarvestablePrompt() {
   let minDist = 2.2; // Maximum collection distance
 
   activeDebris.forEach(debris => {
-    // Collect both gold ore and wood logs
-    if (debris.type === 'ore' || debris.type === 'wood') {
+    if (debris.type === 'ore' || debris.type === 'wood' || debris.type === 'raw_crab' || debris.type === 'raw_fish' || debris.type === 'cooked_meat') {
       const dist = playerPos.distanceTo(debris.mesh.position);
       if (dist < minDist) {
         minDist = dist;
@@ -356,6 +466,22 @@ function checkHarvestablePrompt() {
   });
 
   closestDebris = foundCloseDebris;
+
+  // Proximity to campfires for cooking
+  closestCampfireForCooking = null;
+  if (world.campfires) {
+    let minCampfireDist = 2.5;
+    world.campfires.forEach(campfire => {
+      const dist = playerPos.distanceTo(campfire.position);
+      if (dist < minCampfireDist) {
+        // Only trigger prompt if the player actually has something to cook
+        if (player.inventory.raw_crab > 0 || player.inventory.raw_fish > 0) {
+          minCampfireDist = dist;
+          closestCampfireForCooking = campfire;
+        }
+      }
+    });
+  }
 
   // Check proximity to feedback board
   nearFeedbackBoard = false;
@@ -367,9 +493,25 @@ function checkHarvestablePrompt() {
   }
 
   const prompt = document.getElementById('interaction-prompt');
-  if (closestDebris) {
-    const translationKey = closestDebris.type === 'wood' ? 'interact_harvest_wood' : 'interact_harvest';
-    const rawPrompt = getTranslation(translationKey) || (closestDebris.type === 'wood' ? 'PRESS E TO HARVEST WOOD' : 'PRESS E TO HARVEST ORE');
+  if (closestCampfireForCooking) {
+    const rawPrompt = getTranslation('interact_cook') || 'PRESS E TO COOK MEAT';
+    prompt.innerHTML = rawPrompt.replace('E', '<span style="color: #ffd700; font-weight:800;">E</span>');
+    prompt.classList.add('visible');
+  } else if (closestDebris) {
+    let rawPrompt = '';
+    if (closestDebris.type === 'wood') {
+      rawPrompt = getTranslation('interact_harvest_wood') || 'PRESS E TO HARVEST WOOD';
+    } else if (closestDebris.type === 'ore') {
+      rawPrompt = getTranslation('interact_harvest') || 'PRESS E TO HARVEST ORE';
+    } else if (closestDebris.type === 'raw_crab') {
+      rawPrompt = getTranslation('interact_harvest_crab') || 'PRESS E TO HARVEST RAW CRAB';
+    } else if (closestDebris.type === 'raw_fish') {
+      rawPrompt = getTranslation('interact_harvest_fish') || 'PRESS E TO HARVEST RAW FISH';
+    } else if (closestDebris.type === 'cooked_meat') {
+      rawPrompt = getTranslation('interact_harvest_cooked') || 'PRESS E TO HARVEST COOKED MEAT';
+    } else {
+      rawPrompt = 'PRESS E TO HARVEST';
+    }
     prompt.innerHTML = rawPrompt.replace('E', '<span style="color: #ffd700; font-weight:800;">E</span>');
     prompt.classList.add('visible');
   } else if (nearFeedbackBoard) {
@@ -430,7 +572,80 @@ export function harvestClosestDebris() {
     } else {
       document.getElementById('objective-text').innerText = getTranslation('obj_progress', { val: player.inventory.ore });
     }
+  } else if (closestDebris.type === 'raw_crab') {
+    player.inventory.raw_crab += 1;
+    showHudMessage(getTranslation('msg_collected_raw_crab') || '+1 Raw Crab');
+  } else if (closestDebris.type === 'raw_fish') {
+    player.inventory.raw_fish += 1;
+    showHudMessage(getTranslation('msg_collected_raw_fish') || '+1 Raw Fish');
+  } else if (closestDebris.type === 'cooked_meat') {
+    player.inventory.cooked_meat += 1;
+    showHudMessage(getTranslation('msg_collected_cooked') || '+1 Cooked Meat');
   }
 
   closestDebris = null;
+}
+
+// Cook raw meat at a nearby campfire
+function cookRawMeat() {
+  if (!closestCampfireForCooking) return;
+
+  if (player.inventory.raw_crab > 0) {
+    player.inventory.raw_crab--;
+    // Spawn cooked meat debris at the campfire's position
+    const spawnPos = closestCampfireForCooking.position.clone();
+    spawnPos.y += 0.25;
+    spawnDebris(spawnPos, new THREE.Vector3(0, 1, 0), 'cooked_meat');
+    playSizzling();
+    showHudMessage(getTranslation('msg_cooked_crab') || 'Cooked Crab Meat!');
+  } else if (player.inventory.raw_fish > 0) {
+    player.inventory.raw_fish--;
+    const spawnPos = closestCampfireForCooking.position.clone();
+    spawnPos.y += 0.25;
+    spawnDebris(spawnPos, new THREE.Vector3(0, 1, 0), 'cooked_meat');
+    playSizzling();
+    showHudMessage(getTranslation('msg_cooked_fish') || 'Cooked Fish Meat!');
+  }
+}
+
+// Start campfire holographic placement mode
+export function startCampfirePlacement() {
+  if (!player.inventory.campfire || player.inventory.campfire <= 0) return;
+
+  if (campfireHologram) {
+    cancelCampfirePlacement();
+  }
+
+  game.isPlacingCampfire = true;
+  campfireHologram = createCampfireMesh(true);
+  game.scene.add(campfireHologram);
+}
+
+// Cancel holographic placement mode
+export function cancelCampfirePlacement() {
+  if (campfireHologram) {
+    game.scene.remove(campfireHologram);
+    campfireHologram = null;
+  }
+  game.isPlacingCampfire = false;
+}
+
+// Place the real campfire on the ground
+function placeCampfire() {
+  if (!campfireHologram || !player.inventory.campfire || player.inventory.campfire <= 0) return;
+
+  const realCampfire = createCampfireMesh(false);
+  realCampfire.position.copy(campfireHologram.position);
+  realCampfire.rotation.copy(campfireHologram.rotation);
+
+  game.scene.add(realCampfire);
+  world.campfires.push(realCampfire);
+
+  // Deduct campfire from inventory
+  player.inventory.campfire--;
+
+  playSelect();
+  showHudMessage(getTranslation('msg_placed_campfire') || 'Placed campfire!');
+
+  cancelCampfirePlacement();
 }
