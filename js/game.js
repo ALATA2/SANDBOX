@@ -1071,8 +1071,8 @@ function animate() {
     world.waterMesh.geometry.computeVertexNormals();
   }
 
-  // Day / Night Cycle (60 seconds duration)
-  const cycleDuration = 60;
+  // Day / Night Cycle (120 seconds duration)
+  const cycleDuration = 120;
   const cycleTime = game.time;
   const progress = (cycleTime % cycleDuration) / cycleDuration;
   const angle = progress * Math.PI * 2;

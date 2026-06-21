@@ -86,7 +86,11 @@ export function initPlayer() {
   document.addEventListener('keydown', (e) => {
     if (e.key >= '1' && e.key <= '8') {
       const idx = parseInt(e.key) - 1;
-      selectSlot(idx);
+      if (player.selectedSlot === idx) {
+        selectSlot(-1); // Toggle to empty hand
+      } else {
+        selectSlot(idx);
+      }
     } else if (e.key === 'i' || e.key === 'I') {
       toggleInventory();
     }
@@ -103,10 +107,14 @@ export function initPlayer() {
   document.addEventListener('wheel', (e) => {
     if (game.pointerLocked && !game.paused) {
       let idx = player.selectedSlot;
-      if (e.deltaY > 0) {
-        idx = (idx + 1) % 8;
-      } else if (e.deltaY < 0) {
-        idx = (idx - 1 + 8) % 8;
+      if (idx === -1) {
+        idx = e.deltaY > 0 ? 0 : 7;
+      } else {
+        if (e.deltaY > 0) {
+          idx = (idx + 1) % 8;
+        } else if (e.deltaY < 0) {
+          idx = (idx - 1 + 8) % 8;
+        }
       }
       selectSlot(idx);
     }
@@ -116,7 +124,13 @@ export function initPlayer() {
   document.querySelectorAll('.hotbar-slot').forEach(slot => {
     slot.addEventListener('click', (e) => {
       const idx = parseInt(slot.getAttribute('data-slot'));
-      if (!isNaN(idx)) selectSlot(idx);
+      if (!isNaN(idx)) {
+        if (player.selectedSlot === idx) {
+          selectSlot(-1); // Toggle to empty hand
+        } else {
+          selectSlot(idx);
+        }
+      }
     });
   });
 
