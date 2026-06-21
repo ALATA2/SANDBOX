@@ -1,15 +1,15 @@
 import * as THREE from 'three';
 import { game } from './game.js';
 import { world, deformTerrainLowPoly, getSurfaceHeightNear, createCampfireMesh } from './world.js';
-import { player, showHudMessage, selectSlot } from './player.js';
+import { player, showHudMessage, selectSlot, syncHotbarCounts, renderInventoryUI } from './player.js';
 import { getTranslation } from './lang.js';
-import { playWoodChop, playSelect, playSizzling } from './audio.js';
+import { playWoodChop, playSelect, playSizzling, playDrink, playSpark } from './audio.js';
 
 let raycaster;
 const activeDebris = [];
 let closestDebris = null;
 export let nearFeedbackBoard = false;
-let closestCampfireForCooking = null;
+let closestCampfire = null;
 let campfireHologram = null;
 
 // Initialize Raycasting and keyboard listeners for interaction
@@ -28,10 +28,21 @@ export function initInteraction() {
         if (typeof window.openFeedbackBoard === 'function') {
           window.openFeedbackBoard();
         }
-      } else if (closestCampfireForCooking) {
-        cookRawMeat();
+      } else if (closestCampfire) {
+        const isBurning = closestCampfire.userData && closestCampfire.userData.burnTime > 0;
+        if (isBurning) {
+          cookRawMeat();
+        } else {
+          showHudMessage(getTranslation('msg_fire_is_out') || "The fire is out! Add fuel to light it.");
+        }
       } else if (closestDebris) {
         harvestClosestDebris();
+      }
+    }
+
+    if (game.pointerLocked && e.code === 'KeyF') {
+      if (closestCampfire) {
+        addFuelToCampfire();
       }
     }
   });
@@ -152,6 +163,9 @@ function performToolsRaycast() {
     performMiningRaycast();
   } else if (player.selectedSlot === 1) {
     performWoodcuttingRaycast();
+    performSpearRaycast(); // Allow hunting with Axe!
+  } else if (player.selectedSlot === 2) {
+    drinkWater(); // Drink water on slot 3 selection click
   }
 }
 
@@ -545,18 +559,15 @@ function checkHarvestablePrompt() {
 
   closestDebris = foundCloseDebris;
 
-  // Proximity to campfires for cooking
-  closestCampfireForCooking = null;
+  // Proximity to campfires
+  closestCampfire = null;
   if (world.campfires) {
     let minCampfireDist = 2.5;
     world.campfires.forEach(campfire => {
       const dist = playerPos.distanceTo(campfire.position);
       if (dist < minCampfireDist) {
-        // Only trigger prompt if the player actually has something to cook
-        if (player.inventory.raw_crab > 0 || player.inventory.raw_fish > 0) {
-          minCampfireDist = dist;
-          closestCampfireForCooking = campfire;
-        }
+        minCampfireDist = dist;
+        closestCampfire = campfire;
       }
     });
   }
@@ -571,9 +582,30 @@ function checkHarvestablePrompt() {
   }
 
   const prompt = document.getElementById('interaction-prompt');
-  if (closestCampfireForCooking) {
-    const rawPrompt = getTranslation('interact_cook') || 'PRESS E TO COOK MEAT';
-    prompt.innerHTML = rawPrompt.replace('E', '<span style="color: #ffd700; font-weight:800;">E</span>');
+  if (closestCampfire) {
+    const isBurning = closestCampfire.userData && closestCampfire.userData.burnTime > 0;
+    const hasIgnition = (player.inventory.stone || 0) >= 2 && (player.inventory.leaves || 0) >= 1;
+    
+    let rawPrompt = '';
+    const fuelVal = Math.round(closestCampfire.userData ? closestCampfire.userData.burnTime : 0);
+    
+    if (isBurning) {
+      if (hasRawMeat) {
+        rawPrompt = getTranslation('interact_cook_fuel', { fuel: fuelVal }) || `PRESS E TO COOK MEAT / PRESS F TO ADD FUEL (Fuel: ${fuelVal}s)`;
+      } else {
+        rawPrompt = getTranslation('interact_fuel_only', { fuel: fuelVal }) || `PRESS F TO ADD FUEL (Fuel: ${fuelVal}s)`;
+      }
+    } else {
+      if (hasIgnition) {
+        rawPrompt = getTranslation('interact_relight') || `PRESS F TO LIGHT FIRE (2 Stones & 1 Leaf)`;
+      } else {
+        rawPrompt = getTranslation('msg_fire_out') || `FIRE IS OUT (Needs 2 Stones & 1 Leaf)`;
+      }
+    }
+    
+    let rendered = rawPrompt.replace('E', '<span style="color: #ffd700; font-weight:800;">E</span>');
+    rendered = rendered.replace('F', '<span style="color: #ffd700; font-weight:800;">F</span>');
+    prompt.innerHTML = rendered;
     prompt.classList.add('visible');
   } else if (closestDebris) {
     let rawPrompt = '';
@@ -676,19 +708,19 @@ export function harvestClosestDebris() {
 
 // Cook raw meat at a nearby campfire
 function cookRawMeat() {
-  if (!closestCampfireForCooking) return;
+  if (!closestCampfire) return;
 
   if (player.inventory.raw_crab > 0) {
     player.inventory.raw_crab--;
     // Spawn cooked meat debris at the campfire's position
-    const spawnPos = closestCampfireForCooking.position.clone();
+    const spawnPos = closestCampfire.position.clone();
     spawnPos.y += 0.25;
     spawnDebris(spawnPos, new THREE.Vector3(0, 1, 0), 'cooked_meat');
     playSizzling();
     showHudMessage(getTranslation('msg_cooked_crab') || 'Cooked Crab Meat!');
   } else if (player.inventory.raw_fish > 0) {
     player.inventory.raw_fish--;
-    const spawnPos = closestCampfireForCooking.position.clone();
+    const spawnPos = closestCampfire.position.clone();
     spawnPos.y += 0.25;
     spawnDebris(spawnPos, new THREE.Vector3(0, 1, 0), 'cooked_meat');
     playSizzling();
@@ -733,7 +765,77 @@ function placeCampfire() {
   player.inventory.campfire--;
 
   playSelect();
-  showHudMessage(getTranslation('msg_placed_campfire') || 'Placed campfire!');
-
+  showHudMessage(getTranslation('msg_placed_campfire') || 'Campfire Placed!');
   cancelCampfirePlacement();
+}
+
+// Drink water from slot 3 (Water)
+function drinkWater() {
+  if (player.hydration >= 100) {
+    showHudMessage(getTranslation('msg_already_hydrated') || "Already hydrated!");
+    return;
+  }
+  player.hydration = Math.min(100, player.hydration + 30);
+  playDrink();
+  showHudMessage(getTranslation('msg_drank_water') || "Drank water! +30 Hydration");
+}
+
+// Add fuel or light/spark the campfire using 2 stones and 1 leaf
+function addFuelToCampfire() {
+  if (!closestCampfire) return;
+
+  const userData = closestCampfire.userData;
+  if (!userData) return;
+
+  const isBurning = userData.burnTime > 0;
+
+  if (!isBurning) {
+    // Requires ignition: 2 stones and 1 leaf
+    if ((player.inventory.stone || 0) < 2 || (player.inventory.leaves || 0) < 1) {
+      showHudMessage(getTranslation('msg_no_ignition') || "Need at least 2 Stones and 1 Leaf to light the fire!");
+      return;
+    }
+    // Consume 1 leaf, keep stones
+    player.inventory.leaves--;
+    userData.burnTime = 15.0; // starts with 15s from the leaf
+    playSpark();
+    syncHotbarCounts();
+    renderInventoryUI();
+    showHudMessage(getTranslation('msg_lit_fire_spark') || "Sparked the stones and lit the fire with leaves!");
+  } else {
+    // Fire is already lit, just add fuel
+    if (userData.burnTime >= userData.maxBurnTime) {
+      showHudMessage(getTranslation('msg_fire_full') || "Campfire fuel capacity is full!");
+      return;
+    }
+
+    let fuelType = null;
+    let addAmount = 0;
+
+    // Prioritize weakest first: leaves (+15), stick (+30), wood (+60)
+    if ((player.inventory.leaves || 0) > 0) {
+      fuelType = 'leaves';
+      addAmount = 15;
+    } else if ((player.inventory.stick || 0) > 0) {
+      fuelType = 'stick';
+      addAmount = 30;
+    } else if ((player.inventory.wood || 0) > 0) {
+      fuelType = 'wood';
+      addAmount = 60;
+    }
+
+    if (!fuelType) {
+      showHudMessage(getTranslation('msg_no_fuel') || "No fuel in inventory! (Need Leaves, Sticks, or Wood)");
+      return;
+    }
+
+    player.inventory[fuelType]--;
+    userData.burnTime = Math.min(userData.maxBurnTime, userData.burnTime + addAmount);
+    playSelect();
+    syncHotbarCounts();
+    renderInventoryUI();
+
+    const fuelName = getTranslation(`inv.${fuelType}`) || fuelType;
+    showHudMessage(getTranslation('msg_added_fuel', { type: fuelName, amount: addAmount }) || `Added fuel! (${fuelName}: +${addAmount}s)`);
+  }
 }

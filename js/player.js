@@ -784,9 +784,9 @@ function consumeFood(itemId) {
     showHudMessage(getTranslation('msg_ate_cooked') || 'Ate cooked meat! +20 HP, +40 Energy');
   } else {
     // raw fish or raw crab
-    player.energy = Math.min(100, player.energy + 8);
+    player.energy = Math.max(0, player.energy - 10);
     player.health = Math.max(0, player.health - 5);
-    showHudMessage(getTranslation('msg_ate_raw') || 'Ate raw food! Drained 5 HP, +8 Energy');
+    showHudMessage(getTranslation('msg_ate_raw') || 'Ate raw food! Drained 5 HP, 10 Energy');
   }
 
   playSelect(); // audio feedback

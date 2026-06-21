@@ -513,3 +513,69 @@ export function playSizzling() {
   noise.start(time);
   noise.stop(time + 1.5);
 }
+
+// Gulp sound for drinking water
+export function playDrink() {
+  if (isMuted) return;
+  initAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  const time = audioCtx.currentTime;
+  
+  // Two soft gulping pulses
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(180, time);
+  osc.frequency.exponentialRampToValueAtTime(120, time + 0.15);
+  osc.frequency.setValueAtTime(160, time + 0.18);
+  osc.frequency.exponentialRampToValueAtTime(110, time + 0.35);
+  
+  gain.gain.setValueAtTime(0.15, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+  gain.gain.setValueAtTime(0.12, time + 0.18);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
+  
+  osc.connect(gain);
+  gain.connect(masterFilter || audioCtx.destination);
+  
+  osc.start(time);
+  osc.stop(time + 0.4);
+}
+
+// Metallic spark sound for lighting fire with stones
+export function playSpark() {
+  if (isMuted) return;
+  initAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  const time = audioCtx.currentTime;
+  
+  // Two quick high-pitched crack/click sounds
+  for (let i = 0; i < 2; i++) {
+    const clickTime = time + i * 0.12;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    const filter = audioCtx.createBiquadFilter();
+    
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(800, clickTime);
+    osc.frequency.exponentialRampToValueAtTime(100, clickTime + 0.05);
+    
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1500, clickTime);
+    filter.Q.setValueAtTime(3.0, clickTime);
+    
+    gain.gain.setValueAtTime(0.2, clickTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, clickTime + 0.05);
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterFilter || audioCtx.destination);
+    
+    osc.start(clickTime);
+    osc.stop(clickTime + 0.06);
+  }
+}
+

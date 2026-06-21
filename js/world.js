@@ -1729,13 +1729,35 @@ export function updateWorld(delta) {
       campfire.position.y = groundY;
 
       if (campfire.userData) {
-        campfire.userData.flickerTime += delta * 12;
-        const scaleVal = 0.9 + Math.sin(campfire.userData.flickerTime) * 0.15 + (Math.random() - 0.5) * 0.08;
-        if (campfire.userData.flame) {
-          campfire.userData.flame.scale.set(scaleVal, scaleVal * 1.2, scaleVal);
+        // Decrease burn time
+        if (campfire.userData.burnTime > 0) {
+          campfire.userData.burnTime = Math.max(0, campfire.userData.burnTime - delta);
         }
+
+        const isBurning = campfire.userData.burnTime > 0;
+        
+        // Calculate scale multiplier based on fuel (range: 0.5 to 1.8)
+        const scaleMult = isBurning ? Math.min(1.8, 0.5 + (campfire.userData.burnTime / 90.0)) : 0.0;
+
+        if (campfire.userData.flame) {
+          campfire.userData.flame.visible = isBurning;
+          if (isBurning) {
+            campfire.userData.flickerTime += delta * 12;
+            const flickerScale = 0.9 + Math.sin(campfire.userData.flickerTime) * 0.15 + (Math.random() - 0.5) * 0.08;
+            const finalScale = scaleMult * flickerScale;
+            campfire.userData.flame.scale.set(finalScale, finalScale * 1.2, finalScale);
+          }
+        }
+
         if (campfire.userData.light) {
-          campfire.userData.light.intensity = 1.2 + Math.sin(campfire.userData.flickerTime * 1.5) * 0.3 + (Math.random() - 0.5) * 0.15;
+          campfire.userData.light.visible = isBurning;
+          if (isBurning) {
+            const flickerLight = 1.2 + Math.sin(campfire.userData.flickerTime * 1.5) * 0.3 + (Math.random() - 0.5) * 0.15;
+            campfire.userData.light.intensity = scaleMult * flickerLight;
+            campfire.userData.light.distance = 8.0 * scaleMult;
+          } else {
+            campfire.userData.light.intensity = 0;
+          }
         }
       }
     });
@@ -1814,11 +1836,13 @@ export function createCampfireMesh(isHologram) {
     light.shadow.bias = -0.002;
     campfireGroup.add(light);
     
-    // Add user data to animate flicker/flame scale
+    // Add user data to animate flicker/flame scale and track fuel
     campfireGroup.userData = {
       light: light,
       flame: flame,
-      flickerTime: 0
+      flickerTime: 0,
+      burnTime: 0.0, // starts unlit, requires ignition
+      maxBurnTime: 300.0 // cap at 5 minutes
     };
   }
 
