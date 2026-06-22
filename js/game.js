@@ -1081,10 +1081,10 @@ function animate() {
     world.waterMesh.geometry.computeVertexNormals();
   }
 
-  // Day / Night Cycle (120 seconds duration)
+  // Day / Night Cycle (TEMPORARILY FROZEN ALMOST VERTICAL FOR STABLE LIGHTING)
   const cycleDuration = 120;
   const cycleTime = game.time;
-  const progress = (cycleTime % cycleDuration) / cycleDuration;
+  const progress = 0.22; // Frozen at near-zenith (noon) for stable bright testing lights
   const angle = progress * Math.PI * 2;
 
   // Orbit math: Sun and Moon rotate opposite to each other
