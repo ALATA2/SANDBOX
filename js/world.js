@@ -540,10 +540,37 @@ export function buildWaterGeometry() {
         } else {
           depth = 0;
         }
+        
+        // Inner ocean color uses actual depth blending
+        const t = Math.min(1.0, depth / 4.0);
+        tempColor.copy(colorShallow).lerp(colorDeep, t);
+      } else {
+        // Procedural tropical seabed patterns (sands, reefs, channels) for the open ocean
+        // We use fbmNoise2D to simulate sandbars and coral reefs under the water.
+        const nv = fbmNoise2D(vx * 0.003, vz * 0.003); // Large-scale patterns
+        const detailNoise = fbmNoise2D(vx * 0.02, vz * 0.02) * 0.2; // Small-scale coral noise
+        const val = nv + detailNoise;
+        
+        // Define three curated tropical ocean colors:
+        const colorSand = new THREE.Color(0x05edd0);   // Bright luminous beach sand under water
+        const colorReef = new THREE.Color(0x0c545b);   // Darker teal/grey representing shallow coral reefs
+        const colorAbyss = new THREE.Color(0x072d47);  // Deep ocean abyss blue
+        
+        if (val < 0.55) {
+          // Transition from shallow sand to reef
+          const t = val / 0.55;
+          tempColor.copy(colorSand).lerp(colorReef, t);
+        } else if (val < 0.95) {
+          // Transition from reef to deep ocean abyss
+          const t = (val - 0.55) / 0.40;
+          tempColor.copy(colorReef).lerp(colorAbyss, t);
+        } else {
+          // Deep ocean abyss
+          tempColor.copy(colorAbyss);
+        }
+        depth = 4.0; // Outer ocean has standard depth for wave amplitude calculations
       }
 
-      const t = Math.min(1.0, depth / 4.0);
-      tempColor.copy(colorShallow).lerp(colorDeep, t);
       colors.push(tempColor.r, tempColor.g, tempColor.b);
       depths.push(depth);
     }
