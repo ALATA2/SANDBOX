@@ -21,7 +21,8 @@ export const world = {
   feedbackBoard: null, // Feedback Board Mesh
   clouds: [], // Array of cloud meshes
   campfires: [], // Array of placed campfire groups
-  canes: [] // Array of active cane plant groups
+  canes: [], // Array of active cane plant groups
+  seabedMesh: null // 3D Seabed Mesh
 };
 
 // Water grid limits and cell counts
@@ -725,13 +726,15 @@ export function getSurfaceHeightNear(px, py, pz) {
     }
   }
 
+  const sHeight = getSeabedHeight(px, pz);
+
   const spacing = world.spacing;
   const gx = px / spacing;
   const gy = py / spacing;
   const gz = pz / spacing;
 
   if (gx < 0 || gx >= world.sizeX || gz < 0 || gz >= world.sizeZ) {
-    return 0.1; // Baseline waterbed height outside main island grid
+    return sHeight; // Return procedural seabed height outside main island grid
   }
 
   // Start sweep slightly above player (e.g. gy + 1.5) to capture ground even if player sinks slightly
@@ -749,10 +752,10 @@ export function getSurfaceHeightNear(px, py, pz) {
         t = dens / diff;
       }
       t = Math.max(0, Math.min(1, t));
-      return (y + t) * spacing;
+      return (y + t) * spacing; // Return actual terrain height if solid starting island terrain exists
     }
   }
-  return 0.1; // Baseline height
+  return sHeight; // Return seabed height if no solid starting island terrain is found under coordinates
 }
 
 // Get smooth interpolated density at any world coordinate (Trilinear)
@@ -1912,6 +1915,7 @@ export function initWorld() {
   buildMarchingCubesMesh();
   spawnScenery();
   spawnFeedbackBoard();
+  spawnSeabed();
 }
 
 // Update World Animation (e.g. lighthouse rotation, dynamic gravity snap for trees/rocks)
@@ -2164,4 +2168,99 @@ export function createCanePlant() {
   }
   
   return caneGroup;
+}
+
+// Calculate the depth/height of the seabed mathematically (deeper far from islands)
+export function getSeabedHeight(x, z) {
+  // Distance to Starting Island
+  const dStart = Math.sqrt((x - 32) * (x - 32) + (z - 32) * (z - 32));
+  
+  // Distance to Lighthouse Island
+  const dLight = Math.sqrt((x - 1500) * (x - 1500) + (z - (-2000)) * (z - (-2000)));
+  
+  // Distance to Volcanic Island
+  const dVolc = Math.sqrt((x - (-1800)) * (x - (-1800)) + (z - 1500) * (z - 1500));
+  
+  // Base deep ocean floor Y height (deeper far from islands, e.g. -70m)
+  const baseFloor = -70.0;
+  
+  // Influence factors (smoothly interpolation from 1 near center to 0 far away)
+  // Starting island: slopes down to -70m over ~120 meters distance
+  const wStart = Math.exp(-Math.pow(dStart / 120.0, 2));
+  const hStart = 2.0; // Starting island base height (just below water surface Y=4.0)
+  
+  // Lighthouse Island: slopes down to -70m over ~400 meters
+  const wLight = Math.exp(-Math.pow(dLight / 400.0, 2));
+  const hLight = -5.0; // Matches lighthouse base Y=-5
+  
+  // Volcanic Island: slopes down to -70m over ~500 meters
+  const wVolc = Math.exp(-Math.pow(dVolc / 500.0, 2));
+  const hVolc = -5.0; // Matches volcano base Y=-5
+  
+  // Total blended height
+  let height = baseFloor;
+  
+  // Blend start island
+  height = THREE.MathUtils.lerp(height, hStart, wStart);
+  
+  // Blend lighthouse
+  height = THREE.MathUtils.lerp(height, hLight, wLight);
+  
+  // Blend volcano
+  height = THREE.MathUtils.lerp(height, hVolc, wVolc);
+  
+  // Add procedural ocean floor ridges and valleys (large-scale low-poly terrain detail)
+  const floorNoise = fbmNoise2D(x * 0.001, z * 0.001) * 20.0 - 10.0; // +/- 10 meters variation
+  
+  // Scale noise down near the islands so the transitions are clean
+  const noiseScale = (1.0 - wStart) * (1.0 - wLight) * (1.0 - wVolc);
+  height += floorNoise * noiseScale;
+  
+  return height;
+}
+
+// Spawn the large-scale low-poly seabed mesh that covers the active world
+function spawnSeabed() {
+  const geom = new THREE.PlaneGeometry(8000, 8000, 160, 160);
+  geom.rotateX(-Math.PI / 2); // Rotate to face upwards (horizontal plane)
+  
+  const pos = geom.attributes.position;
+  const colors = [];
+  const colorShallow = new THREE.Color(0xbfa38a); // Sandy beach color
+  const colorDeep = new THREE.Color(0x1a2e35);    // Dark grey-blue ocean floor
+  const tempColor = new THREE.Color();
+  
+  for (let i = 0; i < pos.count; i++) {
+    const vx = pos.getX(i);
+    const vz = pos.getZ(i);
+    
+    // Calculate height mathematically
+    const vy = getSeabedHeight(vx, vz);
+    pos.setY(i, vy);
+    
+    // Coloring: shallower parts are sandier, deeper parts are darker
+    // vy ranges from -70 (deep floor) to +2 (shoreline)
+    const t = Math.max(0, Math.min(1.0, (vy - (-70.0)) / 72.0));
+    tempColor.copy(colorDeep).lerp(colorShallow, t);
+    colors.push(tempColor.r, tempColor.g, tempColor.b);
+  }
+  
+  geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geom.computeVertexNormals();
+
+  const seabedMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.9,
+    metalness: 0.02,
+    flatShading: true,
+    vertexColors: true,
+    side: THREE.FrontSide
+  });
+
+  const mesh = new THREE.Mesh(geom, seabedMaterial);
+  mesh.receiveShadow = true;
+  mesh.position.set(0, 0, 0);
+
+  game.scene.add(mesh);
+  world.seabedMesh = mesh;
 }
