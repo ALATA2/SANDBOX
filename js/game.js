@@ -40,43 +40,43 @@ const startContainer = document.getElementById('start-container');
 const presets = {
   sunset: {
     bg: 0xfc8c82,
-    fogDensity: 0.015,
+    fogDensity: 0.0015,
     ambient: 0x4a2e5c,
     ambientIntensity: 1.2,
     sun: 0xffaa44,
     sunIntensity: 2.5,
     sunPos: new THREE.Vector3(-120, 5, -50),
-    sunMeshColor: 0xfff9e6 // Bright warm white for glowing sun disc
+    sunMeshColor: 0xfff9e6
   },
   nebula: {
     bg: 0x070312,
-    fogDensity: 0.02,
+    fogDensity: 0.002,
     ambient: 0x442266,
     ambientIntensity: 0.6,
     sun: 0x00ffff,
     sunIntensity: 1.2,
     sunPos: new THREE.Vector3(100, 10, -90),
-    sunMeshColor: 0xe6ffff // Bright cyan-white for moon
+    sunMeshColor: 0xe6ffff
   },
   toxic: {
     bg: 0x08140c,
-    fogDensity: 0.018,
+    fogDensity: 0.0018,
     ambient: 0x113311,
     ambientIntensity: 1.0,
     sun: 0x33ff33,
     sunIntensity: 1.8,
     sunPos: new THREE.Vector3(-80, 8, 80),
-    sunMeshColor: 0xe6ffe6 // Bright lime-white
+    sunMeshColor: 0xe6ffe6
   },
   frost: {
     bg: 0xddeeff,
-    fogDensity: 0.012,
+    fogDensity: 0.0012,
     ambient: 0x6688aa,
     ambientIntensity: 1.4,
     sun: 0xffffff,
     sunIntensity: 2.0,
     sunPos: new THREE.Vector3(90, 12, 90),
-    sunMeshColor: 0xffffff // Pure white
+    sunMeshColor: 0xffffff
   }
 };
 
@@ -90,7 +90,7 @@ const presetCycles = {
       ambientIntensity: 1.3,
       sun: 0xffffff,
       sunIntensity: 2.8,
-      fogDensity: 0.008
+      fogDensity: 0.0008
     },
     twilight: {
       bg: 0xfc8c82,
@@ -100,7 +100,7 @@ const presetCycles = {
       ambientIntensity: 1.2,
       sun: 0xffaa44,
       sunIntensity: 2.5,
-      fogDensity: 0.015
+      fogDensity: 0.0015
     },
     night: {
       bg: 0x050409,
@@ -110,7 +110,7 @@ const presetCycles = {
       ambientIntensity: 0.45,
       sun: 0xaaccff,
       sunIntensity: 0.15,
-      fogDensity: 0.018
+      fogDensity: 0.0018
     }
   },
   nebula: {
@@ -122,7 +122,7 @@ const presetCycles = {
       ambientIntensity: 0.8,
       sun: 0xff00ff,
       sunIntensity: 1.5,
-      fogDensity: 0.015
+      fogDensity: 0.0015
     },
     twilight: {
       bg: 0x070312,
@@ -132,7 +132,7 @@ const presetCycles = {
       ambientIntensity: 0.6,
       sun: 0x00ffff,
       sunIntensity: 1.2,
-      fogDensity: 0.02
+      fogDensity: 0.002
     },
     night: {
       bg: 0x020105,
@@ -142,7 +142,7 @@ const presetCycles = {
       ambientIntensity: 0.3,
       sun: 0x00ffff,
       sunIntensity: 0.1,
-      fogDensity: 0.022
+      fogDensity: 0.0022
     }
   },
   toxic: {
@@ -154,7 +154,7 @@ const presetCycles = {
       ambientIntensity: 1.2,
       sun: 0x33ff33,
       sunIntensity: 2.0,
-      fogDensity: 0.014
+      fogDensity: 0.0014
     },
     twilight: {
       bg: 0x08140c,
@@ -164,7 +164,7 @@ const presetCycles = {
       ambientIntensity: 1.0,
       sun: 0x33ff33,
       sunIntensity: 1.8,
-      fogDensity: 0.018
+      fogDensity: 0.0018
     },
     night: {
       bg: 0x020603,
@@ -174,7 +174,7 @@ const presetCycles = {
       ambientIntensity: 0.4,
       sun: 0x00ff66,
       sunIntensity: 0.5,
-      fogDensity: 0.022
+      fogDensity: 0.0022
     }
   },
   frost: {
@@ -186,7 +186,7 @@ const presetCycles = {
       ambientIntensity: 1.5,
       sun: 0xffffff,
       sunIntensity: 2.3,
-      fogDensity: 0.009
+      fogDensity: 0.0009
     },
     twilight: {
       bg: 0xddeeff,
@@ -196,7 +196,7 @@ const presetCycles = {
       ambientIntensity: 1.4,
       sun: 0xffffff,
       sunIntensity: 2.0,
-      fogDensity: 0.012
+      fogDensity: 0.0012
     },
     night: {
       bg: 0x091420,
@@ -206,7 +206,7 @@ const presetCycles = {
       ambientIntensity: 0.5,
       sun: 0xbdecff,
       sunIntensity: 0.8,
-      fogDensity: 0.016
+      fogDensity: 0.0016
     }
   }
 };
@@ -266,7 +266,7 @@ function init() {
   game.scene.fog = new THREE.FogExp2(presets.sunset.bg, presets.sunset.fogDensity);
 
   // 2. Create Camera (FPS perspective)
-  game.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  game.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 24000);
   game.camera.position.set(25, 8, 25); // Starting position above ground
 
   // 3. Create WebGL Renderer

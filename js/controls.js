@@ -3,6 +3,7 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import { game } from './game.js';
 import { getSurfaceHeightNear, checkCollision, checkInWater } from './world.js';
 import { player, showHudMessage } from './player.js';
+import { getTranslation } from './lang.js';
 
 // Movement state variables
 export let moveForward = false;
@@ -17,6 +18,16 @@ export let joystickValues = { x: 0, y: 0 };
 
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
+
+// Throttle world edge warnings
+let lastEdgeMsgTime = 0;
+function throttleHudEdgeMessage() {
+  const now = performance.now();
+  if (now - lastEdgeMsgTime > 3000) {
+    showHudMessage(getTranslation('msg_world_edge') || "Reached the edge of the world!");
+    lastEdgeMsgTime = now;
+  }
+}
 
 // Player dimensions
 const playerEyeHeight = 1.8;
@@ -178,9 +189,9 @@ export function updateControls(delta) {
   const hasBoots = player.equipped && player.equipped.feet === 'wooden_boots';
   const speedMultiplier = hasBoots ? 1.15 : 1.0;
 
-  // Walking vs Running Speed Scale (Walk at 60% speed, run at 100%)
+  // Walking vs Running Speed Scale (Walk at 40% speed, run at 100%)
   const isRunning = shiftPressed || game.isMobile;
-  const speedScale = isRunning ? 1.0 : 0.6;
+  const speedScale = isRunning ? 1.0 : 0.4;
 
   // Apply acceleration input
   const moveSpeed = (inWater ? 28.0 : 45.0) * speedMultiplier * speedScale; // Acceleration force
@@ -253,6 +264,18 @@ export function updateControls(delta) {
   if (position.y > 22.0) {
     position.y = 22.0;
     velocity.y = 0;
+  }
+
+  // Boundary constraints: 22x22 km (from -11000m to +11000m on X and Z)
+  const halfSize = 11000.0;
+  let hitEdge = false;
+  if (position.x < -halfSize) { position.x = -halfSize; velocity.x = 0; hitEdge = true; }
+  if (position.x > halfSize) { position.x = halfSize; velocity.x = 0; hitEdge = true; }
+  if (position.z < -halfSize) { position.z = -halfSize; velocity.z = 0; hitEdge = true; }
+  if (position.z > halfSize) { position.z = halfSize; velocity.z = 0; hitEdge = true; }
+
+  if (hitEdge) {
+    throttleHudEdgeMessage();
   }
 
   // Safety net: if player falls below the world or coordinates become NaN, teleport them safely to the center of the island

@@ -550,8 +550,8 @@ export function buildWaterGeometry() {
   }
 
   function addSegmentedSector(x1, z1, x2, z2, isOuter) {
-    const stepX = 8.0;
-    const stepZ = 8.0;
+    const stepX = isOuter ? 200.0 : 8.0;
+    const stepZ = isOuter ? 200.0 : 8.0;
     for (let x = x1; x < x2; x += stepX) {
       const nextX = Math.min(x2, x + stepX);
       for (let z = z1; z < z2; z += stepZ) {
@@ -563,13 +563,13 @@ export function buildWaterGeometry() {
 
   // 1. Outer Ocean (Segmented Sectors to match waves)
   // Sector 1: Top
-  addSegmentedSector(-150, endZ, 214, 150, true);
+  addSegmentedSector(-11000, endZ, 11000, 11000, true);
   // Sector 2: Bottom
-  addSegmentedSector(-150, -150, 214, startZ, true);
+  addSegmentedSector(-11000, -11000, 11000, startZ, true);
   // Sector 3: Left
-  addSegmentedSector(-150, startZ, startX, endZ, true);
+  addSegmentedSector(-11000, startZ, startX, endZ, true);
   // Sector 4: Right
-  addSegmentedSector(endX, startZ, 214, endZ, true);
+  addSegmentedSector(endX, startZ, 11000, endZ, true);
 
   // 2. Inner Ocean cells
   for (let ix = 0; ix < cellCountX; ix++) {
