@@ -666,7 +666,6 @@ function checkHarvestablePrompt() {
     }
   }
 
-  const prompt = document.getElementById('interaction-prompt');
   if (closestCampfire) {
     const isBurning = closestCampfire.userData && closestCampfire.userData.burnTime > 0;
     const hasIgnition = (player.inventory.stone || 0) >= 2 && (player.inventory.leaves || 0) >= 1;
