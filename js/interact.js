@@ -24,6 +24,65 @@ export function initInteraction() {
     }
 
     if (game.pointerLocked && e.code === 'KeyE') {
+      const playerPos = game.controls.getObject().position;
+      const raftPos = new THREE.Vector3(25.6, 4.05, 42.4);
+      const distToRaft = playerPos.distanceTo(raftPos);
+      if (distToRaft < 3.5) {
+        if (!game.raftConstructed) {
+          // Construct the raft!
+          if ((player.inventory.wood || 0) >= 4 && (player.inventory.rope || 0) >= 2 && (player.inventory.stick || 0) >= 2) {
+            player.inventory.wood -= 4;
+            player.inventory.rope -= 2;
+            player.inventory.stick -= 2;
+            
+            // Sync HUD Hotbar Slots counts
+            const slot6 = document.querySelector('.hotbar-slot[data-slot="5"]');
+            if (slot6) {
+              const count = slot6.querySelector('.slot-count');
+              if (count) count.innerText = `x${player.inventory.wood}`;
+            }
+            const slot5 = document.querySelector('.hotbar-slot[data-slot="4"]');
+            if (slot5) {
+              const count = slot5.querySelector('.slot-count');
+              if (count) count.innerText = `x${player.inventory.rope}`;
+            }
+            
+            if (typeof renderInventoryUI === 'function') {
+              renderInventoryUI();
+            }
+            
+            game.raftConstructed = true;
+            if (world.raftMesh) world.raftMesh.visible = true;
+            if (world.raftBlueprint) world.raftBlueprint.visible = false;
+            
+            playSpark(); // Wood assembly click effect
+            showHudMessage(getTranslation('msg_raft_repaired') || "Raft Constructed! Ready to sail.");
+            
+            const objTextEl = document.getElementById('objective-text');
+            if (objTextEl) {
+              objTextEl.textContent = getTranslation('obj_sail_explore') || "Sail and explore other islands";
+              objTextEl.style.color = "#ffd700";
+            }
+          } else {
+            showHudMessage(getTranslation('msg_need_mats_raft') || "Needs 4 logs, 2 lianas, and 2 sticks!");
+          }
+        } else {
+          // Toggle sailing mode
+          if (game.raftState) {
+            game.raftState.active = !game.raftState.active;
+            if (game.raftState.active) {
+              showHudMessage(getTranslation('msg_press_sail') || "Press E to Sail Raft");
+            } else {
+              showHudMessage(getTranslation('msg_press_disembark') || "Press E to Disembark");
+              const playerObj = game.controls.getObject();
+              // Teleport them slightly to the side of the raft so they aren't stuck inside it
+              playerObj.position.x += 1.5;
+            }
+          }
+        }
+        return;
+      }
+
       if (nearFeedbackBoard) {
         if (typeof window.openFeedbackBoard === 'function') {
           window.openFeedbackBoard();
@@ -544,11 +603,37 @@ function checkHarvestablePrompt() {
   if (!game.controls) return;
 
   const playerPos = game.controls.getObject().position;
+  
+  const prompt = document.getElementById('interaction-prompt');
+  // Check proximity to raft
+  const raftPos = new THREE.Vector3(25.6, 4.05, 42.4);
+  const distToRaft = playerPos.distanceTo(raftPos);
+  if (distToRaft < 3.5) {
+    let rawPrompt = '';
+    if (!game.raftConstructed) {
+      const hasMats = (player.inventory.wood || 0) >= 4 && (player.inventory.rope || 0) >= 2 && (player.inventory.stick || 0) >= 2;
+      if (hasMats) {
+        rawPrompt = getTranslation('msg_press_construct') || "PRESS E TO CONSTRUCT RAFT";
+      } else {
+        rawPrompt = getTranslation('msg_need_mats_raft') || "CONSTRUCT RAFT (NEEDS 4 LOGS, 2 LIANAS, 2 STICKS)";
+      }
+    } else {
+      if (game.raftState && game.raftState.active) {
+        rawPrompt = getTranslation('msg_press_disembark') || "PRESS E TO DISEMBARK";
+      } else {
+        rawPrompt = getTranslation('msg_press_sail') || "PRESS E TO SAIL RAFT";
+      }
+    }
+    prompt.innerHTML = rawPrompt.replace('E', '<span style="color: #ffd700; font-weight:800;">E</span>');
+    prompt.classList.add('visible');
+    return;
+  }
+
   let foundCloseDebris = null;
   let minDist = 2.2; // Maximum collection distance
 
   activeDebris.forEach(debris => {
-    if (debris.type === 'ore' || debris.type === 'wood' || debris.type === 'raw_crab' || debris.type === 'raw_fish' || debris.type === 'cooked_meat' || debris.type === 'stick' || debris.type === 'cane') {
+    if (debris.type === 'ore' || debris.type === 'wood' || debris.type === 'raw_crab' || debris.type === 'raw_fish' || debris.type === 'cooked_meat' || debris.type === 'stick' || debris.type === 'cane' || debris.type === 'fallen_log' || debris.type === 'liana') {
       const dist = playerPos.distanceTo(debris.mesh.position);
       if (dist < minDist) {
         minDist = dist;
@@ -623,6 +708,10 @@ function checkHarvestablePrompt() {
       rawPrompt = getTranslation('interact_harvest_stick') || 'PRESS E TO COLLECT STICK';
     } else if (closestDebris.type === 'cane') {
       rawPrompt = getTranslation('interact_harvest_cane') || 'PRESS E TO COLLECT CANE';
+    } else if (closestDebris.type === 'fallen_log') {
+      rawPrompt = getTranslation('interact_harvest_log') || 'PRESS E TO COLLECT FALLEN LOG';
+    } else if (closestDebris.type === 'liana') {
+      rawPrompt = getTranslation('interact_harvest_liana') || 'PRESS E TO COLLECT LIANA';
     } else {
       rawPrompt = 'PRESS E TO HARVEST';
     }
@@ -659,6 +748,22 @@ export function harvestClosestDebris() {
     if (slot6) {
       const count = slot6.querySelector('.slot-count');
       if (count) count.innerText = `x${player.inventory.wood}`;
+    }
+  } else if (closestDebris.type === 'fallen_log') {
+    player.inventory.wood += 1;
+    showHudMessage(getTranslation('msg_collected_log') || '+1 Wood (Fallen Log)');
+    const slot6 = document.querySelector('.hotbar-slot[data-slot="5"]');
+    if (slot6) {
+      const count = slot6.querySelector('.slot-count');
+      if (count) count.innerText = `x${player.inventory.wood}`;
+    }
+  } else if (closestDebris.type === 'liana') {
+    player.inventory.rope += 1;
+    showHudMessage(getTranslation('msg_collected_liana') || '+1 Rope (Liana)');
+    const slot5 = document.querySelector('.hotbar-slot[data-slot="4"]');
+    if (slot5) {
+      const count = slot5.querySelector('.slot-count');
+      if (count) count.innerText = `x${player.inventory.rope}`;
     }
   } else if (closestDebris.type === 'ore') {
     // Update player inventory for gold ore

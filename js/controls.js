@@ -118,6 +118,61 @@ export function initControls() {
 export function updateControls(delta) {
   if (!game.pointerLocked) return;
 
+  // If the player is sailing/riding the raft, steer the raft and snap player position
+  if (game.raftState && game.raftState.active) {
+    const rs = game.raftState;
+    
+    // W/S: Accelerate / Decelerate
+    const accelerate = moveForward ? 1.0 : (moveBackward ? -0.5 : 0.0);
+    // A/D: Rotate (steer)
+    const rotate = moveLeft ? 1.0 : (moveRight ? -1.0 : 0.0);
+    
+    // Apply steering rotation
+    rs.rotationY += rotate * 1.8 * delta;
+    
+    // Target speed: max forward 12 m/s, max backward -5 m/s
+    const targetSpeed = accelerate * 12.0;
+    
+    // Smoothly adjust speed towards target
+    if (rs.speed < targetSpeed) {
+      rs.speed = Math.min(targetSpeed, rs.speed + 6.0 * delta);
+    } else if (rs.speed > targetSpeed) {
+      rs.speed = Math.max(targetSpeed, rs.speed - 10.0 * delta);
+    }
+    
+    // Rowing sound: periodic splash sound when moving
+    if (Math.abs(rs.speed) > 0.5) {
+      if (!rs.lastSplashTime) rs.lastSplashTime = 0;
+      rs.lastSplashTime += delta;
+      if (rs.lastSplashTime > 1.2) {
+        rs.lastSplashTime = 0;
+        if (typeof window.playRowingSplash === 'function') {
+          window.playRowingSplash();
+        }
+      }
+    }
+    
+    // Update raft position based on yaw rotation
+    rs.position.x += Math.sin(rs.rotationY) * rs.speed * delta;
+    rs.position.z += Math.cos(rs.rotationY) * rs.speed * delta;
+    
+    // Snap raft Y to water height (bobs on waves!)
+    const waterY = getWaterHeightAt(rs.position.x, rs.position.z);
+    rs.position.y = waterY;
+    
+    // Snap player coordinate positions to raft center
+    const playerObj = game.controls.getObject();
+    playerObj.position.copy(rs.position);
+    playerObj.position.y += 1.45; // standing eye height offset
+    
+    // Sync 3D raft mesh group position and rotation
+    if (world.raftMesh) {
+      world.raftMesh.position.copy(rs.position);
+      world.raftMesh.rotation.y = rs.rotationY;
+    }
+    return;
+  }
+
   const playerObj = game.controls.getObject();
   const position = playerObj.position;
 

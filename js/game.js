@@ -27,7 +27,15 @@ export const game = {
   roosterMesh: null,
   crabs: [],
   fishes: [],
-  seagulls: []
+  seagulls: [],
+  raftConstructed: false,
+  raftState: {
+    active: false,
+    position: new THREE.Vector3(25.6, 4.05, 42.4),
+    rotationY: 0,
+    speed: 0,
+    lastSplashTime: 0
+  }
 };
 
 let underwaterParticles = null;
@@ -83,7 +91,7 @@ const presets = {
 const presetCycles = {
   sunset: {
     day: {
-      bg: 0xaecbe6,
+      bg: 0x93c5fd,
       gradTop: 0x3b82f6,
       gradBottom: 0x93c5fd,
       ambient: 0x8ab4f8,
@@ -103,7 +111,7 @@ const presetCycles = {
       fogDensity: 0.0015
     },
     night: {
-      bg: 0x050409,
+      bg: 0x070312,
       gradTop: 0x020107,
       gradBottom: 0x070312,
       ambient: 0x0c0e1a,
@@ -115,7 +123,7 @@ const presetCycles = {
   },
   nebula: {
     day: {
-      bg: 0x3d1b54,
+      bg: 0x9d4edd,
       gradTop: 0x5a189a,
       gradBottom: 0x9d4edd,
       ambient: 0x7b2cbf,
@@ -135,7 +143,7 @@ const presetCycles = {
       fogDensity: 0.002
     },
     night: {
-      bg: 0x020105,
+      bg: 0x020107,
       gradTop: 0x000000,
       gradBottom: 0x020107,
       ambient: 0x0f031b,
@@ -147,7 +155,7 @@ const presetCycles = {
   },
   toxic: {
     day: {
-      bg: 0x1b382b,
+      bg: 0x40916c,
       gradTop: 0x1b4332,
       gradBottom: 0x40916c,
       ambient: 0x2d6a4f,
@@ -167,7 +175,7 @@ const presetCycles = {
       fogDensity: 0.0018
     },
     night: {
-      bg: 0x020603,
+      bg: 0x020503,
       gradTop: 0x000000,
       gradBottom: 0x020503,
       ambient: 0x051a08,
@@ -199,7 +207,7 @@ const presetCycles = {
       fogDensity: 0.0012
     },
     night: {
-      bg: 0x091420,
+      bg: 0x0e1d2f,
       gradTop: 0x030810,
       gradBottom: 0x0e1d2f,
       ambient: 0x1d3557,
@@ -1143,6 +1151,31 @@ function animate() {
       colorTempFog.copy(new THREE.Color(baseState.bg)).lerp(new THREE.Color(targetState.bg), t);
       game.scene.fog.color.copy(colorTempFog);
     }
+
+    // Dynamic water color adjustment to eliminate brownish horizon blending
+    if (world.waterMesh && world.waterMesh.material && !wasSubmerged) {
+      const twilightColor = new THREE.Color(cycle.twilight.bg);
+      const twilightTint = twilightColor.clone().lerp(new THREE.Color(0xffffff), 0.5);
+      const twilightEmissive = twilightColor.clone().multiplyScalar(0.22);
+      
+      const dayEmissive = new THREE.Color(cycle.day.bg).multiplyScalar(0.12);
+      const nightEmissive = new THREE.Color(cycle.night.bg).multiplyScalar(0.08);
+      
+      const waterColor = new THREE.Color();
+      const waterEmissive = new THREE.Color();
+      
+      if (isDayTime) {
+        waterColor.copy(twilightTint).lerp(new THREE.Color(0xffffff), t);
+        waterEmissive.copy(twilightEmissive).lerp(dayEmissive, t);
+      } else {
+        waterColor.copy(twilightTint).lerp(new THREE.Color(cycle.night.bg), t);
+        waterEmissive.copy(twilightEmissive).lerp(nightEmissive, t);
+      }
+      
+      world.waterMesh.material.color.copy(waterColor);
+      world.waterMesh.material.emissive.copy(waterEmissive);
+    }
+
 
     // 4. Lerp CSS canvas-container linear-gradient (only when not submerged)
     const container = document.getElementById('canvas-container');

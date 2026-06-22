@@ -444,7 +444,33 @@ export function updatePlayer(delta) {
   const hasVest = player.equipped && player.equipped.torso === 'explorer_vest';
   const hasPants = player.equipped && player.equipped.legs === 'grass_pants';
 
-  const hydrationDecayRate = 0.7 * (hasHat ? 0.75 : 1.0);
+  // Volcanic Island checks: extreme heat and lava damage
+  let isNearVolcano = false;
+  let inLava = false;
+  if (game.controls && game.controls.getObject) {
+    const pos = game.controls.getObject().position;
+    const vdx = pos.x - (-1800);
+    const vdz = pos.z - 1500;
+    const vdist = Math.sqrt(vdx * vdx + vdz * vdz);
+    if (vdist < 180) {
+      isNearVolcano = true;
+      if (vdist < 45 && pos.y < 6.5) {
+        inLava = true;
+      }
+    }
+  }
+
+  let hydrationDecayRate = 0.7 * (hasHat ? 0.75 : 1.0);
+  if (isNearVolcano) {
+    hydrationDecayRate *= 2.0; // Double decay under extreme heat
+    if (!player.lastHeatWarnTime) player.lastHeatWarnTime = 0;
+    player.lastHeatWarnTime += delta;
+    if (player.lastHeatWarnTime > 8.0) {
+      player.lastHeatWarnTime = 0;
+      showHudMessage(getTranslation('msg_extreme_heat') || "🌡️ EXTREME HEAT: Hydration draining faster!");
+    }
+  }
+
   const energyDecayRate = 3.5 * (hasVest ? 0.8 : 1.0);
   const healthDamageRate = 2.5 * (hasPants ? 0.7 : 1.0);
 
@@ -464,9 +490,19 @@ export function updatePlayer(delta) {
     player.energy = Math.min(100, player.energy + 8.0 * delta); // recover
   }
 
-  // Health decays if starved or dehydrated
+  // Health decays if starved or dehydrated, or if standing in lava
   if (player.hydration <= 0 || player.energy <= 0) {
     player.health = Math.max(0, player.health - healthDamageRate * delta);
+  }
+
+  if (inLava) {
+    player.health = Math.max(0, player.health - 10.0 * delta); // 10 HP per second
+    if (!player.lastLavaWarnTime) player.lastLavaWarnTime = 0;
+    player.lastLavaWarnTime += delta;
+    if (player.lastLavaWarnTime > 1.0) {
+      player.lastLavaWarnTime = 0;
+      showHudMessage(getTranslation('msg_in_lava') || "🔥 IN LAVA! TAKING DAMAGE! 🔥");
+    }
   }
 
   // 4. Update HUD UI elements

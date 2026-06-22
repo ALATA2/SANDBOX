@@ -579,3 +579,41 @@ export function playSpark() {
   }
 }
 
+// Low-poly water splash sound effect for rowing
+export function playRowingSplash() {
+  if (isMuted) return;
+  initAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  const time = audioCtx.currentTime;
+  
+  // Use bandpass filtered white noise for splash sound
+  const bufferSize = audioCtx.sampleRate * 0.4; // 0.4 seconds
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  
+  const noiseNode = audioCtx.createBufferSource();
+  noiseNode.buffer = buffer;
+  
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(800, time);
+  filter.frequency.exponentialRampToValueAtTime(300, time + 0.35);
+  
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.08, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
+  
+  noiseNode.connect(filter);
+  filter.connect(gain);
+  gain.connect(masterFilter || audioCtx.destination);
+  
+  noiseNode.start(time);
+}
+
+// Bind to window for global access
+window.playRowingSplash = playRowingSplash;
+

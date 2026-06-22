@@ -660,10 +660,52 @@ export function getDensity2DInterpolated(gx, y, gz) {
 
 // Height query helper for collision detection (smoothly interpolated, tunnels supported!)
 export function getSurfaceHeightNear(px, py, pz) {
+  // Check if near Lighthouse Island
+  const ldx = px - 1500;
+  const ldz = pz - (-2000);
+  const ldist = Math.sqrt(ldx * ldx + ldz * ldz);
+  if (ldist < 140) {
+    let coneHeight = -5.0 + 40.0 * Math.max(0, 1.0 - ldist / 110.0);
+    if (ldist < 30) {
+      return 22.0; // Summit plateau
+    }
+    // Spiral path ramp winding around lighthouse cone
+    const theta = Math.atan2(ldz, ldx) + Math.PI; // [0, 2*Math.PI]
+    const r_path = 110.0 - 70.0 * (theta / (Math.PI * 2));
+    const pathHeight = 4.2 + (22.0 - 4.2) * (theta / (Math.PI * 2));
+    if (Math.abs(ldist - r_path) < 6.0) {
+      return pathHeight;
+    }
+    return Math.max(0.1, coneHeight);
+  }
+
+  // Check if near Volcanic Island
+  const vdx = px - (-1800);
+  const vdz = pz - 1500;
+  const vdist = Math.sqrt(vdx * vdx + vdz * vdz);
+  if (vdist < 180) {
+    if (vdist >= 60) {
+      // Outer slope: Shore Y=4.2 to Rim Y=22
+      const t = Math.max(0, Math.min(1, (160 - vdist) / 100));
+      return 4.2 + (22.0 - 4.2) * t;
+    } else if (vdist >= 40) {
+      // Inner slope: Rim Y=22 to Crater Floor Y=6
+      const t = Math.max(0, Math.min(1, (vdist - 40) / 20));
+      return 6.0 + (22.0 - 6.0) * t;
+    } else {
+      // Crater caldera center (flat lava surface at Y=6.2)
+      return 6.2;
+    }
+  }
+
   const spacing = world.spacing;
   const gx = px / spacing;
   const gy = py / spacing;
   const gz = pz / spacing;
+
+  if (gx < 0 || gx >= world.sizeX || gz < 0 || gz >= world.sizeZ) {
+    return 0.1; // Baseline waterbed height outside main island grid
+  }
 
   // Start sweep slightly above player (e.g. gy + 1.5) to capture ground even if player sinks slightly
   const startY = Math.max(0, Math.min(Math.floor(gy + 1.5), world.sizeY - 1));
@@ -1420,7 +1462,7 @@ function spawnScenery() {
   
   game.scene.add(dockGroup);
   
-  // 6. Floating Log Raft
+  // 6. Floating Log Raft (Constructible with blueprint)
   const raftGroup = new THREE.Group();
   const raftMaterial = new THREE.MeshStandardMaterial({ color: 0x553d2d, roughness: 0.9, flatShading: true });
   for (let i = 0; i < 4; i++) {
@@ -1432,7 +1474,27 @@ function spawnScenery() {
     log.receiveShadow = true;
     raftGroup.add(log);
   }
+  world.raftMesh = raftGroup;
+  world.raftMesh.visible = false; // Initially invisible (must be constructed)
   game.scene.add(raftGroup);
+
+  // Raft Blueprint Overlay (Wireframe blue logs)
+  const blueprintGroup = new THREE.Group();
+  const blueprintMaterial = new THREE.MeshBasicMaterial({
+    color: 0x00aaff,
+    transparent: true,
+    opacity: 0.4,
+    wireframe: true
+  });
+  for (let i = 0; i < 4; i++) {
+    const logGeom = new THREE.CylinderGeometry(0.12, 0.12, 1.8, 5);
+    logGeom.rotateX(Math.PI / 2);
+    const log = new THREE.Mesh(logGeom, blueprintMaterial);
+    log.position.set(pierX - 2.0 + i * 0.28, 4.05, 26.5 * spacing);
+    blueprintGroup.add(log);
+  }
+  world.raftBlueprint = blueprintGroup;
+  game.scene.add(blueprintGroup);
 
   // 7. Lit Beach Torches
   const torchPositions = [
@@ -1449,43 +1511,89 @@ function spawnScenery() {
     game.scene.add(torch);
   });
 
-  // 8. Distant Island with a Lighthouse
+  // 8. Distant Island with a Lighthouse (Relocated and detailed)
   const distIslandGroup = new THREE.Group();
-  distIslandGroup.position.set(80, -5, -120); // All'orizzonte
+  distIslandGroup.position.set(1500, -5, -2000); // Expanded and relocated
   
-  // Mountainous geometry
-  const mGeom = new THREE.ConeGeometry(35, 40, 5);
+  // Mountainous base geometry
+  const mGeom = new THREE.ConeGeometry(120, 50, 6);
   const mMat = new THREE.MeshStandardMaterial({ color: 0x47515c, roughness: 0.9, flatShading: true });
   const mountain = new THREE.Mesh(mGeom, mMat);
-  mountain.position.y = 20;
+  mountain.position.y = 25;
+  mountain.castShadow = true;
+  mountain.receiveShadow = true;
   distIslandGroup.add(mountain);
+
+  // Procedural Spiral Staircase/Ramp
+  const stepMaterial = new THREE.MeshStandardMaterial({ color: 0x5a6363, roughness: 0.9, flatShading: true });
+  const stepGeom = new THREE.BoxGeometry(10, 1.2, 5);
+  const totalSteps = 60;
+  for (let i = 0; i <= totalSteps; i++) {
+    const tRatio = i / totalSteps;
+    const theta = tRatio * Math.PI * 2;
+    const r_path = 110 - 70 * tRatio;
+    const stepY = 4.2 + (22.0 - 4.2) * tRatio;
+    
+    const stepMesh = new THREE.Mesh(stepGeom, stepMaterial);
+    stepMesh.position.set(Math.cos(theta) * r_path, stepY - (-5), Math.sin(theta) * r_path);
+    stepMesh.rotation.y = -theta;
+    stepMesh.castShadow = true;
+    stepMesh.receiveShadow = true;
+    distIslandGroup.add(stepMesh);
+  }
+
+  // Seagull Nests on top plateau (Y=22)
+  const nestMaterial = new THREE.MeshStandardMaterial({ color: 0x6e4720, roughness: 0.9, flatShading: true });
+  const eggMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, flatShading: true });
+  const nestPositions = [
+    { x: 10, z: -10 },
+    { x: -15, z: 5 }
+  ];
+  nestPositions.forEach(npos => {
+    const nestGroup = new THREE.Group();
+    const nestGeom = new THREE.TorusGeometry(0.8, 0.25, 4, 8);
+    nestGeom.rotateX(Math.PI / 2);
+    const nest = new THREE.Mesh(nestGeom, nestMaterial);
+    nestGroup.add(nest);
+    
+    for (let k = 0; k < 3; k++) {
+      const eggGeom = new THREE.DodecahedronGeometry(0.18, 1);
+      const egg = new THREE.Mesh(eggGeom, eggMaterial);
+      egg.position.set((Math.random() - 0.5) * 0.3, 0.1, (Math.random() - 0.5) * 0.3);
+      nestGroup.add(egg);
+    }
+    nestGroup.position.set(npos.x, 22.0 - (-5), npos.z);
+    distIslandGroup.add(nestGroup);
+  });
 
   // Lighthouse Tower
   const lGeom = new THREE.CylinderGeometry(2, 3, 15, 6);
   const lMat = new THREE.MeshStandardMaterial({ color: 0xb22222, roughness: 0.8, flatShading: true }); // Dark Red tower
   const tower = new THREE.Mesh(lGeom, lMat);
-  tower.position.set(0, 42, 0);
+  tower.position.set(0, 22.0 + 7.5 - (-5), 0); // Stand on Y=22 plateau
+  tower.castShadow = true;
+  tower.receiveShadow = true;
   distIslandGroup.add(tower);
 
   // Lighthouse Top Glass Room
   const gGeom = new THREE.CylinderGeometry(1.5, 1.5, 2.5, 6);
   const gMat = new THREE.MeshStandardMaterial({ color: 0xffea00, emissive: 0xffea00, emissiveIntensity: 1.0, transparent: true, opacity: 0.6 });
   const glassRoom = new THREE.Mesh(gGeom, gMat);
-  glassRoom.position.set(0, 50.75, 0);
+  glassRoom.position.set(0, 22.0 + 15 + 1.25 - (-5), 0);
   distIslandGroup.add(glassRoom);
 
   // Lighthouse Roof
   const rGeom = new THREE.ConeGeometry(2, 1.8, 6);
   const rMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9, flatShading: true });
   const roof = new THREE.Mesh(rGeom, rMat);
-  roof.position.set(0, 52.9, 0);
+  roof.position.set(0, 22.0 + 15 + 2.5 + 0.9 - (-5), 0);
+  roof.castShadow = true;
   distIslandGroup.add(roof);
 
   // Lighthouse Light Beam
-  // Represented by a long semi-transparent cone rotated horizontally
   const beamGeom = new THREE.ConeGeometry(8, 180, 8, 1, true); // open-ended cone
-  beamGeom.rotateX(Math.PI / 2); // Point along Z
-  beamGeom.translate(0, 0, 90); // Translate so rotation center is at tip
+  beamGeom.rotateX(Math.PI / 2);
+  beamGeom.translate(0, 0, 90);
   const beamMat = new THREE.MeshBasicMaterial({
     color: 0xfff3a8,
     transparent: true,
@@ -1494,10 +1602,103 @@ function spawnScenery() {
     side: THREE.DoubleSide
   });
   world.lighthouseBeam = new THREE.Mesh(beamGeom, beamMat);
-  world.lighthouseBeam.position.set(80, 50.75 - 5, -120); // Align with lighthouse glass room
+  world.lighthouseBeam.position.set(1500, 22.0 + 15 + 1.25, -2000); // Align with lighthouse glass room
   game.scene.add(world.lighthouseBeam);
 
   game.scene.add(distIslandGroup);
+
+  // 8b. Distant Volcanic Island
+  const volcIslandGroup = new THREE.Group();
+  volcIslandGroup.position.set(-1800, -5, 1500); // Relocated in opposite quadrant
+
+  // Dark volcanic ash cone base
+  const vConeGeom = new THREE.ConeGeometry(160, 45, 6);
+  const vConeMat = new THREE.MeshStandardMaterial({ color: 0x222225, roughness: 0.9, flatShading: true }); // Dark charcoal grey
+  const volcBase = new THREE.Mesh(vConeGeom, vConeMat);
+  volcBase.position.y = 22.5;
+  volcBase.castShadow = true;
+  volcBase.receiveShadow = true;
+  volcIslandGroup.add(volcBase);
+
+  // Lava Lake flat plane inside caldera
+  const lavaGeom = new THREE.PlaneGeometry(80, 80, 4, 4);
+  lavaGeom.rotateX(-Math.PI / 2);
+  const lavaMat = new THREE.MeshStandardMaterial({
+    color: 0xff4500,
+    emissive: 0xff2200,
+    emissiveIntensity: 2.2,
+    roughness: 0.1,
+    metalness: 0.1,
+    flatShading: true
+  });
+  const lavaLake = new THREE.Mesh(lavaGeom, lavaMat);
+  lavaLake.position.set(0, 6.2 - (-5), 0); // Flat lava Y=6.2
+  volcIslandGroup.add(lavaLake);
+
+  // Charred Tree Stumps (black bark cylinders)
+  const charredStumpGeom = new THREE.CylinderGeometry(0.18, 0.22, 2.0, 5);
+  const charredWoodMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.95, flatShading: true }); // pitch black
+  for (let j = 0; j < 8; j++) {
+    const angle = (j * Math.PI * 2) / 8 + Math.random() * 0.4;
+    const vdist = 90 + Math.random() * 25; // placed on volcano slope
+    const tx = Math.cos(angle) * vdist;
+    const tz = Math.sin(angle) * vdist;
+    const slopeHeight = 4.2 + (24.0 - 4.2) * (1.0 - (vdist - 60) / 100);
+    
+    const treeGroup = new THREE.Group();
+    treeGroup.name = "charred_tree";
+    
+    const trunk = new THREE.Mesh(charredStumpGeom, charredWoodMat);
+    trunk.position.y = 1.0;
+    trunk.castShadow = true;
+    trunk.receiveShadow = true;
+    treeGroup.add(trunk);
+    
+    const branchGeom = new THREE.BoxGeometry(0.1, 0.8, 0.1);
+    for (let k = 0; k < 3; k++) {
+      const branch = new THREE.Mesh(branchGeom, charredWoodMat);
+      branch.position.set((Math.random() - 0.5) * 0.3, 1.2 + k * 0.3, (Math.random() - 0.5) * 0.3);
+      branch.rotation.set(Math.random() * 0.5 - 0.25, Math.random() * 0.5, Math.random() * 0.5 - 0.25);
+      treeGroup.add(branch);
+    }
+    
+    treeGroup.position.set(tx, slopeHeight - (-5), tz);
+    treeGroup.userData = {
+      health: 2,
+      maxHealth: 2,
+      broken: false
+    };
+    volcIslandGroup.add(treeGroup);
+    world.sceneryMeshes.push({ mesh: treeGroup, type: 'tree' });
+    world.trees.push(treeGroup);
+  }
+
+  // Rare Gold Ore Veins (placed on inner slope)
+  const oreGeom = new THREE.DodecahedronGeometry(0.8, 1);
+  const oreMat = new THREE.MeshStandardMaterial({
+    color: 0xffea00,
+    emissive: 0xffaa00,
+    emissiveIntensity: 0.5,
+    roughness: 0.1,
+    metalness: 0.9,
+    flatShading: true
+  });
+  for (let j = 0; j < 5; j++) {
+    const angle = (j * Math.PI * 2) / 5 + Math.random() * 0.5;
+    const vdist = 48 + Math.random() * 8; // inner caldera slope
+    const tx = Math.cos(angle) * vdist;
+    const tz = Math.sin(angle) * vdist;
+    const innerHeight = 6.0 + (24.0 - 6.0) * ((vdist - 40) / 20);
+    
+    const volcOre = new THREE.Mesh(oreGeom, oreMat);
+    volcOre.position.set(tx, innerHeight - (-5) - 0.2, tz);
+    volcOre.castShadow = true;
+    volcOre.receiveShadow = true;
+    volcIslandGroup.add(volcOre);
+    world.oreDeposits.push(volcOre);
+  }
+
+  game.scene.add(volcIslandGroup);
 
   // 9. Spawn Sky Clouds
   spawnClouds();
@@ -1527,16 +1728,32 @@ function spawnScenery() {
     }
   }
 
-  // 11. Spawn 3 Abandoned Starting Sticks near player spawn point
-  const stickLocations = [
-    new THREE.Vector3(23.5 * spacing, 0, 26.5 * spacing),
-    new THREE.Vector3(26.5 * spacing, 0, 23.5 * spacing),
-    new THREE.Vector3(27.0 * spacing, 0, 27.0 * spacing)
+  // 11. Spawn Starting Ground items (Sticks, Fallen Logs, Lianas) near spawn point
+  const startingItems = [
+    // 3 original Sticks
+    { pos: new THREE.Vector3(23.5 * spacing, 0, 26.5 * spacing), type: 'stick' },
+    { pos: new THREE.Vector3(26.5 * spacing, 0, 23.5 * spacing), type: 'stick' },
+    { pos: new THREE.Vector3(27.0 * spacing, 0, 27.0 * spacing), type: 'stick' },
+    // 2 additional Sticks washed up on the beach
+    { pos: new THREE.Vector3(14.0 * spacing, 0, 25.0 * spacing), type: 'stick' },
+    { pos: new THREE.Vector3(30.0 * spacing, 0, 14.0 * spacing), type: 'stick' },
+    
+    // 4 Fallen Logs (Fallen trees)
+    { pos: new THREE.Vector3(15.0 * spacing, 0, 20.0 * spacing), type: 'fallen_log' },
+    { pos: new THREE.Vector3(35.0 * spacing, 0, 15.0 * spacing), type: 'fallen_log' },
+    { pos: new THREE.Vector3(18.0 * spacing, 0, 32.0 * spacing), type: 'fallen_log' },
+    { pos: new THREE.Vector3(28.0 * spacing, 0, 36.0 * spacing), type: 'fallen_log' },
+    
+    // 3 Lianas (vines to tie the logs)
+    { pos: new THREE.Vector3(20.0 * spacing, 0, 18.0 * spacing), type: 'liana' },
+    { pos: new THREE.Vector3(32.0 * spacing, 0, 28.0 * spacing), type: 'liana' },
+    { pos: new THREE.Vector3(24.0 * spacing, 0, 33.0 * spacing), type: 'liana' }
   ];
-  stickLocations.forEach(pos => {
-    const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
-    pos.y = groundY + 0.1;
-    spawnDebris(pos, new THREE.Vector3(0, 1, 0), 'stick');
+  
+  startingItems.forEach(item => {
+    const groundY = getSurfaceHeightNear(item.pos.x, 15, item.pos.z);
+    item.pos.y = groundY + 0.15;
+    spawnDebris(item.pos, new THREE.Vector3(0, 1, 0), item.type);
   });
 }
 
