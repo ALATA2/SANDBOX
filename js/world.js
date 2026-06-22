@@ -207,6 +207,13 @@ function generateDensityGrid() {
           dens -= carveAmount;
         }
 
+        // Taper density smoothly to air at the grid borders to avoid 90-degree cliff drops under the water
+        const borderDist = Math.min(x, Math.min(world.sizeX - 1 - x, Math.min(z, world.sizeZ - 1 - z)));
+        if (borderDist < 5) {
+          const factor = borderDist / 5.0; // 0.0 at border, 1.0 at 5 cells away
+          dens = (dens + 2.0) * factor - 2.0; // Smoothly pull down to strictly negative air value (-2.0)
+        }
+
         setDensity(x, y, z, dens);
       }
     }
@@ -533,6 +540,30 @@ export function buildWaterGeometry() {
       // Push directly in world X-Z coordinates (Y is height, initially 0, modified by waves)
       positions.push(vx, 0, vz);
 
+      // 1. Calculate procedural seabed noise color for the entire ocean (both inner and outer)
+      const nv = fbmNoise2D(vx * 0.003, vz * 0.003); // Large-scale patterns
+      const detailNoise = fbmNoise2D(vx * 0.02, vz * 0.02) * 0.2; // Small-scale coral noise
+      const val = nv + detailNoise;
+      
+      // Define three curated tropical ocean colors:
+      const colorSand = new THREE.Color(0x05edd0);   // Bright luminous beach sand under water
+      const colorReef = new THREE.Color(0x0c545b);   // Darker teal/grey representing shallow coral reefs
+      const colorAbyss = new THREE.Color(0x072d47);  // Deep ocean abyss blue
+      
+      const noiseColor = new THREE.Color();
+      if (val < 0.55) {
+        // Transition from shallow sand to reef
+        const t = val / 0.55;
+        noiseColor.copy(colorSand).lerp(colorReef, t);
+      } else if (val < 0.95) {
+        // Transition from reef to deep ocean abyss
+        const t = (val - 0.55) / 0.40;
+        noiseColor.copy(colorReef).lerp(colorAbyss, t);
+      } else {
+        // Deep ocean abyss
+        noiseColor.copy(colorAbyss);
+      }
+
       let depth = 4.0;
       if (!isOuter) {
         if (isVertexActive(vgx, vgz)) {
@@ -542,33 +573,12 @@ export function buildWaterGeometry() {
           depth = 0;
         }
         
-        // Inner ocean color uses actual depth blending
-        const t = Math.min(1.0, depth / 4.0);
-        tempColor.copy(colorShallow).lerp(colorDeep, t);
+        // Inner ocean: smoothly blend from colorShallow (beach teal) near shores to noiseColor in deep water
+        const t = Math.min(1.0, depth / 4.0); // 0.0 at shore, 1.0 in deep water
+        tempColor.copy(colorShallow).lerp(noiseColor, t);
       } else {
-        // Procedural tropical seabed patterns (sands, reefs, channels) for the open ocean
-        // We use fbmNoise2D to simulate sandbars and coral reefs under the water.
-        const nv = fbmNoise2D(vx * 0.003, vz * 0.003); // Large-scale patterns
-        const detailNoise = fbmNoise2D(vx * 0.02, vz * 0.02) * 0.2; // Small-scale coral noise
-        const val = nv + detailNoise;
-        
-        // Define three curated tropical ocean colors:
-        const colorSand = new THREE.Color(0x05edd0);   // Bright luminous beach sand under water
-        const colorReef = new THREE.Color(0x0c545b);   // Darker teal/grey representing shallow coral reefs
-        const colorAbyss = new THREE.Color(0x072d47);  // Deep ocean abyss blue
-        
-        if (val < 0.55) {
-          // Transition from shallow sand to reef
-          const t = val / 0.55;
-          tempColor.copy(colorSand).lerp(colorReef, t);
-        } else if (val < 0.95) {
-          // Transition from reef to deep ocean abyss
-          const t = (val - 0.55) / 0.40;
-          tempColor.copy(colorReef).lerp(colorAbyss, t);
-        } else {
-          // Deep ocean abyss
-          tempColor.copy(colorAbyss);
-        }
+        // Outer ocean: use pure procedural noise color directly
+        tempColor.copy(noiseColor);
         depth = 4.0; // Outer ocean has standard depth for wave amplitude calculations
       }
 
