@@ -65,14 +65,14 @@ export function isVertexActive(gx, gz) {
 }
 
 export function getWaterHeightAt(vx, vz) {
-  // Check if near mountain lake: center at (19.2, 19.2), radius = 24.0
-  const lakeCenterX = 19.2;
-  const lakeCenterZ = 19.2;
+  // Check if near mountain lake: center at (41.6, 41.6), radius = 24.0
+  const lakeCenterX = 41.6;
+  const lakeCenterZ = 41.6;
   const lakeRadius = 24.0;
   const dx = vx - lakeCenterX;
   const dz = vz - lakeCenterZ;
   if (dx*dx + dz*dz < lakeRadius * lakeRadius) {
-    return 15.68;
+    return 14.4;
   }
 
   if (!world.waterHeights) return 4.0;
@@ -179,10 +179,9 @@ function calculateIslandHeightVoxel(x, z) {
     islandHeight = lerp(targetBayHeight, islandHeight, smoothT);
   }
 
-  // 2. ADD THE HILL WITH A LAKE (in the northwest quadrant)
-  // Hill center is at (cx - 48, cz - 48) = (12, 12), radius is 42
-  const hillX = cx - 48;
-  const hillZ = cz - 48;
+  // Hill center is at (cx - 34, cz - 34) = (26, 26), radius is 42
+  const hillX = cx - 34;
+  const hillZ = cz - 34;
   const hillRadius = 42;
   const hillDx = x - hillX;
   const hillDz = z - hillZ;
@@ -193,16 +192,16 @@ function calculateIslandHeightVoxel(x, z) {
     const lakeRadius = 15;
     const t = hillDist / hillRadius;
     
-    // Hill base elevation: +6.5 voxels at the summit, 0 at the foot
-    const hillElevation = 6.5 * Math.cos(t * Math.PI / 2);
+    // Hill base elevation: +12.0 voxels at the summit, 0 at the foot
+    const hillElevation = 12.0 * Math.cos(t * Math.PI / 2);
 
     if (hillDist < lakeRadius) {
-      // Inside the lake basin: crater/depression down to 8.5 voxel height (13.6m)
+      // Inside the lake basin: crater/depression down to 7.0 voxel height (11.2m)
       const lakeT = hillDist / lakeRadius;
-      const hillHeightAtLakeEdge = islandHeight + 6.5 * Math.cos((lakeRadius / hillRadius) * Math.PI / 2);
-      const lakeBottomHeight = 8.5;
+      const rimHeight = islandHeight + 12.0 * Math.cos((lakeRadius / hillRadius) * Math.PI / 2);
+      const lakeBottomHeight = 7.0;
       
-      const lakeProfile = lerp(lakeBottomHeight, hillHeightAtLakeEdge, lakeT * lakeT);
+      const lakeProfile = lakeBottomHeight + (rimHeight - lakeBottomHeight) * lakeT * lakeT;
       islandHeight = lakeProfile;
     } else {
       // Outside the lake basin, on the hill slope
@@ -718,13 +717,13 @@ export function buildWaterGeometry() {
 // Check if a specific world coordinate (px, py, pz) is inside active water
 export function checkInWater(px, py, pz) {
   // Check if player is in the mountain lake
-  const lakeCenterX = 19.2;
-  const lakeCenterZ = 19.2;
+  const lakeCenterX = 41.6;
+  const lakeCenterZ = 41.6;
   const lakeRadius = 24.0;
   const dx = px - lakeCenterX;
   const dz = pz - lakeCenterZ;
   if (dx*dx + dz*dz < lakeRadius * lakeRadius) {
-    if (py < 15.68 && py > 13.0) {
+    if (py < 14.4 && py > 11.5) {
       return true;
     }
   }
@@ -817,7 +816,11 @@ export function getSurfaceHeightNear(px, py, pz) {
 
   const spacing = world.spacing;
   const gx = px / spacing;
-  const gy = py / spacing;
+  let gy = py / spacing;
+  // If py is 15.0 or higher (which was the old sky level query), treat it as scanning from the sky (25.0)
+  if (py >= 15.0) {
+    gy = 25.0 / spacing;
+  }
   const gz = pz / spacing;
 
   if (gx < 0 || gx >= world.sizeX || gz < 0 || gz >= world.sizeZ) {
@@ -1346,7 +1349,7 @@ function spawnScenery() {
     emissive: new THREE.Color(0x041a24)
   });
   world.lakeMesh = new THREE.Mesh(lakeGeometry, lakeMaterial);
-  world.lakeMesh.position.set(19.2, 15.68, 19.2); // center (12*1.6, 9.8*1.6, 12*1.6)
+  world.lakeMesh.position.set(41.6, 14.4, 41.6); // center (26*1.6, 9.0*1.6, 26*1.6)
   game.scene.add(world.lakeMesh);
 
   // 2. Low-Poly Trees and Rocks
@@ -1374,7 +1377,7 @@ function spawnScenery() {
     const wy = getSurfaceHeightNear(wx, 15, wz);
 
     // Only spawn trees on land above water and NOT inside the lake
-    const lakeDist = Math.sqrt((wx - 19.2)*(wx - 19.2) + (wz - 19.2)*(wz - 19.2));
+    const lakeDist = Math.sqrt((wx - 41.6)*(wx - 41.6) + (wz - 41.6)*(wz - 41.6));
     if (wy > 4.1 && lakeDist > 25.0) {
       let treeGroup;
       const isPalm = wy <= 6.2;
@@ -1413,7 +1416,7 @@ function spawnScenery() {
     const wz = rz * spacing;
     const wy = getSurfaceHeightNear(wx, 15, wz);
 
-    const lakeDist = Math.sqrt((wx - 19.2)*(wx - 19.2) + (wz - 19.2)*(wz - 19.2));
+    const lakeDist = Math.sqrt((wx - 41.6)*(wx - 41.6) + (wz - 41.6)*(wz - 41.6));
     if (wy > 3.0 && lakeDist > 25.0) {
       const rockGeom = new THREE.DodecahedronGeometry(1.0 + Math.random() * 1.5, 0);
       const rock = new THREE.Mesh(rockGeom, rockMaterial);
