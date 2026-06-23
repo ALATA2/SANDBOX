@@ -28,6 +28,7 @@ export const game = {
   crabs: [],
   fishes: [],
   seagulls: [],
+  worms: [],
   raftConstructed: false,
   raftState: {
     active: false,
@@ -2012,6 +2013,48 @@ function createFish() {
   return group;
 }
 
+// Helper to create detailed low-poly crawling worms
+function createWorm() {
+  const wormGroup = new THREE.Group();
+  const pinkMaterial = new THREE.MeshStandardMaterial({
+    color: 0xe5a397,
+    roughness: 0.9,
+    flatShading: true
+  });
+  
+  // A worm made of 3 segments so it can wiggle dynamically
+  const segments = [];
+  const segLength = 0.08;
+  const segRadius = 0.015;
+  
+  for (let i = 0; i < 3; i++) {
+    const geom = new THREE.CylinderGeometry(segRadius, segRadius, segLength, 4);
+    geom.rotateZ(Math.PI / 2); // align horizontally along X
+    const mesh = new THREE.Mesh(geom, pinkMaterial);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    
+    const segmentGroup = new THREE.Group();
+    if (i > 0) {
+      // Connect to the end of the previous segment
+      segmentGroup.position.x = segLength;
+    }
+    segmentGroup.add(mesh);
+    
+    if (i === 0) {
+      wormGroup.add(segmentGroup);
+    } else {
+      segments[i-1].add(segmentGroup);
+    }
+    segments.push(segmentGroup);
+  }
+  
+  wormGroup.segments = segments;
+  wormGroup.wiggleSpeed = 6.0 + Math.random() * 4.0;
+  wormGroup.wiggleOffset = Math.random() * Math.PI * 2;
+  return wormGroup;
+}
+
 // Helper to create detailed low-poly flying seagulls
 function createSeagull() {
   const group = new THREE.Group();
@@ -2134,6 +2177,74 @@ function spawnFauna() {
       spawnedFish++;
     }
   }
+
+  // 2b. Spawn 4-5 Fish inside the mountain lake
+  const lakeFishCount = 4 + Math.floor(Math.random() * 2); // 4 or 5
+  for (let i = 0; i < lakeFishCount; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = Math.random() * 18.0; // keep it inside the lake (radius 24.0)
+    const rx = 41.6 + Math.cos(angle) * dist;
+    const rz = 41.6 + Math.sin(angle) * dist;
+    
+    const fish = createFish();
+    const ry = 12.0 + Math.random() * 1.5; // Under lake water level (14.4)
+    fish.position.set(rx, ry, rz);
+    fish.isLakeFish = true;
+    
+    fish.velocity = new THREE.Vector3(
+      (Math.random() - 0.5) * 1.2,
+      (Math.random() - 0.5) * 0.3,
+      (Math.random() - 0.5) * 1.2
+    );
+    fish.swimTimer = 2.0 + Math.random() * 3.0;
+    fish.targetY = ry;
+    
+    game.scene.add(fish);
+    game.fishes.push(fish);
+  }
+
+  // 2c. Spawn a Dead Seagull with crawling worms on the lake shore (Southeastern side)
+  const deadGullX = 57.6; // 41.6 + 16.0
+  const deadGullZ = 50.6; // 41.6 + 9.0
+  const deadGullY = getSurfaceHeightNear(deadGullX, 15, deadGullZ);
+  
+  const deadSeagull = createSeagull();
+  deadSeagull.name = "dead_seagull";
+  deadSeagull.position.set(deadGullX, deadGullY + 0.05, deadGullZ);
+  deadSeagull.rotation.x = Math.PI - 0.1; // Upside down
+  deadSeagull.rotation.z = 0.4;          // Tilted slightly
+  deadSeagull.rotation.y = Math.random() * Math.PI * 2;
+  
+  // Pivot the wings down to look limp/dead
+  if (deadSeagull.leftWing && deadSeagull.rightWing) {
+    deadSeagull.leftWing.rotation.z = 0.65;
+    deadSeagull.rightWing.rotation.z = -0.65;
+  }
+  game.scene.add(deadSeagull);
+
+  // Spawn 4 crawling worms near the dead seagull
+  const wormPositions = [
+    { dx: 0.18, dz: -0.05 },
+    { dx: -0.15, dz: 0.12 },
+    { dx: 0.05, dz: 0.05, onGull: true },
+    { dx: -0.05, dz: -0.14 }
+  ];
+
+  wormPositions.forEach((pos, idx) => {
+    const wx = deadGullX + pos.dx;
+    const wz = deadGullZ + pos.dz;
+    const baseWy = getSurfaceHeightNear(wx, 15, wz);
+    const wy = pos.onGull ? baseWy + 0.08 : baseWy;
+
+    const worm = createWorm();
+    worm.position.set(wx, wy + 0.015, wz);
+    worm.rotation.y = Math.random() * Math.PI * 2;
+    worm.rotation.z = (Math.random() - 0.5) * 0.15;
+    worm.rotation.x = (Math.random() - 0.5) * 0.15;
+
+    game.scene.add(worm);
+    game.worms.push(worm);
+  });
   
   // 3. Spawn Seagulls in the sky (Y = 11 to 16)
   for (let i = 0; i < 4; i++) {
@@ -2276,25 +2387,42 @@ function updateFauna(delta) {
         (Math.random() - 0.5) * 0.3,
         (Math.random() - 0.5) * 1.5
       );
-      fish.targetY = 1.3 + Math.random() * 2.0;
+      if (fish.isLakeFish) {
+        fish.targetY = 12.0 + Math.random() * 1.8;
+      } else {
+        fish.targetY = 1.3 + Math.random() * 2.0;
+      }
     }
     
     fish.position.addScaledVector(fish.velocity, delta);
     fish.position.y += (fish.targetY - fish.position.y) * delta * 1.5;
     
-    const terrainY = getSurfaceHeightNear(fish.position.x, 15, fish.position.z);
-    
-    if (terrainY > 3.8 || fish.position.x < 2 || fish.position.x > mapWidth - 2 || fish.position.z < 2 || fish.position.z > mapLength - 2) {
-      const toCenter = new THREE.Vector3(mapWidth / 2, fish.position.y, mapLength / 2).sub(fish.position);
-      toCenter.y = 0;
-      toCenter.normalize();
-      
-      if (terrainY > 3.8) {
-        fish.velocity.copy(toCenter).negate().multiplyScalar(1.2);
-      } else {
-        fish.velocity.copy(toCenter).multiplyScalar(1.2);
+    if (fish.isLakeFish) {
+      // Stay within lake circle (center 41.6, 41.6, radius 24m)
+      const dx = fish.position.x - 41.6;
+      const dz = fish.position.z - 41.6;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      if (dist > 20.0) {
+        const toLakeCenter = new THREE.Vector3(41.6, fish.position.y, 41.6).sub(fish.position);
+        toLakeCenter.y = 0;
+        toLakeCenter.normalize();
+        fish.velocity.copy(toLakeCenter).multiplyScalar(1.2);
+        fish.swimTimer = 2.0;
       }
-      fish.swimTimer = 2.0;
+    } else {
+      const terrainY = getSurfaceHeightNear(fish.position.x, 15, fish.position.z);
+      if (terrainY > 3.8 || fish.position.x < 2 || fish.position.x > mapWidth - 2 || fish.position.z < 2 || fish.position.z > mapLength - 2) {
+        const toCenter = new THREE.Vector3(mapWidth / 2, fish.position.y, mapLength / 2).sub(fish.position);
+        toCenter.y = 0;
+        toCenter.normalize();
+        
+        if (terrainY > 3.8) {
+          fish.velocity.copy(toCenter).negate().multiplyScalar(1.2);
+        } else {
+          fish.velocity.copy(toCenter).multiplyScalar(1.2);
+        }
+        fish.swimTimer = 2.0;
+      }
     }
     
     const swimDir = fish.velocity.clone();
@@ -2307,6 +2435,16 @@ function updateFauna(delta) {
     
     if (fish.tail) {
       fish.tail.rotation.y = Math.sin(time * 14.0) * 0.45;
+    }
+  });
+
+  // 2b. Wiggling worms near the dead seagull
+  game.worms.forEach(worm => {
+    if (worm.segments && worm.segments.length >= 2) {
+      const wiggleSpeed = worm.wiggleSpeed || 8.0;
+      const offset = worm.wiggleOffset || 0;
+      worm.segments[0].rotation.y = Math.sin(time * wiggleSpeed + offset) * 0.25;
+      worm.segments[1].rotation.y = Math.sin(time * wiggleSpeed + offset + 1.2) * 0.25;
     }
   });
 

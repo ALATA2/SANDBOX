@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { game } from './game.js';
-import { getSurfaceHeightNear, checkCollision, checkInWater } from './world.js';
+import { getSurfaceHeightNear, checkCollision, checkInWater, getWaterHeightAt } from './world.js';
 import { player, showHudMessage } from './player.js';
 import { getTranslation } from './lang.js';
 
@@ -185,7 +185,8 @@ export function updateControls(delta) {
 
   // Apply gravity / buoyancy force
   if (inWater) {
-    const waterSurfaceY = 5.0; // Water level (4.0) + eye height offset to keep head above water
+    const baseWaterHeight = getWaterHeightAt(position.x, position.z);
+    const waterSurfaceY = baseWaterHeight + 1.0; // Water level + eye height offset to keep head above water
     const isMovingForward = game.isMobile ? (direction.z > 0.1) : moveForward;
     
     if (moveUp) {
