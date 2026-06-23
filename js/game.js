@@ -31,7 +31,7 @@ export const game = {
   raftConstructed: false,
   raftState: {
     active: false,
-    position: new THREE.Vector3(25.6, 4.05, 42.4),
+    position: new THREE.Vector3(80.0, 4.05, 127.2),
     rotationY: 0,
     speed: 0,
     lastSplashTime: 0
@@ -275,7 +275,7 @@ function init() {
 
   // 2. Create Camera (FPS perspective)
   game.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 24000);
-  game.camera.position.set(25, 8, 25); // Starting position above ground
+  game.camera.position.set(75, 8, 75); // Starting position above ground
 
   // 3. Create WebGL Renderer
   game.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -400,8 +400,8 @@ function init() {
 
   // Spawn Arturo the Rooster
   game.roosterMesh = createRooster();
-  const roosterSpawnY = getSurfaceHeightNear(28, 15, 28);
-  game.roosterMesh.position.set(28, roosterSpawnY, 28);
+  const roosterSpawnY = getSurfaceHeightNear(84, 15, 84);
+  game.roosterMesh.position.set(84, roosterSpawnY, 84);
   game.scene.add(game.roosterMesh);
 
   // Spawn additional island life (crabs, fishes, seagulls)
@@ -441,7 +441,7 @@ function init() {
         
         if (firstStart) {
           if (game.controls && game.controls.getObject) {
-            game.controls.getObject().position.set(25, 8, 25);
+            game.controls.getObject().position.set(75, 8, 75);
           }
           firstStart = false;
         }
@@ -503,7 +503,7 @@ function init() {
       
       if (firstStart) {
         if (game.controls && game.controls.getObject) {
-          game.controls.getObject().position.set(25, 8, 25);
+          game.controls.getObject().position.set(75, 8, 75);
         }
         firstStart = false;
       }

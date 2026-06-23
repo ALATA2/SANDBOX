@@ -5,13 +5,14 @@ import { spawnDebris } from './interact.js';
 
 // World Configuration
 export const world = {
-  sizeX: 40,
+  sizeX: 120,
   sizeY: 16,
-  sizeZ: 40,
+  sizeZ: 120,
   spacing: 1.6,
   density: null, // Flat Float32Array
   terrainMesh: null,
   waterMesh: null,
+  lakeMesh: null, // 3D Mountain Lake Mesh
   waterActive: null, // 3D Uint8Array for connected water cells
   waterHeights: null, // 2D Float32Array for dynamic height filling
   oreDeposits: [], // Array of meshes representing ore nodes
@@ -28,8 +29,8 @@ export const world = {
 // Water grid limits and cell counts
 export const WATER_START_X = -20.8;
 export const WATER_START_Z = -20.8;
-export const WATER_CELLS_X = 66;
-export const WATER_CELLS_Z = 66;
+export const WATER_CELLS_X = 146;
+export const WATER_CELLS_Z = 146;
 
 export function isWaterActiveAt(vx, vz) {
   const spacing = world.spacing;
@@ -64,6 +65,16 @@ export function isVertexActive(gx, gz) {
 }
 
 export function getWaterHeightAt(vx, vz) {
+  // Check if near mountain lake: center at (19.2, 19.2), radius = 24.0
+  const lakeCenterX = 19.2;
+  const lakeCenterZ = 19.2;
+  const lakeRadius = 24.0;
+  const dx = vx - lakeCenterX;
+  const dz = vz - lakeCenterZ;
+  if (dx*dx + dz*dz < lakeRadius * lakeRadius) {
+    return 15.68;
+  }
+
   if (!world.waterHeights) return 4.0;
   const spacing = world.spacing;
   const gx = Math.round((vx - WATER_START_X) / spacing);
@@ -133,24 +144,82 @@ function fbmNoise2D(x, z) {
   return value;
 }
 
+const lerp = (a, b, t) => a + t * (b - a);
+
+// Centralized helper to calculate procedural starting island voxel height
+function calculateIslandHeightVoxel(x, z) {
+  const cx = world.sizeX / 2;
+  const cz = world.sizeZ / 2;
+
+  // Distance from center of the island (radial falloff)
+  const dx = x - cx;
+  const dz = z - cz;
+  const dist = Math.sqrt(dx*dx + dz*dz);
+  const maxDist = world.sizeX * 0.48;
+  const radialFactor = Math.max(0, 1.0 - dist / maxDist);
+  
+  // Calculate base land height using noise
+  const noiseVal = fbmNoise2D(x * 0.1, z * 0.1);
+  let islandHeight = (noiseVal * 8.0 + 2.0) * Math.pow(radialFactor, 1.2);
+
+  // 1. CARVE THE BAY (opens to the east)
+  // Scale offset and radius from the 40x40 equivalent: center is 60, offset is 54, radius is 48
+  const bayX = cx + 54;
+  const bayZ = cz;
+  const bayRadius = 48;
+  const bayDx = x - bayX;
+  const bayDz = z - bayZ;
+  const bayDist = Math.sqrt(bayDx*bayDx + bayDz*bayDz);
+
+  if (bayDist < bayRadius) {
+    const t = bayDist / bayRadius;
+    const smoothT = Math.sin(t * Math.PI / 2);
+    // Interpolate island height down to sea level/seabed (voxel height 1.2, which is 1.92 meters)
+    const targetBayHeight = 1.2;
+    islandHeight = lerp(targetBayHeight, islandHeight, smoothT);
+  }
+
+  // 2. ADD THE HILL WITH A LAKE (in the northwest quadrant)
+  // Hill center is at (cx - 48, cz - 48) = (12, 12), radius is 42
+  const hillX = cx - 48;
+  const hillZ = cz - 48;
+  const hillRadius = 42;
+  const hillDx = x - hillX;
+  const hillDz = z - hillZ;
+  const hillDist = Math.sqrt(hillDx*hillDx + hillDz*hillDz);
+
+  if (hillDist < hillRadius) {
+    // Lake basin radius: 15 voxels (24m)
+    const lakeRadius = 15;
+    const t = hillDist / hillRadius;
+    
+    // Hill base elevation: +6.5 voxels at the summit, 0 at the foot
+    const hillElevation = 6.5 * Math.cos(t * Math.PI / 2);
+
+    if (hillDist < lakeRadius) {
+      // Inside the lake basin: crater/depression down to 8.5 voxel height (13.6m)
+      const lakeT = hillDist / lakeRadius;
+      const hillHeightAtLakeEdge = islandHeight + 6.5 * Math.cos((lakeRadius / hillRadius) * Math.PI / 2);
+      const lakeBottomHeight = 8.5;
+      
+      const lakeProfile = lerp(lakeBottomHeight, hillHeightAtLakeEdge, lakeT * lakeT);
+      islandHeight = lakeProfile;
+    } else {
+      // Outside the lake basin, on the hill slope
+      islandHeight += hillElevation;
+    }
+  }
+
+  // Safety ceiling check: prevent terrain from reaching sizeY - 1
+  return Math.min(world.sizeY - 2.5, islandHeight);
+}
+
 // Calculate original uncarved terrain height at coordinates (vx, vz)
 export function getOriginalHeight(vx, vz) {
   const spacing = world.spacing;
   const gx = vx / spacing;
   const gz = vz / spacing;
-
-  const cx = world.sizeX / 2;
-  const cz = world.sizeZ / 2;
-
-  // Radial falloff math (identical to island generation)
-  const dx = gx - cx;
-  const dz = gz - cz;
-  const dist = Math.sqrt(dx*dx + dz*dz);
-  const maxDist = world.sizeX * 0.48;
-  const radialFactor = Math.max(0, 1.0 - dist / maxDist);
-  
-  const noiseVal = fbmNoise2D(gx * 0.1, gz * 0.1);
-  return (noiseVal * 8.0 + 2.0) * Math.pow(radialFactor, 1.2) * spacing;
+  return calculateIslandHeightVoxel(gx, gz) * spacing;
 }
 
 // Compute dynamic vertex color based on depth from original surface
@@ -179,16 +248,7 @@ function generateDensityGrid() {
 
   for (let x = 0; x < world.sizeX; x++) {
     for (let z = 0; z < world.sizeZ; z++) {
-      // Distance from center of the island (radial falloff)
-      const dx = x - cx;
-      const dz = z - cz;
-      const dist = Math.sqrt(dx*dx + dz*dz);
-      const maxDist = world.sizeX * 0.48;
-      const radialFactor = Math.max(0, 1.0 - dist / maxDist);
-      
-      // Calculate land height using noise
-      const noiseVal = fbmNoise2D(x * 0.1, z * 0.1);
-      const islandHeight = (noiseVal * 8.0 + 2.0) * Math.pow(radialFactor, 1.2);
+      const islandHeight = calculateIslandHeightVoxel(x, z);
 
       for (let y = 0; y < world.sizeY; y++) {
         // Flat island base with hills
@@ -202,7 +262,7 @@ function generateDensityGrid() {
         const tz = cz;
         // Horizontal tunnel pointing in Z direction
         const distToTunnelAxis = Math.sqrt(Math.pow(x - tx, 2) + Math.pow(y - ty, 2));
-        if (distToTunnelAxis < tunnelRadius && z > 10 && z < 30) {
+        if (distToTunnelAxis < tunnelRadius && z > (cz - 30) && z < (cz + 30)) {
           const carveAmount = (1.0 - distToTunnelAxis / tunnelRadius) * 2.5;
           dens -= carveAmount;
         }
@@ -513,9 +573,9 @@ export function buildWaterGeometry() {
   const tempColor = new THREE.Color();
 
   const startX = WATER_START_X;
-  const endX = 84.8;
+  const endX = WATER_START_X + WATER_CELLS_X * spacing;
   const startZ = WATER_START_Z;
-  const endZ = 84.8;
+  const endZ = WATER_START_Z + WATER_CELLS_Z * spacing;
 
   const cellCountX = WATER_CELLS_X;
   const cellCountZ = WATER_CELLS_Z;
@@ -657,6 +717,18 @@ export function buildWaterGeometry() {
 
 // Check if a specific world coordinate (px, py, pz) is inside active water
 export function checkInWater(px, py, pz) {
+  // Check if player is in the mountain lake
+  const lakeCenterX = 19.2;
+  const lakeCenterZ = 19.2;
+  const lakeRadius = 24.0;
+  const dx = px - lakeCenterX;
+  const dz = pz - lakeCenterZ;
+  if (dx*dx + dz*dz < lakeRadius * lakeRadius) {
+    if (py < 15.68 && py > 13.0) {
+      return true;
+    }
+  }
+
   const spacing = world.spacing;
   const gx = Math.floor(px / spacing);
   const gy = Math.floor(py / spacing);
@@ -1255,10 +1327,26 @@ function spawnScenery() {
     flatShading: true,
     side: THREE.DoubleSide,
     emissive: new THREE.Color(0x09202e) // Subtle glow so the water looks luminous and alive
-  });
   world.waterMesh = new THREE.Mesh(waterGeometry, waterMaterial);
   world.waterMesh.position.set(0, 4.0, 0); // Directly at coordinate origin, Y=4.0 height (no rotation needed)
   game.scene.add(world.waterMesh);
+
+  // 1b. Mountain Lake Plane
+  const lakeGeometry = new THREE.CircleGeometry(24.0, 32);
+  lakeGeometry.rotateX(-Math.PI / 2);
+  const lakeMaterial = new THREE.MeshStandardMaterial({
+    color: 0x00c3df,
+    roughness: 0.15,
+    metalness: 0.1,
+    transparent: true,
+    opacity: 0.85,
+    flatShading: true,
+    side: THREE.DoubleSide,
+    emissive: new THREE.Color(0x041a24)
+  });
+  world.lakeMesh = new THREE.Mesh(lakeGeometry, lakeMaterial);
+  world.lakeMesh.position.set(19.2, 15.68, 19.2); // center (12*1.6, 9.8*1.6, 12*1.6)
+  game.scene.add(world.lakeMesh);
 
   // 2. Low-Poly Trees and Rocks
   // Materials
@@ -1274,8 +1362,8 @@ function spawnScenery() {
     flatShading: true
   });
 
-  // Spawn trees randomly on the island surface (mix of Palm and Pine trees)
-  for (let i = 0; i < 45; i++) {
+  // Spawn trees randomly on the island surface (mix of Palm and Pine trees) - Increased count for 120x120
+  for (let i = 0; i < 200; i++) {
     const rx = Math.random() * (world.sizeX - 10) + 5;
     const rz = Math.random() * (world.sizeZ - 10) + 5;
     
@@ -1284,8 +1372,9 @@ function spawnScenery() {
     const wz = rz * spacing;
     const wy = getSurfaceHeightNear(wx, 15, wz);
 
-    // Only spawn trees on land above water
-    if (wy > 4.1) {
+    // Only spawn trees on land above water and NOT inside the lake
+    const lakeDist = Math.sqrt((wx - 19.2)*(wx - 19.2) + (wz - 19.2)*(wz - 19.2));
+    if (wy > 4.1 && lakeDist > 25.0) {
       let treeGroup;
       const isPalm = wy <= 6.2;
       
@@ -1314,8 +1403,8 @@ function spawnScenery() {
     }
   }
 
-  // 3. Low-Poly Rock formations
-  for (let i = 0; i < 20; i++) {
+  // 3. Low-Poly Rock formations - Increased count for 120x120
+  for (let i = 0; i < 80; i++) {
     const rx = Math.random() * (world.sizeX - 6) + 3;
     const rz = Math.random() * (world.sizeZ - 6) + 3;
     
@@ -1323,7 +1412,8 @@ function spawnScenery() {
     const wz = rz * spacing;
     const wy = getSurfaceHeightNear(wx, 15, wz);
 
-    if (wy > 3.0) {
+    const lakeDist = Math.sqrt((wx - 19.2)*(wx - 19.2) + (wz - 19.2)*(wz - 19.2));
+    if (wy > 3.0 && lakeDist > 25.0) {
       const rockGeom = new THREE.DodecahedronGeometry(1.0 + Math.random() * 1.5, 0);
       const rock = new THREE.Mesh(rockGeom, rockMaterial);
       rock.position.set(wx, wy - 0.5, wz);
@@ -1335,14 +1425,14 @@ function spawnScenery() {
     }
   }
 
-  // 3b. Marine Rocks (rocks emerging from the sea)
+  // 3b. Marine Rocks (rocks emerging from the sea) - Increased count for 120x120
   const marineRockMaterial = new THREE.MeshStandardMaterial({ 
     color: 0x5a6363, // Darker wet rock
     roughness: 0.6,  // Slightly glossy/wet appearance
     flatShading: true 
   });
   
-  for (let i = 0; i < 15; i++) {
+  for (let i = 0; i < 40; i++) {
     const rx = Math.random() * (world.sizeX - 10) + 5;
     const rz = Math.random() * (world.sizeZ - 10) + 5;
     
@@ -1366,7 +1456,7 @@ function spawnScenery() {
     }
   }
 
-  // 3c. 3D Low-Poly Starfish on the shoreline
+  // 3c. 3D Low-Poly Starfish on the shoreline - Increased count for 120x120
   const starfishMaterial = new THREE.MeshStandardMaterial({ 
     color: 0xff5722, // Luminous orange
     roughness: 0.8, 
@@ -1402,7 +1492,7 @@ function spawnScenery() {
   // Rotate so it lies flat on the horizontal XZ plane
   starfishGeom.rotateX(-Math.PI / 2);
 
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 30; i++) {
     const rx = Math.random() * (world.sizeX - 10) + 5;
     const rz = Math.random() * (world.sizeZ - 10) + 5;
     
@@ -1423,14 +1513,14 @@ function spawnScenery() {
   }
 
   // 4. Gold Ore Nodes (Mineral veins)
-  // We place 6 explicit harvestable Gold Ore Nodes on the island
+  // Scaled coordinates by 3, Node 2 adjusted to (70, 82) to avoid the bay
   const locations = [
-    { x: 18, z: 12 },
-    { x: 28, z: 22 },
-    { x: 12, z: 28 },
-    { x: 22, z: 15 },
-    { x: 26, z: 10 },
-    { x: 14, z: 22 }
+    { x: 54, z: 36 },
+    { x: 70, z: 82 },
+    { x: 36, z: 84 },
+    { x: 66, z: 45 },
+    { x: 78, z: 30 },
+    { x: 42, z: 66 }
   ];
 
   locations.forEach((loc, idx) => {
@@ -1475,12 +1565,12 @@ function spawnScenery() {
     world.oreDeposits.push(oreGroup);
   });
 
-  // 5. Wooden Pier / Dock (near player spawn)
+  // 5. Wooden Pier / Dock (near player spawn) - Position scaled by 3
   const dockGroup = new THREE.Group();
   const plankMaterial = new THREE.MeshStandardMaterial({ color: 0x6e4e37, roughness: 0.95, flatShading: true });
-  const pierX = 17.0 * spacing; // aligned with beach
+  const pierX = 51.0 * spacing; // aligned with beach at 3x scale (originally 17.0)
   
-  for (let z = 18.0; z <= 28.0; z += 0.8) {
+  for (let z = 54.0; z <= 84.0; z += 0.8) { // scaled from 18.0 to 28.0
     const plankGeom = new THREE.BoxGeometry(1.4, 0.06, 0.6);
     const plank = new THREE.Mesh(plankGeom, plankMaterial);
     plank.position.set(pierX, 4.12, z * spacing);
@@ -1491,10 +1581,10 @@ function spawnScenery() {
   
   const postGeom = new THREE.CylinderGeometry(0.08, 0.08, 3.5, 5);
   const postLocations = [
-    { x: pierX - 0.6, z: 18.5 * spacing },
-    { x: pierX + 0.6, z: 18.5 * spacing },
-    { x: pierX - 0.6, z: 27.5 * spacing },
-    { x: pierX + 0.6, z: 27.5 * spacing }
+    { x: pierX - 0.6, z: 18.5 * 3 * spacing },
+    { x: pierX + 0.6, z: 18.5 * 3 * spacing },
+    { x: pierX - 0.6, z: 27.5 * 3 * spacing },
+    { x: pierX + 0.6, z: 27.5 * 3 * spacing }
   ];
   
   postLocations.forEach(pos => {
@@ -1507,14 +1597,14 @@ function spawnScenery() {
   
   game.scene.add(dockGroup);
   
-  // 6. Floating Log Raft (Constructible with blueprint)
+  // 6. Floating Log Raft (Constructible with blueprint) - Position scaled by 3
   const raftGroup = new THREE.Group();
   const raftMaterial = new THREE.MeshStandardMaterial({ color: 0x553d2d, roughness: 0.9, flatShading: true });
   for (let i = 0; i < 4; i++) {
     const logGeom = new THREE.CylinderGeometry(0.12, 0.12, 1.8, 5);
     logGeom.rotateX(Math.PI / 2);
     const log = new THREE.Mesh(logGeom, raftMaterial);
-    log.position.set(pierX - 2.0 + i * 0.28, 4.05, 26.5 * spacing);
+    log.position.set(pierX - 2.0 + i * 0.28, 4.05, 26.5 * 3 * spacing);
     log.castShadow = true;
     log.receiveShadow = true;
     raftGroup.add(log);
@@ -1535,18 +1625,18 @@ function spawnScenery() {
     const logGeom = new THREE.CylinderGeometry(0.12, 0.12, 1.8, 5);
     logGeom.rotateX(Math.PI / 2);
     const log = new THREE.Mesh(logGeom, blueprintMaterial);
-    log.position.set(pierX - 2.0 + i * 0.28, 4.05, 26.5 * spacing);
+    log.position.set(pierX - 2.0 + i * 0.28, 4.05, 26.5 * 3 * spacing);
     blueprintGroup.add(log);
   }
   world.raftBlueprint = blueprintGroup;
   game.scene.add(blueprintGroup);
 
-  // 7. Lit Beach Torches
+  // 7. Lit Beach Torches - Position scaled by 3
   const torchPositions = [
-    { x: 22.0 * spacing, z: 23.0 * spacing },
-    { x: pierX + 1.2, z: 19.0 * spacing },
-    { x: pierX + 1.2, z: 27.5 * spacing },
-    { x: 12.0 * spacing, z: 21.0 * spacing }
+    { x: 22.0 * 3 * spacing, z: 23.0 * 3 * spacing },
+    { x: pierX + 1.2, z: 19.0 * 3 * spacing },
+    { x: pierX + 1.2, z: 27.5 * 3 * spacing },
+    { x: 12.0 * 3 * spacing, z: 21.0 * 3 * spacing }
   ];
   
   torchPositions.forEach(pos => {
@@ -1554,204 +1644,193 @@ function spawnScenery() {
     const ty = getSurfaceHeightNear(pos.x, 15.0, pos.z);
     torch.position.set(pos.x, ty, pos.z);
     game.scene.add(torch);
+    world.sceneryMeshes.push({ mesh: torch, type: 'torch' });
   });
 
   // 8. Distant Island with a Lighthouse (Relocated and detailed)
   const distIslandGroup = new THREE.Group();
   distIslandGroup.position.set(1500, -5, -2000); // Expanded and relocated
   
-  // Mountainous base geometry
-  const mGeom = new THREE.ConeGeometry(120, 50, 6);
-  const mMat = new THREE.MeshStandardMaterial({ color: 0x47515c, roughness: 0.9, flatShading: true });
-  const mountain = new THREE.Mesh(mGeom, mMat);
-  mountain.position.y = 25;
+  // Base mountain
+  const mtGeom = new THREE.ConeGeometry(90, 180, 5);
+  const mtMaterial = new THREE.MeshStandardMaterial({ color: 0x5a5040, roughness: 0.9, flatShading: true });
+  const mountain = new THREE.Mesh(mtGeom, mtMaterial);
+  mountain.position.y = 80;
   mountain.castShadow = true;
   mountain.receiveShadow = true;
   distIslandGroup.add(mountain);
 
-  // Procedural Spiral Staircase/Ramp
-  const stepMaterial = new THREE.MeshStandardMaterial({ color: 0x5a6363, roughness: 0.9, flatShading: true });
-  const stepGeom = new THREE.BoxGeometry(10, 1.2, 5);
-  const totalSteps = 60;
-  for (let i = 0; i <= totalSteps; i++) {
-    const tRatio = i / totalSteps;
-    const theta = tRatio * Math.PI * 2;
-    const r_path = 110 - 70 * tRatio;
-    const stepY = 4.2 + (22.0 - 4.2) * tRatio;
+  // Relocated and expanded Nest stairs climbing the mountain side
+  const nestMaterial = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.95, flatShading: true });
+  const stepsCount = 18;
+  for (let i = 0; i < stepsCount; i++) {
+    const stepGeom = new THREE.BoxGeometry(7, 3, 7);
+    const stepMesh = new THREE.Mesh(stepGeom, nestMaterial);
     
-    const stepMesh = new THREE.Mesh(stepGeom, stepMaterial);
-    stepMesh.position.set(Math.cos(theta) * r_path, stepY - (-5), Math.sin(theta) * r_path);
-    stepMesh.rotation.y = -theta;
+    // Position stairs spiraling up
+    const angle = (i / stepsCount) * Math.PI * 1.3 - 0.2;
+    const radius = 68 - i * 1.5;
+    const sx = Math.cos(angle) * radius;
+    const sz = Math.sin(angle) * radius;
+    const sy = i * 4.8 + 2;
+    
+    stepMesh.position.set(sx, sy, sz);
+    stepMesh.rotation.y = -angle + Math.PI / 2;
     stepMesh.castShadow = true;
     stepMesh.receiveShadow = true;
     distIslandGroup.add(stepMesh);
   }
 
-  // Seagull Nests on top plateau (Y=22)
-  const nestMaterial = new THREE.MeshStandardMaterial({ color: 0x6e4720, roughness: 0.9, flatShading: true });
-  const eggMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, flatShading: true });
-  const nestPositions = [
-    { x: 10, z: -10 },
-    { x: -15, z: 5 }
-  ];
-  nestPositions.forEach(npos => {
-    const nestGroup = new THREE.Group();
-    const nestGeom = new THREE.TorusGeometry(0.8, 0.25, 4, 8);
-    nestGeom.rotateX(Math.PI / 2);
-    const nest = new THREE.Mesh(nestGeom, nestMaterial);
-    nestGroup.add(nest);
-    
-    for (let k = 0; k < 3; k++) {
-      const eggGeom = new THREE.DodecahedronGeometry(0.18, 1);
-      const egg = new THREE.Mesh(eggGeom, eggMaterial);
-      egg.position.set((Math.random() - 0.5) * 0.3, 0.1, (Math.random() - 0.5) * 0.3);
-      nestGroup.add(egg);
-    }
-    nestGroup.position.set(npos.x, 22.0 - (-5), npos.z);
-    distIslandGroup.add(nestGroup);
-  });
+  // Giant Bird Nest at the top of the stairs (summit ledge)
+  const nestGroup = new THREE.Group();
+  nestGroup.position.set(-20, 85, 20); // Summit Ledge
+  
+  const nestRingGeom = new THREE.TorusGeometry(8, 2.2, 5, 12);
+  const nestRing = new THREE.Mesh(nestRingGeom, nestMaterial);
+  nestRing.rotation.x = Math.PI / 2;
+  nestRing.castShadow = true;
+  nestRing.receiveShadow = true;
+  nestGroup.add(nestRing);
+  
+  // Shiny Golden Egg inside the nest
+  const eggGeom = new THREE.SphereGeometry(1.9, 8, 8);
+  eggGeom.scale(1.0, 1.45, 1.0); // Make it egg-shaped
+  const egg = new THREE.Mesh(eggGeom, goldMaterial);
+  egg.position.set(0.5, 0.8, -0.5);
+  egg.rotation.set(0.3, 0.2, -0.4);
+  egg.castShadow = true;
+  nestGroup.add(egg);
+  
+  distIslandGroup.add(nestGroup);
 
-  // Lighthouse Tower
-  const lGeom = new THREE.CylinderGeometry(2, 3, 15, 6);
-  const lMat = new THREE.MeshStandardMaterial({ color: 0xb22222, roughness: 0.8, flatShading: true }); // Dark Red tower
-  const tower = new THREE.Mesh(lGeom, lMat);
-  tower.position.set(0, 22.0 + 7.5 - (-5), 0); // Stand on Y=22 plateau
+  // The Lighthouse Tower
+  const towerGeom = new THREE.CylinderGeometry(4.5, 6.5, 45, 6);
+  const towerMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.7, flatShading: true });
+  const tower = new THREE.Mesh(towerGeom, towerMat);
+  tower.position.set(0, 110, 0); // Nestled on the summit
   tower.castShadow = true;
   tower.receiveShadow = true;
   distIslandGroup.add(tower);
 
-  // Lighthouse Top Glass Room
-  const gGeom = new THREE.CylinderGeometry(1.5, 1.5, 2.5, 6);
-  const gMat = new THREE.MeshStandardMaterial({ color: 0xffea00, emissive: 0xffea00, emissiveIntensity: 1.0, transparent: true, opacity: 0.6 });
-  const glassRoom = new THREE.Mesh(gGeom, gMat);
-  glassRoom.position.set(0, 22.0 + 15 + 1.25 - (-5), 0);
+  // Glass Room at the top
+  const glassGeom = new THREE.CylinderGeometry(4.0, 4.0, 7, 6);
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0x88ccff, roughness: 0.1, transparent: true, opacity: 0.45, flatShading: true });
+  const glassRoom = new THREE.Mesh(glassGeom, glassMat);
+  glassRoom.position.set(0, 134, 0);
   distIslandGroup.add(glassRoom);
 
-  // Lighthouse Roof
-  const rGeom = new THREE.ConeGeometry(2, 1.8, 6);
-  const rMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9, flatShading: true });
-  const roof = new THREE.Mesh(rGeom, rMat);
-  roof.position.set(0, 22.0 + 15 + 2.5 + 0.9 - (-5), 0);
+  // Red Roof
+  const roofGeom = new THREE.ConeGeometry(5.2, 6, 6);
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0xb22222, roughness: 0.6, flatShading: true });
+  const roof = new THREE.Mesh(roofGeom, roofMat);
+  roof.position.set(0, 139, 0);
   roof.castShadow = true;
   distIslandGroup.add(roof);
 
-  // Lighthouse Light Beam
-  const beamGeom = new THREE.ConeGeometry(8, 180, 8, 1, true); // open-ended cone
-  beamGeom.rotateX(Math.PI / 2);
-  beamGeom.translate(0, 0, 90);
+  // Rotating light beam helper
+  const beamGroup = new THREE.Group();
+  beamGroup.position.set(0, 134, 0);
+  
+  const beamGeom = new THREE.ConeGeometry(24, 250, 6, 1, true); // Open cone
+  beamGeom.rotateX(Math.PI / 2); // align forward Z
+  beamGeom.translate(0, 0, 125); // offset center to rotation pivot
   const beamMat = new THREE.MeshBasicMaterial({
-    color: 0xfff3a8,
+    color: 0xfffcd0,
     transparent: true,
-    opacity: 0.25,
+    opacity: 0.35,
     blending: THREE.AdditiveBlending,
-    side: THREE.DoubleSide
+    depthWrite: false
   });
-  world.lighthouseBeam = new THREE.Mesh(beamGeom, beamMat);
-  world.lighthouseBeam.position.set(1500, 22.0 + 15 + 1.25, -2000); // Align with lighthouse glass room
-  game.scene.add(world.lighthouseBeam);
+  const beamMesh = new THREE.Mesh(beamGeom, beamMat);
+  beamGroup.add(beamMesh);
+  distIslandGroup.add(beamGroup);
+  world.lighthouseBeam = beamGroup; // link for animation updates
 
   game.scene.add(distIslandGroup);
 
   // 8b. Distant Volcanic Island
   const volcIslandGroup = new THREE.Group();
   volcIslandGroup.position.set(-1800, -5, 1500); // Relocated in opposite quadrant
-
-  // Dark volcanic ash cone base
-  const vConeGeom = new THREE.ConeGeometry(160, 45, 6);
-  const vConeMat = new THREE.MeshStandardMaterial({ color: 0x222225, roughness: 0.9, flatShading: true }); // Dark charcoal grey
-  const volcBase = new THREE.Mesh(vConeGeom, vConeMat);
-  volcBase.position.y = 22.5;
+  
+  // Volcano cone base
+  const volcBaseGeom = new THREE.ConeGeometry(120, 95, 5);
+  const volcBaseMat = new THREE.MeshStandardMaterial({ color: 0x2b2825, roughness: 0.95, flatShading: true });
+  const volcBase = new THREE.Mesh(volcBaseGeom, volcBaseMat);
+  volcBase.position.y = 40;
   volcBase.castShadow = true;
   volcBase.receiveShadow = true;
   volcIslandGroup.add(volcBase);
 
-  // Lava Lake flat plane inside caldera
-  const lavaGeom = new THREE.PlaneGeometry(80, 80, 4, 4);
-  lavaGeom.rotateX(-Math.PI / 2);
+  // Red Glowing Lava Lake inside crater
+  const lavaGeom = new THREE.CylinderGeometry(20, 20, 2, 5);
   const lavaMat = new THREE.MeshStandardMaterial({
-    color: 0xff4500,
+    color: 0xff3300,
+    roughness: 0.8,
     emissive: 0xff2200,
-    emissiveIntensity: 2.2,
-    roughness: 0.1,
-    metalness: 0.1,
+    emissiveIntensity: 1.5,
+    toneMapped: false,
     flatShading: true
   });
   const lavaLake = new THREE.Mesh(lavaGeom, lavaMat);
-  lavaLake.position.set(0, 6.2 - (-5), 0); // Flat lava Y=6.2
+  lavaLake.position.set(0, 83.5, 0); // Crater rim height
   volcIslandGroup.add(lavaLake);
 
-  // Charred Tree Stumps (black bark cylinders)
-  const charredStumpGeom = new THREE.CylinderGeometry(0.18, 0.22, 2.0, 5);
-  const charredWoodMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.95, flatShading: true }); // pitch black
-  for (let j = 0; j < 8; j++) {
-    const angle = (j * Math.PI * 2) / 8 + Math.random() * 0.4;
-    const vdist = 90 + Math.random() * 25; // placed on volcano slope
-    const tx = Math.cos(angle) * vdist;
-    const tz = Math.sin(angle) * vdist;
-    const slopeHeight = 4.2 + (24.0 - 4.2) * (1.0 - (vdist - 60) / 100);
+  // Scatter a few burnt dead trees on the volcanic slopes
+  const deadTrunkGeom = new THREE.CylinderGeometry(0.4, 0.7, 9, 4);
+  const deadTrunkMat = new THREE.MeshStandardMaterial({ color: 0x1f1a17, roughness: 0.95, flatShading: true });
+  for (let i = 0; i < 9; i++) {
+    const angle = (i / 9) * Math.PI * 2;
+    const r = 58.0 + Math.random() * 20.0;
+    const tx = Math.cos(angle) * r;
+    const tz = Math.sin(angle) * r;
+    
+    // Calculate volcanic slope height
+    const ty = 40.0 * (1.0 - r / 120.0) + 2.0; 
     
     const treeGroup = new THREE.Group();
-    treeGroup.name = "charred_tree";
+    treeGroup.position.set(tx, ty, tz);
     
-    const trunk = new THREE.Mesh(charredStumpGeom, charredWoodMat);
-    trunk.position.y = 1.0;
+    const trunk = new THREE.Mesh(deadTrunkGeom, deadTrunkMat);
+    trunk.position.y = 4.5;
+    trunk.rotation.set(0.1, 0, (Math.random() - 0.5) * 0.4);
     trunk.castShadow = true;
-    trunk.receiveShadow = true;
     treeGroup.add(trunk);
-    
-    const branchGeom = new THREE.BoxGeometry(0.1, 0.8, 0.1);
-    for (let k = 0; k < 3; k++) {
-      const branch = new THREE.Mesh(branchGeom, charredWoodMat);
-      branch.position.set((Math.random() - 0.5) * 0.3, 1.2 + k * 0.3, (Math.random() - 0.5) * 0.3);
-      branch.rotation.set(Math.random() * 0.5 - 0.25, Math.random() * 0.5, Math.random() * 0.5 - 0.25);
-      treeGroup.add(branch);
-    }
-    
-    treeGroup.position.set(tx, slopeHeight - (-5), tz);
-    treeGroup.userData = {
-      health: 2,
-      maxHealth: 2,
-      broken: false
-    };
+
     volcIslandGroup.add(treeGroup);
-    world.sceneryMeshes.push({ mesh: treeGroup, type: 'tree' });
-    world.trees.push(treeGroup);
   }
 
-  // Rare Gold Ore Veins (placed on inner slope)
-  const oreGeom = new THREE.DodecahedronGeometry(0.8, 1);
-  const oreMat = new THREE.MeshStandardMaterial({
-    color: 0xffea00,
-    emissive: 0xffaa00,
-    emissiveIntensity: 0.5,
-    roughness: 0.1,
-    metalness: 0.9,
-    flatShading: true
-  });
-  for (let j = 0; j < 5; j++) {
-    const angle = (j * Math.PI * 2) / 5 + Math.random() * 0.5;
-    const vdist = 48 + Math.random() * 8; // inner caldera slope
-    const tx = Math.cos(angle) * vdist;
-    const tz = Math.sin(angle) * vdist;
-    const innerHeight = 6.0 + (24.0 - 6.0) * ((vdist - 40) / 20);
+  // Place 4 Gold Ore deposits on the volcano side (rich but dangerous!)
+  for (let i = 0; i < 4; i++) {
+    const angle = (i / 4) * Math.PI * 2 + 0.5;
+    const r = 62.0;
+    const ox = Math.cos(angle) * r;
+    const oz = Math.sin(angle) * r;
+    const oy = 40.0 * (1.0 - r / 120.0) + 1.2;
     
-    const volcOre = new THREE.Mesh(oreGeom, oreMat);
-    volcOre.position.set(tx, innerHeight - (-5) - 0.2, tz);
-    volcOre.castShadow = true;
-    volcOre.receiveShadow = true;
+    const volcOre = new THREE.Group();
+    volcOre.position.set(ox, oy, oz);
+    
+    const baseRock = new THREE.Mesh(new THREE.DodecahedronGeometry(1.6, 0), deadTrunkMat);
+    baseRock.castShadow = true;
+    volcOre.add(baseRock);
+    
+    const crystals = new THREE.Mesh(new THREE.DodecahedronGeometry(0.65, 0), goldMaterial);
+    crystals.position.set(0.2, 0.9, 0.2);
+    crystals.castShadow = true;
+    volcOre.add(crystals);
+
     volcIslandGroup.add(volcOre);
-    world.oreDeposits.push(volcOre);
   }
 
   game.scene.add(volcIslandGroup);
 
-  // 9. Spawn Sky Clouds
-  spawnClouds();
+  // 9. Floating seagull visual helper orbit setup
+  // Done in main animation loop in game.js
 
-  // 10. Spawn Shoreline Cane Plants (marshy shoreline spot)
+  // 10. Spawn Shoreline Cane Plants (marshy shoreline spot) - Position scaled by 3
   world.canes = [];
-  const caneSpotX = 12 * spacing;
-  const caneSpotZ = 28 * spacing;
+  const caneSpotX = 12 * 3 * spacing;
+  const caneSpotZ = 28 * 3 * spacing;
   for (let i = 0; i < 5; i++) {
     const rx = caneSpotX + (Math.random() - 0.5) * 5.0;
     const rz = caneSpotZ + (Math.random() - 0.5) * 5.0;
@@ -1773,26 +1852,26 @@ function spawnScenery() {
     }
   }
 
-  // 11. Spawn Starting Ground items (Sticks, Fallen Logs, Lianas) near spawn point
+  // 11. Spawn Starting Ground items (Sticks, Fallen Logs, Lianas) near spawn point - Position scaled by 3
   const startingItems = [
     // 3 original Sticks
-    { pos: new THREE.Vector3(23.5 * spacing, 0, 26.5 * spacing), type: 'stick' },
-    { pos: new THREE.Vector3(26.5 * spacing, 0, 23.5 * spacing), type: 'stick' },
-    { pos: new THREE.Vector3(27.0 * spacing, 0, 27.0 * spacing), type: 'stick' },
+    { pos: new THREE.Vector3(23.5 * 3 * spacing, 0, 26.5 * 3 * spacing), type: 'stick' },
+    { pos: new THREE.Vector3(26.5 * 3 * spacing, 0, 23.5 * 3 * spacing), type: 'stick' },
+    { pos: new THREE.Vector3(27.0 * 3 * spacing, 0, 27.0 * 3 * spacing), type: 'stick' },
     // 2 additional Sticks washed up on the beach
-    { pos: new THREE.Vector3(14.0 * spacing, 0, 25.0 * spacing), type: 'stick' },
-    { pos: new THREE.Vector3(30.0 * spacing, 0, 14.0 * spacing), type: 'stick' },
+    { pos: new THREE.Vector3(14.0 * 3 * spacing, 0, 25.0 * 3 * spacing), type: 'stick' },
+    { pos: new THREE.Vector3(30.0 * 3 * spacing, 0, 14.0 * 3 * spacing), type: 'stick' },
     
     // 4 Fallen Logs (Fallen trees)
-    { pos: new THREE.Vector3(15.0 * spacing, 0, 20.0 * spacing), type: 'fallen_log' },
-    { pos: new THREE.Vector3(35.0 * spacing, 0, 15.0 * spacing), type: 'fallen_log' },
-    { pos: new THREE.Vector3(18.0 * spacing, 0, 32.0 * spacing), type: 'fallen_log' },
-    { pos: new THREE.Vector3(28.0 * spacing, 0, 36.0 * spacing), type: 'fallen_log' },
+    { pos: new THREE.Vector3(15.0 * 3 * spacing, 0, 20.0 * 3 * spacing), type: 'fallen_log' },
+    { pos: new THREE.Vector3(35.0 * 3 * spacing, 0, 15.0 * 3 * spacing), type: 'fallen_log' },
+    { pos: new THREE.Vector3(18.0 * 3 * spacing, 0, 32.0 * 3 * spacing), type: 'fallen_log' },
+    { pos: new THREE.Vector3(28.0 * 3 * spacing, 0, 36.0 * 3 * spacing), type: 'fallen_log' },
     
     // 3 Lianas (vines to tie the logs)
-    { pos: new THREE.Vector3(20.0 * spacing, 0, 18.0 * spacing), type: 'liana' },
-    { pos: new THREE.Vector3(32.0 * spacing, 0, 28.0 * spacing), type: 'liana' },
-    { pos: new THREE.Vector3(24.0 * spacing, 0, 33.0 * spacing), type: 'liana' }
+    { pos: new THREE.Vector3(20.0 * 3 * spacing, 0, 18.0 * 3 * spacing), type: 'liana' },
+    { pos: new THREE.Vector3(32.0 * 3 * spacing, 0, 28.0 * 3 * spacing), type: 'liana' },
+    { pos: new THREE.Vector3(24.0 * 3 * spacing, 0, 33.0 * 3 * spacing), type: 'liana' }
   ];
   
   startingItems.forEach(item => {
@@ -1802,10 +1881,10 @@ function spawnScenery() {
   });
 }
 
-// Spawns a 3D wooden bulletin feedback board on the island
+// Spawns a 3D wooden bulletin feedback board on the island - Position scaled by 3
 function spawnFeedbackBoard() {
-  const wx = 22.0;
-  const wz = 22.0;
+  const wx = 66.0;
+  const wz = 66.0;
   const wy = getSurfaceHeightNear(wx, 15, wz);
 
   const boardGroup = new THREE.Group();
@@ -1844,57 +1923,54 @@ function spawnFeedbackBoard() {
   backboard.receiveShadow = true;
   boardGroup.add(backboard);
 
-  // Frames (top, bottom, left, right)
-  const topFrameGeom = new THREE.BoxGeometry(2.36, 0.1, 0.14);
-  const topFrame = new THREE.Mesh(topFrameGeom, frameMaterial);
-  topFrame.position.set(0, 2.65, 0);
-  topFrame.castShadow = true;
-  boardGroup.add(topFrame);
+  // Frame Border
+  const frameT = 0.08;
+  const frameD = 0.12;
+  const topBorder = new THREE.Mesh(new THREE.BoxGeometry(2.2 + frameT, frameT, frameD), frameMaterial);
+  topBorder.position.set(0, 2.65, 0);
+  topBorder.castShadow = true;
+  boardGroup.add(topBorder);
 
-  const bottomFrameGeom = new THREE.BoxGeometry(2.36, 0.1, 0.14);
-  const bottomFrame = new THREE.Mesh(bottomFrameGeom, frameMaterial);
-  bottomFrame.position.set(0, 1.15, 0);
-  bottomFrame.castShadow = true;
-  boardGroup.add(bottomFrame);
+  const bottomBorder = new THREE.Mesh(new THREE.BoxGeometry(2.2 + frameT, frameT, frameD), frameMaterial);
+  bottomBorder.position.set(0, 1.15, 0);
+  bottomBorder.castShadow = true;
+  boardGroup.add(bottomBorder);
 
-  const leftFrameGeom = new THREE.BoxGeometry(0.1, 1.6, 0.14);
-  const leftFrame = new THREE.Mesh(leftFrameGeom, frameMaterial);
-  leftFrame.position.set(-1.1, 1.9, 0);
-  leftFrame.castShadow = true;
-  boardGroup.add(leftFrame);
+  const leftBorder = new THREE.Mesh(new THREE.BoxGeometry(frameT, 1.5, frameD), frameMaterial);
+  leftBorder.position.set(-1.1, 1.9, 0);
+  leftBorder.castShadow = true;
+  boardGroup.add(leftBorder);
 
-  const rightFrameGeom = new THREE.BoxGeometry(0.1, 1.6, 0.14);
-  const rightFrame = new THREE.Mesh(rightFrameGeom, frameMaterial);
-  rightFrame.position.set(1.1, 1.9, 0);
-  rightFrame.castShadow = true;
-  boardGroup.add(rightFrame);
+  const rightBorder = new THREE.Mesh(new THREE.BoxGeometry(frameT, 1.5, frameD), frameMaterial);
+  rightBorder.position.set(1.1, 1.9, 0);
+  rightBorder.castShadow = true;
+  boardGroup.add(rightBorder);
 
-  // Roof (Gabled structure on top)
-  const roofLeftGeom = new THREE.BoxGeometry(1.3, 0.06, 0.4);
-  const roofLeft = new THREE.Mesh(roofLeftGeom, roofMaterial);
-  roofLeft.position.set(-0.55, 2.8, 0);
-  roofLeft.rotation.z = 0.25;
-  roofLeft.castShadow = true;
-  boardGroup.add(roofLeft);
+  // Gabled Slate Roof to protect notices from tropical rain
+  const roofGeom = new THREE.ConeGeometry(1.6, 0.6, 4);
+  roofGeom.rotateY(Math.PI / 4); // Align square cone
+  roofGeom.scale(1.7, 1.0, 0.35); // Flatten and stretch
+  const roof = new THREE.Mesh(roofGeom, roofMaterial);
+  roof.position.set(0, 2.85, 0);
+  roof.castShadow = true;
+  boardGroup.add(roof);
 
-  const roofRightGeom = new THREE.BoxGeometry(1.3, 0.06, 0.4);
-  const roofRight = new THREE.Mesh(roofRightGeom, roofMaterial);
-  roofRight.position.set(0.55, 2.8, 0);
-  roofRight.rotation.z = -0.25;
-  roofRight.castShadow = true;
-  boardGroup.add(roofRight);
-
-  // Multiple note sheets pinned to the board
+  // Add 4 static mock Feedback Notices (paper meshes stuck on corkboard)
   const notesData = [
-    { w: 0.6, h: 0.7, x: -0.6, y: 2.15, rot: 0.08, col: paperColors[0] },
-    { w: 0.7, h: 0.65, x: 0.1, y: 1.65, rot: -0.06, col: paperColors[1] },
-    { w: 0.65, h: 0.5, x: 0.6, y: 2.1, rot: 0.12, col: paperColors[2] },
-    { w: 0.55, h: 0.6, x: -0.45, y: 1.5, rot: -0.03, col: paperColors[3] }
+    { x: -0.6, y: 2.1, w: 0.45, h: 0.55, rot: 0.1, color: paperColors[0], pin: pinColors[0] },
+    { x: -0.1, y: 2.0, w: 0.48, h: 0.62, rot: -0.06, color: paperColors[1], pin: pinColors[1] },
+    { x: 0.5, y: 2.2, w: 0.50, h: 0.48, rot: 0.15, color: paperColors[2], pin: pinColors[2] },
+    { x: 0.3, y: 1.5, w: 0.52, h: 0.52, rot: -0.12, color: paperColors[3], pin: pinColors[3] }
   ];
 
-  notesData.forEach((nd, idx) => {
-    const noteGeom = new THREE.BoxGeometry(nd.w, nd.h, 0.02);
-    const noteMat = new THREE.MeshStandardMaterial({ color: nd.col, roughness: 0.8, flatShading: true });
+  notesData.forEach(nd => {
+    const noteGeom = new THREE.PlaneGeometry(nd.w, nd.h);
+    const noteMat = new THREE.MeshStandardMaterial({
+      color: nd.color,
+      roughness: 0.95,
+      side: THREE.DoubleSide,
+      flatShading: true
+    });
     const note = new THREE.Mesh(noteGeom, noteMat);
     note.position.set(nd.x, nd.y, 0.06);
     note.rotation.z = nd.rot;
@@ -1902,10 +1978,9 @@ function spawnFeedbackBoard() {
     note.receiveShadow = true;
     boardGroup.add(note);
 
-    // Pin/Tack
-    const pinGeom = new THREE.CylinderGeometry(0.018, 0.01, 0.05, 5);
-    pinGeom.rotateX(Math.PI / 2);
-    const pinMat = new THREE.MeshStandardMaterial({ color: pinColors[idx % pinColors.length], roughness: 0.3, metalness: 0.5 });
+    // Decorative Pin head on each note
+    const pinGeom = new THREE.SphereGeometry(0.024, 6, 6);
+    const pinMat = new THREE.MeshStandardMaterial({ color: nd.pin, roughness: 0.3, metalness: 0.5 });
     const pin = new THREE.Mesh(pinGeom, pinMat);
     
     // Position pin slightly above the top edge of each note
@@ -1918,12 +1993,10 @@ function spawnFeedbackBoard() {
   });
 
   boardGroup.position.set(wx, wy, wz);
-  boardGroup.rotation.y = Math.PI / 4; // Face the starting spawn point (25, 25)
+  boardGroup.rotation.y = Math.PI / 4; // Face the starting spawn point
 
   game.scene.add(boardGroup);
   world.feedbackBoard = boardGroup;
-}
-
 // Initialize World
 export function initWorld() {
   generateDensityGrid();

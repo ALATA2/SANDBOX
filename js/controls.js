@@ -347,7 +347,7 @@ export function updateControls(delta) {
       reason += "NaN Z";
     }
     showHudMessage(reason);
-    position.set(32, 12, 32);
+    position.set(96, 12, 96);
     velocity.set(0, 0, 0);
   }
 }

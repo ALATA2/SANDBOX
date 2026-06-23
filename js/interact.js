@@ -25,7 +25,7 @@ export function initInteraction() {
 
     if (game.pointerLocked && e.code === 'KeyE') {
       const playerPos = game.controls.getObject().position;
-      const raftPos = new THREE.Vector3(25.6, 4.05, 42.4);
+      const raftPos = new THREE.Vector3(80.0, 4.05, 127.2);
       const distToRaft = playerPos.distanceTo(raftPos);
       if (distToRaft < 3.5) {
         if (!game.raftConstructed) {
@@ -606,7 +606,7 @@ function checkHarvestablePrompt() {
   
   const prompt = document.getElementById('interaction-prompt');
   // Check proximity to raft
-  const raftPos = new THREE.Vector3(25.6, 4.05, 42.4);
+  const raftPos = new THREE.Vector3(80.0, 4.05, 127.2);
   const distToRaft = playerPos.distanceTo(raftPos);
   if (distToRaft < 3.5) {
     let rawPrompt = '';
