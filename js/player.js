@@ -41,7 +41,8 @@ export const player = {
     cooked_meat: 0,
     campfire: 0,
     stick: 0,
-    cane: 0
+    cane: 0,
+    worm: 0
   },
   equipped: {
     head: null,
@@ -602,6 +603,7 @@ export function renderInventoryUI() {
     { id: 'ore', name: 'Gold Ore', icon: '🪙', labelKey: 'hotbar.ore' },
     { id: 'raw_fish', name: 'Raw Fish', icon: '🐟', labelKey: 'inv.raw_fish' },
     { id: 'raw_crab', name: 'Raw Crab', icon: '🦀', labelKey: 'inv.raw_crab' },
+    { id: 'worm', name: 'Worm', icon: '🐛', labelKey: 'inv.worm' },
     { id: 'cooked_meat', name: 'Cooked Meat', icon: '🍖', labelKey: 'inv.cooked_meat' },
     { id: 'campfire', name: 'Campfire', icon: '🔥', labelKey: 'inv.campfire' },
     { id: 'straw_hat', name: 'Straw Hat', icon: '👒', labelKey: 'inv.straw_hat' },

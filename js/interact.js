@@ -6,7 +6,7 @@ import { getTranslation } from './lang.js';
 import { playWoodChop, playSelect, playSizzling, playDrink, playSpark } from './audio.js';
 
 let raycaster;
-const activeDebris = [];
+export const activeDebris = [];
 let closestDebris = null;
 export let nearFeedbackBoard = false;
 let closestCampfire = null;
@@ -592,8 +592,10 @@ function updateDebrisPhysics(delta) {
         }
       }
     } else {
-      // Gently rotate on ground for styling
-      debris.mesh.rotation.y += 0.5 * delta;
+      // Gently rotate on ground for styling (except worms)
+      if (debris.type !== 'worm') {
+        debris.mesh.rotation.y += 0.5 * delta;
+      }
     }
   }
 }
@@ -633,7 +635,7 @@ function checkHarvestablePrompt() {
   let minDist = 2.2; // Maximum collection distance
 
   activeDebris.forEach(debris => {
-    if (debris.type === 'ore' || debris.type === 'wood' || debris.type === 'raw_crab' || debris.type === 'raw_fish' || debris.type === 'cooked_meat' || debris.type === 'stick' || debris.type === 'cane' || debris.type === 'fallen_log' || debris.type === 'liana') {
+    if (debris.type === 'ore' || debris.type === 'wood' || debris.type === 'raw_crab' || debris.type === 'raw_fish' || debris.type === 'cooked_meat' || debris.type === 'stick' || debris.type === 'cane' || debris.type === 'fallen_log' || debris.type === 'liana' || debris.type === 'worm') {
       const dist = playerPos.distanceTo(debris.mesh.position);
       if (dist < minDist) {
         minDist = dist;
@@ -703,6 +705,8 @@ function checkHarvestablePrompt() {
       rawPrompt = getTranslation('interact_harvest_fish') || 'PRESS E TO HARVEST RAW FISH';
     } else if (closestDebris.type === 'cooked_meat') {
       rawPrompt = getTranslation('interact_harvest_cooked') || 'PRESS E TO HARVEST COOKED MEAT';
+    } else if (closestDebris.type === 'worm') {
+      rawPrompt = getTranslation('interact_harvest_worm') || 'PRESS E TO COLLECT WORM';
     } else if (closestDebris.type === 'stick') {
       rawPrompt = getTranslation('interact_harvest_stick') || 'PRESS E TO COLLECT STICK';
     } else if (closestDebris.type === 'cane') {
@@ -805,6 +809,14 @@ export function harvestClosestDebris() {
   } else if (closestDebris.type === 'cane') {
     player.inventory.cane += 1;
     showHudMessage(getTranslation('msg_collected_cane') || '+1 Cane');
+  } else if (closestDebris.type === 'worm') {
+    player.inventory.worm = (player.inventory.worm || 0) + 1;
+    showHudMessage(getTranslation('msg_collected_worm') || '+1 Worm');
+    // Remove from game.worms array so it stops wiggling in updateWorld
+    const wIdx = game.worms.indexOf(closestDebris.mesh);
+    if (wIdx > -1) {
+      game.worms.splice(wIdx, 1);
+    }
   }
 
   closestDebris = null;
