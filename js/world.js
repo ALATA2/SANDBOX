@@ -1998,6 +1998,7 @@ function spawnFeedbackBoard() {
 
   game.scene.add(boardGroup);
   world.feedbackBoard = boardGroup;
+}
 // Initialize World
 export function initWorld() {
   generateDensityGrid();
