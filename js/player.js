@@ -82,7 +82,7 @@ export function initPlayer() {
   buildCaneModel();
 
   // 4. Set starting slot selection
-  selectSlot(6); // Slot 7 (index 6, Pickaxe)
+  selectSlot(-1); // Start with empty hands (free hands)
 
   // 5. Setup Keyboard listener for slot swapping (1-8 keys) and inventory toggle
   document.addEventListener('keydown', (e) => {
