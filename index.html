@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ARCHIPELAGO - Low-Poly Survival Prototype</title>
-  <link rel="stylesheet" href="style.css?v=0.054">
+  <link rel="stylesheet" href="style.css?v=0.055">
   
   <!-- Import maps polyfill if needed -->
   <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
@@ -15,13 +15,13 @@
       "imports": {
         "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
         "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/",
-        "./js/controls.js": "./js/controls.js?v=0.054",
-        "./js/world.js": "./js/world.js?v=0.054",
-        "./js/player.js": "./js/player.js?v=0.054",
-        "./js/interact.js": "./js/interact.js?v=0.054",
-        "./js/audio.js": "./js/audio.js?v=0.054",
-        "./js/lang.js": "./js/lang.js?v=0.054",
-        "./js/game.js": "./js/game.js?v=0.054"
+        "./js/controls.js": "./js/controls.js?v=0.055",
+        "./js/world.js": "./js/world.js?v=0.055",
+        "./js/player.js": "./js/player.js?v=0.055",
+        "./js/interact.js": "./js/interact.js?v=0.055",
+        "./js/audio.js": "./js/audio.js?v=0.055",
+        "./js/lang.js": "./js/lang.js?v=0.055",
+        "./js/game.js": "./js/game.js?v=0.055"
       }
     }
   </script>
@@ -385,18 +385,34 @@
           <div class="inv-character-panel">
             <div class="character-preview-container">
               <svg class="char-outline" viewBox="0 0 100 150">
+                <defs>
+                  <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#ffd700" stop-opacity="0.6" />
+                    <stop offset="100%" stop-color="#ffd700" stop-opacity="0.1" />
+                  </linearGradient>
+                </defs>
                 <!-- Head -->
-                <circle cx="50" cy="20" r="10" stroke="var(--accent-gold)" stroke-width="1.5" fill="none" />
+                <circle cx="50" cy="20" r="9" stroke="var(--accent-gold)" stroke-width="1.5" fill="url(#bodyGrad)" />
+                <!-- Neck -->
+                <line x1="50" y1="29" x2="50" y2="34" stroke="var(--accent-gold)" stroke-width="1.5" />
                 <!-- Torso -->
-                <path d="M 35 32 L 65 32 L 60 85 L 40 85 Z" stroke="var(--accent-gold)" stroke-width="1.5" fill="none" />
+                <path d="M 35 34 L 65 34 L 58 82 L 42 82 Z" stroke="var(--accent-gold)" stroke-width="1.5" fill="url(#bodyGrad)" />
                 <!-- Left arm -->
-                <path d="M 33 34 L 18 68 L 22 70 L 33 42" stroke="var(--accent-gold)" stroke-width="1.5" fill="none" />
+                <path d="M 32 36 L 20 65 L 14 85" stroke="var(--accent-gold)" stroke-width="1.5" fill="none" stroke-linecap="round" />
                 <!-- Right arm -->
-                <path d="M 67 34 L 82 68 L 78 70 L 67 42" stroke="var(--accent-gold)" stroke-width="1.5" fill="none" />
+                <path d="M 68 36 L 80 65 L 86 85" stroke="var(--accent-gold)" stroke-width="1.5" fill="none" stroke-linecap="round" />
                 <!-- Left leg -->
-                <path d="M 42 85 L 35 135 L 26 135" stroke="var(--accent-gold)" stroke-width="1.5" fill="none" />
+                <path d="M 43 82 L 36 112 L 34 142" stroke="var(--accent-gold)" stroke-width="1.5" fill="none" stroke-linecap="round" />
                 <!-- Right leg -->
-                <path d="M 58 85 L 65 135 L 74 135" stroke="var(--accent-gold)" stroke-width="1.5" fill="none" />
+                <path d="M 57 82 L 64 112 L 66 142" stroke="var(--accent-gold)" stroke-width="1.5" fill="none" stroke-linecap="round" />
+                
+                <!-- Joint glow nodes -->
+                <circle cx="35" cy="36" r="2" fill="var(--accent-gold)" />
+                <circle cx="65" cy="36" r="2" fill="var(--accent-gold)" />
+                <circle cx="20" cy="65" r="1.5" fill="var(--accent-gold)" />
+                <circle cx="80" cy="65" r="1.5" fill="var(--accent-gold)" />
+                <circle cx="36" cy="112" r="1.5" fill="var(--accent-gold)" />
+                <circle cx="64" cy="112" r="1.5" fill="var(--accent-gold)" />
               </svg>
             </div>
             
@@ -447,9 +463,9 @@
   <div id="underwater-ripple" style="display: none;"></div>
 
   <!-- Version Tag for Deployment Tracking -->
-  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.054</div>
+  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.055</div>
 
   <!-- Main JS entry point as an ES Module -->
-  <script type="module" src="js/game.js?v=0.054"></script>
+  <script type="module" src="js/game.js?v=0.055"></script>
 </body>
 </html>

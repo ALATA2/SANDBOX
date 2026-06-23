@@ -618,10 +618,13 @@ export function renderInventoryUI() {
       slotsCreated++;
       const slot = document.createElement('div');
       slot.className = 'inv-slot';
+      
+      const localizedName = getTranslation(item.labelKey) || item.name;
+      slot.setAttribute('data-tooltip', localizedName);
+      
       slot.innerHTML = `
         <span class="inv-slot-icon">${item.icon}</span>
-        <span class="inv-slot-label">${getTranslation(item.labelKey) || item.name}</span>
-        <span class="inv-slot-count">x${count}</span>
+        <span class="inv-slot-count">${count}</span>
       `;
       slot.addEventListener('click', () => {
         equipItem(item.id);
@@ -634,7 +637,7 @@ export function renderInventoryUI() {
   for (let i = slotsCreated; i < 15; i++) {
     const emptySlot = document.createElement('div');
     emptySlot.className = 'inv-slot empty';
-    emptySlot.innerHTML = `<span class="inv-slot-icon" style="opacity: 0.15;">⏹</span>`;
+    emptySlot.innerHTML = ''; // Keep it purely clean and empty
     bagGrid.appendChild(emptySlot);
   }
 
@@ -650,6 +653,13 @@ export function renderInventoryUI() {
       { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', cost: { wood: 4, rope: 2 }, costText: '4 Wood, 2 Ropes', labelKey: 'inv.wooden_boots', descKey: 'recipe.wooden_boots' }
     ];
 
+    const resourceIcons = {
+      leaves: '🍃',
+      rope: '🧵',
+      wood: '🪵',
+      stone: '🪨'
+    };
+
     recipes.forEach(recipe => {
       let isAffordable = true;
       for (const res in recipe.cost) {
@@ -662,7 +672,21 @@ export function renderInventoryUI() {
       itemEl.className = 'crafting-item';
       
       const localizedName = getTranslation(recipe.labelKey) || recipe.name;
-      const localizedCost = getTranslation(recipe.descKey) || recipe.costText;
+      
+      // Build visual cost badges instead of raw text
+      const costBadges = [];
+      for (const res in recipe.cost) {
+        const required = recipe.cost[res];
+        const current = player.inventory[res] || 0;
+        const icon = resourceIcons[res] || '';
+        const isSatisfied = current >= required;
+        costBadges.push(`
+          <span class="cost-badge ${isSatisfied ? 'satisfied' : 'deficient'}">
+            <span class="cost-badge-icon">${icon}</span>
+            <span class="cost-badge-text">${current}/${required}</span>
+          </span>
+        `);
+      }
 
       itemEl.innerHTML = `
         <div class="crafting-info">
@@ -670,7 +694,7 @@ export function renderInventoryUI() {
             <span class="crafting-icon">${recipe.icon}</span>
             <span class="crafting-title">${localizedName}</span>
           </div>
-          <span class="crafting-cost">${localizedCost}</span>
+          <div class="crafting-costs-container">${costBadges.join('')}</div>
         </div>
         <button class="craft-btn ${isAffordable ? 'active' : ''}" ${isAffordable ? '' : 'disabled'}>CRAFT</button>
       `;
@@ -705,6 +729,13 @@ export function renderInventoryUI() {
     feet: { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', labelKey: 'inv.wooden_boots' }
   };
 
+  const slotSVGPlaceholders = {
+    head: `<svg viewBox="0 0 24 24" class="slot-placeholder-svg"><path d="M 2 16 Q 12 10 22 16 Q 20 12 12 12 Q 4 12 2 16 Z M 6 12 Q 12 4 18 12" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+    torso: `<svg viewBox="0 0 24 24" class="slot-placeholder-svg"><path d="M 6 4 L 9 4 L 10 6 L 14 6 L 15 4 L 18 4 L 20 8 L 17 9 L 17 20 L 7 20 L 7 9 L 4 8 Z" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    legs: `<svg viewBox="0 0 24 24" class="slot-placeholder-svg"><path d="M 7 4 L 17 4 L 19 20 L 13 20 L 12 10 L 11 10 L 5 20 L 7 4" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    feet: `<svg viewBox="0 0 24 24" class="slot-placeholder-svg"><path d="M 5 6 L 8 6 L 9 14 L 5 18 L 5 20 L 11 20 L 11 18 L 10 14 Z M 19 6 L 16 6 L 15 14 L 19 18 L 19 20 L 13 20 L 13 18 L 14 14 Z" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+  };
+
   for (const slotType in clothingSlots) {
     const el = document.querySelector(`.clothing-slot[data-slot="${slotType}"]`);
     if (el) {
@@ -713,7 +744,7 @@ export function renderInventoryUI() {
         const itemInfo = clothingSlots[slotType];
         el.classList.remove('empty');
         el.innerHTML = `
-          <span class="clothing-slot-type">${slotType.toUpperCase()}</span>
+          <span class="clothing-slot-type">${getTranslation(`inv_slot_${slotType}`) || slotType.toUpperCase()}</span>
           <div class="clothing-slot-content">
             <span class="slot-icon">${itemInfo.icon}</span>
             <span class="slot-text">${getTranslation(itemInfo.labelKey) || itemInfo.name}</span>
@@ -722,9 +753,9 @@ export function renderInventoryUI() {
       } else {
         el.classList.add('empty');
         el.innerHTML = `
-          <span class="clothing-slot-type">${slotType.toUpperCase()}</span>
+          <span class="clothing-slot-type">${getTranslation(`inv_slot_${slotType}`) || slotType.toUpperCase()}</span>
           <div class="clothing-slot-content">
-            <span class="slot-icon" style="opacity: 0.25;">📁</span>
+            <span class="slot-icon-container">${slotSVGPlaceholders[slotType]}</span>
             <span class="slot-text">${getTranslation('inv.empty') || '[Empty]'}</span>
           </div>
         `;
