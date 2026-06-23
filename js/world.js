@@ -1327,6 +1327,7 @@ function spawnScenery() {
     flatShading: true,
     side: THREE.DoubleSide,
     emissive: new THREE.Color(0x09202e) // Subtle glow so the water looks luminous and alive
+  });
   world.waterMesh = new THREE.Mesh(waterGeometry, waterMaterial);
   world.waterMesh.position.set(0, 4.0, 0); // Directly at coordinate origin, Y=4.0 height (no rotation needed)
   game.scene.add(world.waterMesh);
