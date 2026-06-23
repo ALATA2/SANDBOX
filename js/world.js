@@ -600,14 +600,19 @@ export function buildWaterGeometry() {
   }
 
   // 1. Outer Ocean (Segmented Sectors to match waves)
-  // Sector 1: Top
-  addSegmentedSector(-11000, endZ, 11000, 11000, true);
-  // Sector 2: Bottom
-  addSegmentedSector(-11000, -11000, 11000, startZ, true);
-  // Sector 3: Left
+  // Left and Right sectors
   addSegmentedSector(-11000, startZ, startX, endZ, true);
-  // Sector 4: Right
   addSegmentedSector(endX, startZ, 11000, endZ, true);
+
+  // Top sectors (split into Left, Middle, Right to align boundary vertices)
+  addSegmentedSector(-11000, endZ, startX, 11000, true);
+  addSegmentedSector(startX, endZ, endX, 11000, true);
+  addSegmentedSector(endX, endZ, 11000, 11000, true);
+
+  // Bottom sectors (split into Left, Middle, Right to align boundary vertices)
+  addSegmentedSector(-11000, -11000, startX, startZ, true);
+  addSegmentedSector(startX, -11000, endX, startZ, true);
+  addSegmentedSector(endX, -11000, 11000, startZ, true);
 
   // 2. Inner Ocean cells
   for (let ix = 0; ix < cellCountX; ix++) {

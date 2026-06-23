@@ -1056,7 +1056,8 @@ function animate() {
       // Calculate deep water wave (smooth rolling waves)
       const deepWave = Math.sin(vx * 0.12 + time * 1.6) * 0.18 + 
                        Math.cos(vz * 0.12 + time * 1.2) * 0.18;
-                        
+      
+      let localWave = deepWave;
       if (currentDepth < 2.0) {
         // Near the shore (shallow depth): fade in fast, tight ripples (increspature)
         const rippleFactor = (2.0 - currentDepth) / 2.0; // 1.0 at shore, 0.0 at 2m depth
@@ -1069,10 +1070,40 @@ function animate() {
         // Scale down the final amplitude slightly close to the sand to avoid harsh clipping
         const amplitudeFactor = 0.4 + 0.6 * (currentDepth / 2.0); // go down to 40% height right at the shore
         
-        yVal += (deepWave * (1.0 - rippleFactor) + shoreRipple * rippleFactor) * amplitudeFactor;
+        localWave = (deepWave * (1.0 - rippleFactor) + shoreRipple * rippleFactor) * amplitudeFactor;
+      }
+      
+      // Stitch boundary vertices between high-resolution inner ocean and low-resolution outer ocean
+      const isInner = (vx >= -20.801 && vx <= 84.801 && vz >= -20.801 && vz <= 84.801);
+      if (isInner) {
+        const distToLeft = vx - (-20.8);
+        const distToRight = 84.8 - vx;
+        const distToBottom = vz - (-20.8);
+        const distToTop = 84.8 - vz;
+        const dMin = Math.min(distToLeft, distToRight, distToBottom, distToTop);
+        
+        if (dMin < 12.0) {
+          // Bilinear interpolation between the four corners of the inner ocean boundary
+          const tx = Math.max(0, Math.min(1, (vx - (-20.8)) / 105.6));
+          const tz = Math.max(0, Math.min(1, (vz - (-20.8)) / 105.6));
+          
+          const h00 = Math.sin(-20.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(-20.8 * 0.12 + time * 1.2) * 0.18;
+          const h10 = Math.sin(84.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(-20.8 * 0.12 + time * 1.2) * 0.18;
+          const h01 = Math.sin(-20.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(84.8 * 0.12 + time * 1.2) * 0.18;
+          const h11 = Math.sin(84.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(84.8 * 0.12 + time * 1.2) * 0.18;
+          
+          const y_boundary = (1 - tx) * (1 - tz) * h00 +
+                             tx * (1 - tz) * h10 +
+                             (1 - tx) * tz * h01 +
+                             tx * tz * h11;
+                             
+          const blendFactor = dMin / 12.0; // 0.0 at boundary (use pure y_boundary), 1.0 at 12m inside (use pure localWave)
+          yVal += y_boundary * (1.0 - blendFactor) + localWave * blendFactor;
+        } else {
+          yVal += localWave;
+        }
       } else {
-        // Deep ocean: standard smooth rolling waves
-        yVal += deepWave;
+        yVal += localWave;
       }
       
       positionAttribute.setY(i, yVal); // Set Y instead of Z
