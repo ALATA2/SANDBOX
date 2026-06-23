@@ -47,7 +47,9 @@ export const player = {
     head: null,
     torso: null,
     legs: null,
-    feet: null
+    feet: null,
+    right_hand: null,
+    left_hand: null
   }
 };
 
@@ -721,19 +723,23 @@ export function renderInventoryUI() {
     });
   }
 
-  // 3. Render Clothing Slots
+  // 3. Render Clothing & Hand Slots
   const clothingSlots = {
     head: { id: 'straw_hat', name: 'Straw Hat', icon: '👒', labelKey: 'inv.straw_hat' },
     torso: { id: 'explorer_vest', name: 'Explorer Vest', icon: '🦺', labelKey: 'inv.explorer_vest' },
     legs: { id: 'grass_pants', name: 'Grass Pants', icon: '👖', labelKey: 'inv.grass_pants' },
-    feet: { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', labelKey: 'inv.wooden_boots' }
+    feet: { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', labelKey: 'inv.wooden_boots' },
+    right_hand: { id: 'stick', name: 'Stick', icon: '🦯', labelKey: 'inv.stick' },
+    left_hand: { id: 'cane', name: 'Cane', icon: '🎋', labelKey: 'inv.cane' }
   };
 
   const slotSVGPlaceholders = {
     head: `<svg viewBox="0 0 24 24" class="slot-placeholder-svg"><path d="M 2 16 Q 12 10 22 16 Q 20 12 12 12 Q 4 12 2 16 Z M 6 12 Q 12 4 18 12" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round"/></svg>`,
     torso: `<svg viewBox="0 0 24 24" class="slot-placeholder-svg"><path d="M 6 4 L 9 4 L 10 6 L 14 6 L 15 4 L 18 4 L 20 8 L 17 9 L 17 20 L 7 20 L 7 9 L 4 8 Z" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     legs: `<svg viewBox="0 0 24 24" class="slot-placeholder-svg"><path d="M 7 4 L 17 4 L 19 20 L 13 20 L 12 10 L 11 10 L 5 20 L 7 4" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-    feet: `<svg viewBox="0 0 24 24" class="slot-placeholder-svg"><path d="M 5 6 L 8 6 L 9 14 L 5 18 L 5 20 L 11 20 L 11 18 L 10 14 Z M 19 6 L 16 6 L 15 14 L 19 18 L 19 20 L 13 20 L 13 18 L 14 14 Z" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+    feet: `<svg viewBox="0 0 24 24" class="slot-placeholder-svg"><path d="M 5 6 L 8 6 L 9 14 L 5 18 L 5 20 L 11 20 L 11 18 L 10 14 Z M 19 6 L 16 6 L 15 14 L 19 18 L 19 20 L 13 20 L 13 18 L 14 14 Z" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    right_hand: `<svg viewBox="0 0 24 24" class="slot-placeholder-svg"><path d="M18.5 5.5 L5.5 18.5 M4 20 L5.5 18.5 M15 3.5 L20.5 9 M7.5 13.5 L10.5 16.5" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    left_hand: `<svg viewBox="0 0 24 24" class="slot-placeholder-svg"><path d="M12 2 C16.5 2 20 3.5 20 7 C20 13.5 16.5 18.5 12 21 C7.5 18.5 4 13.5 4 7 C4 3.5 7.5 2 12 2 Z" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
   };
 
   for (const slotType in clothingSlots) {
@@ -786,19 +792,15 @@ function equipItem(itemId) {
     return;
   }
 
-  if (itemId === 'stick' || itemId === 'cane') {
-    toggleInventory(); // close inventory
-    equipCustomItem(itemId);
-    return;
-  }
-
   let slotType = null;
   if (itemId === 'straw_hat') slotType = 'head';
   else if (itemId === 'explorer_vest') slotType = 'torso';
   else if (itemId === 'grass_pants') slotType = 'legs';
   else if (itemId === 'wooden_boots') slotType = 'feet';
+  else if (itemId === 'stick') slotType = 'right_hand';
+  else if (itemId === 'cane') slotType = 'left_hand';
 
-  if (!slotType) return; // not wearable
+  if (!slotType) return; // not wearable/equipable
 
   const currentEquipped = player.equipped[slotType];
   if (currentEquipped) {
@@ -808,33 +810,40 @@ function equipItem(itemId) {
   player.equipped[slotType] = itemId;
   player.inventory[itemId]--;
 
+  // Sync hand slots with actual held weapon models
+  if (slotType === 'right_hand' || slotType === 'left_hand') {
+    player.activeCustomItem = itemId;
+    player.selectedSlot = -1; // Deselect hotbar slots
+    document.querySelectorAll('.hotbar-slot').forEach(slot => {
+      slot.classList.remove('selected');
+    });
+    if (player.spearMesh) player.spearMesh.visible = false;
+    if (player.pickaxeMesh) player.pickaxeMesh.visible = false;
+    if (player.axeMesh) player.axeMesh.visible = false;
+    if (player.stickMesh) player.stickMesh.visible = (itemId === 'stick');
+    if (player.caneMesh) player.caneMesh.visible = (itemId === 'cane');
+  }
+
   playSelect(); // audio feedback
   renderInventoryUI();
 }
 
-// Equip a custom hand weapon directly (deselecting hotbar)
+// Equip a custom held weapon model (Legacy call, retained for compatibility)
 export function equipCustomItem(itemId) {
   if (!player.inventory[itemId] || player.inventory[itemId] <= 0) return;
-
+  
   player.activeCustomItem = itemId;
   player.selectedSlot = -1; // Deselect hotbar slots
-
-  // Remove selection highlight from hotbar in HUD
   document.querySelectorAll('.hotbar-slot').forEach(slot => {
     slot.classList.remove('selected');
   });
-
-  // Hide standard tools
   if (player.spearMesh && player.pickaxeMesh && player.axeMesh) {
     player.spearMesh.visible = false;
     player.pickaxeMesh.visible = false;
     player.axeMesh.visible = false;
   }
-
-  // Show custom held model
   if (player.stickMesh) player.stickMesh.visible = (itemId === 'stick');
   if (player.caneMesh) player.caneMesh.visible = (itemId === 'cane');
-
   playSelect();
 }
 
@@ -850,7 +859,6 @@ function consumeFood(itemId) {
     player.hydration = Math.min(100, player.hydration + 5);
     showHudMessage(getTranslation('msg_ate_cooked') || 'Ate cooked meat! +20 HP, +40 Energy');
   } else {
-    // raw fish or raw crab
     player.energy = Math.max(0, player.energy - 10);
     player.health = Math.max(0, player.health - 5);
     showHudMessage(getTranslation('msg_ate_raw') || 'Ate raw food! Drained 5 HP, 10 Energy');
@@ -860,13 +868,34 @@ function consumeFood(itemId) {
   renderInventoryUI();
 }
 
-// Unequip wearable item
+// Unequip wearable or hand-held item
 function unequipItem(slotType) {
   const equippedId = player.equipped[slotType];
   if (!equippedId) return;
 
   player.equipped[slotType] = null;
   player.inventory[equippedId] = (player.inventory[equippedId] || 0) + 1;
+
+  // Sync hand slots with actual held weapon models
+  if (slotType === 'right_hand' || slotType === 'left_hand') {
+    player.activeCustomItem = null;
+    if (player.stickMesh) player.stickMesh.visible = false;
+    if (player.caneMesh) player.caneMesh.visible = false;
+    
+    // Restore hotbar tools selection if applicable
+    if (player.selectedSlot !== -1) {
+      // Re-select standard tool
+      const toolSlots = ['spear', 'axe', '', '', '', '', 'pickaxe'];
+      const activeTool = toolSlots[player.selectedSlot];
+      if (activeTool) {
+        if (player.spearMesh) player.spearMesh.visible = (activeTool === 'spear');
+        if (player.axeMesh) player.axeMesh.visible = (activeTool === 'axe');
+        if (player.pickaxeMesh) player.pickaxeMesh.visible = (activeTool === 'pickaxe');
+      }
+      const slotEl = document.querySelector(`.hotbar-slot[data-slot="${player.selectedSlot}"]`);
+      if (slotEl) slotEl.classList.add('selected');
+    }
+  }
 
   playSelect(); // audio feedback
   renderInventoryUI();

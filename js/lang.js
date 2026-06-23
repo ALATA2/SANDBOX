@@ -3,7 +3,7 @@ export const translations = {
   en: {
     game_subtitle: "SUNSET SURVIVAL & MINING",
     game_desc: "Explore a low-poly tropical island, mine underground tunnels in search of gold, and avoid drowning in the open ocean. Dig through rocks using your pickaxe and repair the boat.",
-    alpha_badge: "ALPHA PROTOTYPE v0.055",
+    alpha_badge: "ALPHA PROTOTYPE v0.056",
     rotate_warning_title: "PLEASE ROTATE DEVICE",
     rotate_warning_desc: "This game is designed to be played in landscape mode (horizontal) only.",
     start_btn: "START ENGINE",
@@ -123,12 +123,14 @@ export const translations = {
     inv_slot_head: "HEAD",
     inv_slot_torso: "TORSO",
     inv_slot_legs: "LEGS",
-    inv_slot_feet: "FEET"
+    inv_slot_feet: "FEET",
+    inv_slot_right_hand: "RIGHT HAND",
+    inv_slot_left_hand: "LEFT HAND"
   },
   ja: {
     game_subtitle: "夕暮れの生存と採掘",
     game_desc: "ローポリの熱帯の島を探索し、金を求めて地下トンネルを採掘し、開けた海でおぼれないようにしてください。ピッケルで岩を掘り進み、ボートを修理しましょう。",
-    alpha_badge: "アルファプロトタイプ v0.055",
+    alpha_badge: "アルファプロトタイプ v0.056",
     rotate_warning_title: "画面を横にしてください",
     rotate_warning_desc: "このゲームは横画面（ランドスケープ）専用です。",
     start_btn: "エンジン始動",
@@ -192,12 +194,18 @@ export const translations = {
     "recipe.rope": "葉 x3",
     "recipe.straw_hat": "葉 x6, ロープ x2",
     "recipe.grass_pants": "葉 x8, ロープ x3",
-    "recipe.wooden_boots": "木材 x4, ロープ x2"
+    "recipe.wooden_boots": "木材 x4, ロープ x2",
+    inv_slot_head: "頭部",
+    inv_slot_torso: "胸部",
+    inv_slot_legs: "脚部",
+    inv_slot_feet: "足部",
+    inv_slot_right_hand: "右手",
+    inv_slot_left_hand: "左手"
   },
   es: {
     game_subtitle: "SUPERVIVENCIA Y MINERÍA AL ATARDECER",
     game_desc: "Explora una isla tropical low-poly, cava túneles subterráneos en busca de oro y evita ahogarte en el océano abierto. Hazte camino entre las rocas usando tu pico y repara el barco.",
-    alpha_badge: "PROTOTIPO ALPHA v0.055",
+    alpha_badge: "PROTOTIPO ALPHA v0.056",
     rotate_warning_title: "POR FAVOR ROTAR DISPOSITIVO",
     rotate_warning_desc: "Este juego está diseñado para jugarse únicamente en modo horizontal.",
     start_btn: "ARRANCAR MOTOR",
@@ -261,12 +269,18 @@ export const translations = {
     "recipe.rope": "3 Hojas",
     "recipe.straw_hat": "6 Hojas, 2 Cuerdas",
     "recipe.grass_pants": "8 Hojas, 3 Cuerdas",
-    "recipe.wooden_boots": "4 Madera, 2 Cuerdas"
+    "recipe.wooden_boots": "4 Madera, 2 Cuerdas",
+    inv_slot_head: "CABEZA",
+    inv_slot_torso: "TORSO",
+    inv_slot_legs: "PIERNAS",
+    inv_slot_feet: "PIES",
+    inv_slot_right_hand: "MANO DERECHA",
+    inv_slot_left_hand: "MANO IZQUIERDA"
   },
   fr: {
     game_subtitle: "SURVIE ET MINAGE AU CRÉPUSCULE",
     game_desc: "Explorez une île tropicale low-poly, creusez des tunnels souterrains à la recherche d'or et évitez de vous noyer en pleine mer. Frayez-vous un chemin à travers les roches à l'aide de votre pioche et réparez le bateau.",
-    alpha_badge: "PROTOTYPE ALPHA v0.055",
+    alpha_badge: "PROTOTYPE ALPHA v0.056",
     rotate_warning_title: "VEUILLEZ PIVOTER L'APPAREIL",
     rotate_warning_desc: "Ce jeu est conçu pour être joué en mode paysage (horizontal) uniquement.",
     start_btn: "DÉMARRER MOTEUR",
@@ -330,12 +344,18 @@ export const translations = {
     "recipe.rope": "3 Feuilles",
     "recipe.straw_hat": "6 Feuilles, 2 Cordes",
     "recipe.grass_pants": "8 Feuilles, 3 Cordes",
-    "recipe.wooden_boots": "4 Bois, 2 Cordes"
+    "recipe.wooden_boots": "4 Bois, 2 Cordes",
+    inv_slot_head: "TÊTE",
+    inv_slot_torso: "TORSE",
+    inv_slot_legs: "JAMBES",
+    inv_slot_feet: "PIEDS",
+    inv_slot_right_hand: "MAIN DROITE",
+    inv_slot_left_hand: "MAIN GAUCHE"
   },
   de: {
     game_subtitle: "ÜBERLEBEN UND BERGBAU IM SONNENUNTERGANG",
     game_desc: "Erkunde eine Low-Poly-Tropeninsel, grabe unterirdische Tunnel auf der Suche nach Gold und vermeide es, im offenen Ozean zu ertrinken. Bahne dir mit deiner Spitzhacke den Weg durch die Felsen und repariere das Boot.",
-    alpha_badge: "ALPHA-PROTOTYP v0.055",
+    alpha_badge: "ALPHA-PROTOTYP v0.056",
     rotate_warning_title: "GERÄT DREHEN",
     rotate_warning_desc: "Dieses Spiel kann nur im Querformat (horizontal) gespielt werden.",
     start_btn: "MOTOR STARTEN",
@@ -399,12 +419,18 @@ export const translations = {
     "recipe.rope": "3 Blätter",
     "recipe.straw_hat": "6 Blätter, 2 Seile",
     "recipe.grass_pants": "8 Blätter, 3 Seile",
-    "recipe.wooden_boots": "4 Holz, 2 Seile"
+    "recipe.wooden_boots": "4 Holz, 2 Seile",
+    inv_slot_head: "KOPF",
+    inv_slot_torso: "TORSO",
+    inv_slot_legs: "BEINE",
+    inv_slot_feet: "FÜSSE",
+    inv_slot_right_hand: "RECHTE HAND",
+    inv_slot_left_hand: "LINKE HAND"
   },
   pt: {
     game_subtitle: "SOBREVIVÊNCIA E MINERAÇÃO AO PÔR DO SOL",
     game_desc: "Explore uma ilha tropical low-poly, cave túneis subterrâneos em busca de oro e evite se afogar no oceano aberto. Abra caminho pelas rochas usando sua picareta e conserte o barco.",
-    alpha_badge: "PROTÓTIPO ALPHA v0.055",
+    alpha_badge: "PROTÓTIPO ALPHA v0.056",
     rotate_warning_title: "POR FAVOR ROTE O DISPOSITIVO",
     rotate_warning_desc: "Este jogo foi projetato para ser jogado apenas no modo paisagem (horizontal).",
     start_btn: "LIGAR MOTOR",
@@ -468,12 +494,18 @@ export const translations = {
     "recipe.rope": "3 Folhas",
     "recipe.straw_hat": "6 Folhas, 2 Cordas",
     "recipe.grass_pants": "8 Folhas, 3 Cordas",
-    "recipe.wooden_boots": "4 Madeira, 2 Cordas"
+    "recipe.wooden_boots": "4 Madeira, 2 Cordas",
+    inv_slot_head: "CABEÇA",
+    inv_slot_torso: "TORSO",
+    inv_slot_legs: "PERNAS",
+    inv_slot_feet: "PÉS",
+    inv_slot_right_hand: "MÃO DIREITA",
+    inv_slot_left_hand: "MÃO ESQUERDA"
   },
   it: {
     game_subtitle: "SOPRAVVIVENZA E MINIERA AL TRAMONTO",
     game_desc: "Esplora un'isola tropicale low-poly, scava gallerie sotterranee alla ricerca di oro ed evita di affogare nell'oceano aperto. Fatti strada tra le rocce usando il tuo piccone e ripara la barca.",
-    alpha_badge: "PROTOTIPO ALPHA v0.055",
+    alpha_badge: "PROTOTIPO ALPHA v0.056",
     rotate_warning_title: "RUOTA IL DISPOSITIVO",
     rotate_warning_desc: "Questo gioco è progettato per essere giocato solo in modalità orizzontale.",
     start_btn: "AVVIA MOTORE",
@@ -593,7 +625,9 @@ export const translations = {
     inv_slot_head: "TESTA",
     inv_slot_torso: "BUSTO",
     inv_slot_legs: "GAMBE",
-    inv_slot_feet: "PIEDI"
+    inv_slot_feet: "PIEDI",
+    inv_slot_right_hand: "MANO DESTRA",
+    inv_slot_left_hand: "MANO SINISTRA"
   },
 };
 

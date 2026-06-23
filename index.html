@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ARCHIPELAGO - Low-Poly Survival Prototype</title>
-  <link rel="stylesheet" href="style.css?v=0.055">
+  <link rel="stylesheet" href="style.css?v=0.056">
   
   <!-- Import maps polyfill if needed -->
   <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
@@ -15,13 +15,13 @@
       "imports": {
         "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
         "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/",
-        "./js/controls.js": "./js/controls.js?v=0.055",
-        "./js/world.js": "./js/world.js?v=0.055",
-        "./js/player.js": "./js/player.js?v=0.055",
-        "./js/interact.js": "./js/interact.js?v=0.055",
-        "./js/audio.js": "./js/audio.js?v=0.055",
-        "./js/lang.js": "./js/lang.js?v=0.055",
-        "./js/game.js": "./js/game.js?v=0.055"
+        "./js/controls.js": "./js/controls.js?v=0.056",
+        "./js/world.js": "./js/world.js?v=0.056",
+        "./js/player.js": "./js/player.js?v=0.056",
+        "./js/interact.js": "./js/interact.js?v=0.056",
+        "./js/audio.js": "./js/audio.js?v=0.056",
+        "./js/lang.js": "./js/lang.js?v=0.056",
+        "./js/game.js": "./js/game.js?v=0.056"
       }
     }
   </script>
@@ -383,7 +383,16 @@
         <div class="inv-right-column">
           <h2 data-translate="inv_character" class="inv-section-title">CHARACTER</h2>
           <div class="inv-character-panel">
-            <div class="character-preview-container">
+            <!-- Left Side: Clothing slots -->
+            <div class="clothing-slots-container" style="flex: 1;">
+              <div class="clothing-slot" data-slot="head"></div>
+              <div class="clothing-slot" data-slot="torso"></div>
+              <div class="clothing-slot" data-slot="legs"></div>
+              <div class="clothing-slot" data-slot="feet"></div>
+            </div>
+
+            <!-- Center: Holographic Mannequin Preview -->
+            <div class="character-preview-container" style="flex: 1.1;">
               <svg class="char-outline" viewBox="0 0 100 150">
                 <defs>
                   <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -415,12 +424,11 @@
                 <circle cx="64" cy="112" r="1.5" fill="var(--accent-gold)" />
               </svg>
             </div>
-            
-            <div class="clothing-slots-container">
-              <div class="clothing-slot" data-slot="head"></div>
-              <div class="clothing-slot" data-slot="torso"></div>
-              <div class="clothing-slot" data-slot="legs"></div>
-              <div class="clothing-slot" data-slot="feet"></div>
+
+            <!-- Right Side: Hand slots -->
+            <div class="clothing-slots-container" style="flex: 1;">
+              <div class="clothing-slot" data-slot="right_hand"></div>
+              <div class="clothing-slot" data-slot="left_hand"></div>
             </div>
           </div>
           
@@ -463,9 +471,9 @@
   <div id="underwater-ripple" style="display: none;"></div>
 
   <!-- Version Tag for Deployment Tracking -->
-  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.055</div>
+  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.056</div>
 
   <!-- Main JS entry point as an ES Module -->
-  <script type="module" src="js/game.js?v=0.055"></script>
+  <script type="module" src="js/game.js?v=0.056"></script>
 </body>
 </html>
