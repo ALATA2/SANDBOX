@@ -277,7 +277,7 @@ export function updateControls(delta) {
   const nextX = position.x + velocity.x * delta;
   // Sample collision at player eye and chest heights
   const isColX = checkCollision(nextX, position.y - 0.4, position.z) || 
-                 checkCollision(nextX, position.y - 1.2, position.z);
+                 checkCollision(nextX, position.y - 1.0, position.z);
 
   if (!isColX) {
     position.x = nextX;
@@ -288,7 +288,7 @@ export function updateControls(delta) {
   // Check movement on Z axis separately
   const nextZ = position.z + velocity.z * delta;
   const isColZ = checkCollision(position.x, position.y - 0.4, nextZ) || 
-                 checkCollision(position.x, position.y - 1.2, nextZ);
+                 checkCollision(position.x, position.y - 1.0, nextZ);
 
   if (!isColZ) {
     position.z = nextZ;
@@ -317,8 +317,8 @@ export function updateControls(delta) {
   }
 
   // Cap Y coordinates so players can't jump out of the world bounds
-  if (position.y > 22.0) {
-    position.y = 22.0;
+  if (position.y > 25.5) {
+    position.y = 25.5;
     velocity.y = 0;
   }
 
