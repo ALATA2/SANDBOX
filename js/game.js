@@ -283,7 +283,7 @@ function init() {
   game.renderer.setSize(window.innerWidth, window.innerHeight);
   game.renderer.setClearColor(0x000000, 0); // Transparent canvas background
   game.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  game.renderer.shadowMap.enabled = true;
+  game.renderer.shadowMap.enabled = !game.isMobile;
   game.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   game.renderer.toneMapping = THREE.ACESFilmicToneMapping;
   game.renderer.toneMappingExposure = 1.0;
@@ -1041,6 +1041,12 @@ function animate() {
     const positionAttribute = world.waterMesh.geometry.attributes.position;
     const depthAttribute = world.waterMesh.geometry.attributes.depth;
     
+    // Precompute boundary wave heights outside the loop (saves N * 4 trig calls!)
+    const h00 = Math.sin(-20.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(-20.8 * 0.12 + time * 1.2) * 0.18;
+    const h10 = Math.sin(84.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(-20.8 * 0.12 + time * 1.2) * 0.18;
+    const h01 = Math.sin(-20.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(84.8 * 0.12 + time * 1.2) * 0.18;
+    const h11 = Math.sin(84.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(84.8 * 0.12 + time * 1.2) * 0.18;
+    
     for (let i = 0; i < positionAttribute.count; i++) {
       const vx = positionAttribute.getX(i);
       const vz = positionAttribute.getZ(i); // Read world Z directly (geometry is not rotated)
@@ -1087,11 +1093,6 @@ function animate() {
           // Bilinear interpolation between the four corners of the inner ocean boundary
           const tx = Math.max(0, Math.min(1, (vx - (-20.8)) / 105.6));
           const tz = Math.max(0, Math.min(1, (vz - (-20.8)) / 105.6));
-          
-          const h00 = Math.sin(-20.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(-20.8 * 0.12 + time * 1.2) * 0.18;
-          const h10 = Math.sin(84.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(-20.8 * 0.12 + time * 1.2) * 0.18;
-          const h01 = Math.sin(-20.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(84.8 * 0.12 + time * 1.2) * 0.18;
-          const h11 = Math.sin(84.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(84.8 * 0.12 + time * 1.2) * 0.18;
           
           const y_boundary = (1 - tx) * (1 - tz) * h00 +
                              tx * (1 - tz) * h10 +

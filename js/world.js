@@ -15,6 +15,7 @@ export const world = {
   lakeMesh: null, // 3D Mountain Lake Mesh
   waterActive: null, // 3D Uint8Array for connected water cells
   waterHeights: null, // 2D Float32Array for dynamic height filling
+  waterGroundHeights: null, // Precomputed 2D Float32Array for static height lookup
   oreDeposits: [], // Array of meshes representing ore nodes
   sceneryMeshes: [], // Trees, rocks, etc.
   trees: [], // Array of active tree groups for Axe chopping
@@ -478,6 +479,28 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
   if (modified) {
     buildMarchingCubesMesh();
     updateWaterGrid();
+    
+    // Update precomputed water ground heights only for the affected region
+    if (world.waterGroundHeights) {
+      const minWaterX = Math.max(0, Math.floor((minX * spacing - WATER_START_X) / spacing) - 1);
+      const maxWaterX = Math.min(WATER_CELLS_X, Math.ceil((maxX * spacing - WATER_START_X) / spacing) + 1);
+      const minWaterZ = Math.max(0, Math.floor((minZ * spacing - WATER_START_Z) / spacing) - 1);
+      const maxWaterZ = Math.min(WATER_CELLS_Z, Math.ceil((maxZ * spacing - WATER_START_Z) / spacing) + 1);
+      
+      for (let gx = minWaterX; gx <= maxWaterX; gx++) {
+        const vx = WATER_START_X + gx * spacing;
+        const idxOffset = gx * (WATER_CELLS_Z + 1);
+        for (let gz = minWaterZ; gz <= maxWaterZ; gz++) {
+          const vz = WATER_START_Z + gz * spacing;
+          const idx = idxOffset + gz;
+          world.waterGroundHeights[idx] = getSurfaceHeightNear(vx, 5.0, vz);
+        }
+      }
+    }
+
+    // Snap affected scenery/deposits/boards near hitPoint
+    snapSceneryNear(hitPoint, radius);
+
     if (world.waterMesh) {
       const newWaterGeom = buildWaterGeometry();
       const oldWaterGeom = world.waterMesh.geometry;
@@ -1305,9 +1328,10 @@ function spawnScenery() {
   // 1. Crystal Water Plane with Depth Color Gradients
   updateWaterGrid();
 
-  // Initialize waterHeights Float32Array to default target heights
+  // Initialize waterHeights and waterGroundHeights Float32Array to default target heights
   const size = (WATER_CELLS_X + 1) * (WATER_CELLS_Z + 1);
   world.waterHeights = new Float32Array(size);
+  world.waterGroundHeights = new Float32Array(size);
   for (let gx = 0; gx <= WATER_CELLS_X; gx++) {
     const vx = WATER_START_X + gx * spacing;
     for (let gz = 0; gz <= WATER_CELLS_Z; gz++) {
@@ -1315,6 +1339,7 @@ function spawnScenery() {
       const idx = gx * (WATER_CELLS_Z + 1) + gz;
       const active = isVertexActive(gx, gz);
       const groundY = getSurfaceHeightNear(vx, 5.0, vz);
+      world.waterGroundHeights[idx] = groundY;
       world.waterHeights[idx] = active ? 4.0 : Math.min(4.0, groundY);
     }
   }
@@ -2011,46 +2036,69 @@ export function initWorld() {
   spawnSeabed();
 }
 
-// Update World Animation (e.g. lighthouse rotation, dynamic gravity snap for trees/rocks)
+// Snap all scenery close to a deformation hitPoint
+export function snapSceneryNear(hitPoint, radius) {
+  const spacing = world.spacing;
+  const checkRadius = radius + 4.0;
+
+  // Snap scenery meshes near hit
+  world.sceneryMeshes.forEach(item => {
+    const pos = item.mesh.position;
+    if (pos.distanceTo(hitPoint) < checkRadius) {
+      const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
+      if (item.type === 'tree') {
+        if (!item.mesh.userData || !item.mesh.userData.falling) {
+          item.mesh.position.y = groundY;
+        }
+      } else if (item.type === 'rock') {
+        item.mesh.position.y = groundY - 0.5;
+      } else if (item.type === 'starfish') {
+        item.mesh.position.y = groundY + 0.01;
+      } else if (item.type === 'cane') {
+        item.mesh.position.y = groundY;
+      }
+    }
+  });
+
+  // Snap ore deposits near hit
+  world.oreDeposits.forEach(oreGroup => {
+    const pos = oreGroup.position;
+    if (pos.distanceTo(hitPoint) < checkRadius) {
+      const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
+      oreGroup.position.y = groundY - 0.2;
+    }
+  });
+
+  // Snap feedback board near hit
+  if (world.feedbackBoard) {
+    const pos = world.feedbackBoard.position;
+    if (pos.distanceTo(hitPoint) < checkRadius) {
+      const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
+      world.feedbackBoard.position.y = groundY;
+    }
+  }
+
+  // Snap campfires near hit
+  if (world.campfires) {
+    world.campfires.forEach(campfire => {
+      const pos = campfire.position;
+      if (pos.distanceTo(hitPoint) < checkRadius) {
+        const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
+        campfire.position.y = groundY;
+      }
+    });
+  }
+}
+
+// Update World Animation (e.g. lighthouse rotation, cloud drift)
 export function updateWorld(delta) {
   // Rotate the lighthouse beam around Y axis
   if (world.lighthouseBeam) {
     world.lighthouseBeam.rotation.y += 0.8 * delta;
   }
 
-  // Update dynamic water level filling
+  // Update dynamic water level filling (optimized with precomputed heights!)
   updateWaterHeights(delta);
-
-  // Keep trees, rocks, and starfish snapped to the deformed terrain
-  world.sceneryMeshes.forEach(item => {
-    const pos = item.mesh.position;
-    const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
-    if (item.type === 'tree') {
-      if (!item.mesh.userData || !item.mesh.userData.falling) {
-        item.mesh.position.y = groundY;
-      }
-    } else if (item.type === 'rock') {
-      item.mesh.position.y = groundY - 0.5;
-    } else if (item.type === 'starfish') {
-      item.mesh.position.y = groundY + 0.01;
-    } else if (item.type === 'cane') {
-      item.mesh.position.y = groundY;
-    }
-  });
-
-  // Keep active ore deposits snapped to deformed terrain
-  world.oreDeposits.forEach(oreGroup => {
-    const pos = oreGroup.position;
-    const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
-    oreGroup.position.y = groundY - 0.2;
-  });
-
-  // Keep feedback board snapped to deformed terrain
-  if (world.feedbackBoard) {
-    const pos = world.feedbackBoard.position;
-    const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
-    world.feedbackBoard.position.y = groundY;
-  }
 
   // Drift clouds slowly in the sky
   if (world.clouds) {
@@ -2062,13 +2110,9 @@ export function updateWorld(delta) {
     });
   }
 
-  // Snap and animate campfire flickers
+  // Animate campfire flickers (Y height is snapped only on creation/deformation!)
   if (world.campfires) {
     world.campfires.forEach(campfire => {
-      const pos = campfire.position;
-      const groundY = getSurfaceHeightNear(pos.x, 15, pos.z);
-      campfire.position.y = groundY;
-
       if (campfire.userData) {
         // Decrease burn time
         if (campfire.userData.burnTime > 0) {
@@ -2191,16 +2235,14 @@ export function createCampfireMesh(isHologram) {
 }
 
 function updateWaterHeights(delta) {
-  if (!world.waterHeights) return;
-  const spacing = world.spacing;
+  if (!world.waterHeights || !world.waterGroundHeights) return;
   for (let gx = 0; gx <= WATER_CELLS_X; gx++) {
-    const vx = WATER_START_X + gx * spacing;
+    const idxOffset = gx * (WATER_CELLS_Z + 1);
     for (let gz = 0; gz <= WATER_CELLS_Z; gz++) {
-      const vz = WATER_START_Z + gz * spacing;
-      const idx = gx * (WATER_CELLS_Z + 1) + gz;
+      const idx = idxOffset + gz;
       
       const active = isVertexActive(gx, gz);
-      const groundY = getSurfaceHeightNear(vx, 5.0, vz);
+      const groundY = world.waterGroundHeights[idx];
       
       const targetY = active ? 4.0 : Math.min(4.0, groundY);
       const currentY = world.waterHeights[idx];
