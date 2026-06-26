@@ -84,7 +84,6 @@ export function initInteraction() {
         return;
       }
 
-      const playerPos = game.controls.getObject().position;
       let nearRosita = false;
       if (game.henMesh) {
         const distToHen = playerPos.distanceTo(game.henMesh.position);
