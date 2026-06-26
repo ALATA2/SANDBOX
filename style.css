@@ -1213,8 +1213,8 @@ body.is-mobile #interaction-prompt {
   box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(255,85,85,0.15);
 }
 
-/* Floating label for Arturo the Rooster */
-#arturo-label {
+/* Floating label for Arturo the Rooster & Rosita the Hen */
+#arturo-label, #rosita-label {
   position: absolute;
   transform: translate(-50%, -100%);
   background: rgba(18, 12, 28, 0.8);

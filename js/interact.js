@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { game } from './game.js';
 import { world, deformTerrainLowPoly, getSurfaceHeightNear, createCampfireMesh } from './world.js';
-import { player, showHudMessage, selectSlot, syncHotbarCounts, renderInventoryUI } from './player.js';
+import { player, showHudMessage, selectSlot, syncHotbarCounts, renderInventoryUI, cancelFishing } from './player.js';
 import { getTranslation } from './lang.js';
-import { playWoodChop, playSelect, playSizzling, playDrink, playSpark } from './audio.js';
+import { playWoodChop, playSelect, playSizzling, playDrink, playSpark, playRowingSplash } from './audio.js';
 
 let raycaster;
 export const activeDebris = [];
@@ -83,10 +83,21 @@ export function initInteraction() {
         return;
       }
 
+      const playerPos = game.controls.getObject().position;
+      let nearRosita = false;
+      if (game.henMesh) {
+        const distToHen = playerPos.distanceTo(game.henMesh.position);
+        if (distToHen < 2.5) {
+          nearRosita = true;
+        }
+      }
+
       if (nearFeedbackBoard) {
         if (typeof window.openFeedbackBoard === 'function') {
           window.openFeedbackBoard();
         }
+      } else if (nearRosita) {
+        feedRosita();
       } else if (closestCampfire) {
         const isBurning = closestCampfire.userData && closestCampfire.userData.burnTime > 0;
         if (isBurning) {
@@ -120,6 +131,55 @@ export function initInteraction() {
 
 // Triggered when left clicking to mine / chop
 export function updateInteraction(delta) {
+  // Update active fishing state
+  if (player.isFishing) {
+    player.fishingTimer += delta;
+
+    if (player.bobberMesh) {
+      const time = game.time;
+      const baseHeight = player.fishingWaterY || 4.0;
+
+      if (player.fishingState === 'cast') {
+        // Bobber floats/wiggles gently
+        player.bobberMesh.position.y = baseHeight - 0.02 + Math.sin(time * 4.0) * 0.015;
+        player.bobberMesh.rotation.z = Math.sin(time * 2.0) * 0.05;
+
+        // Check if a fish bites
+        if (player.fishingTimer >= player.fishingBiteTime) {
+          player.fishingState = 'bite';
+          player.fishingBiteTimer = 1.5; // 1.5 seconds to react
+          showHudMessage(getTranslation('msg_fishing_bite') || "A FISH IS BITING! CLICK TO REEL IN!");
+          playRowingSplash();
+        }
+      } else if (player.fishingState === 'bite') {
+        player.fishingBiteTimer -= delta;
+
+        // Bobber vibrates/sinks aggressively
+        player.bobberMesh.position.y = baseHeight - 0.08 + Math.sin(time * 30.0) * 0.02;
+
+        if (player.fishingBiteTimer <= 0) {
+          // Fish escaped!
+          player.isFishing = false;
+          player.fishingState = 'idle';
+          if (player.bobberMesh) {
+            game.scene.remove(player.bobberMesh);
+            player.bobberMesh = null;
+          }
+          showHudMessage(getTranslation('msg_fishing_escaped') || "The fish got away!");
+        }
+      }
+
+      // Proximity check: cancel if player walks too far
+      const playerObj = game.controls.getObject();
+      if (playerObj) {
+        const dist = playerObj.position.distanceTo(player.bobberMesh.position);
+        if (dist > 15.0) {
+          cancelFishing();
+        }
+      }
+    }
+  }
+
   // Update physics for all active debris pieces
   updateDebrisPhysics(delta);
 
@@ -212,6 +272,11 @@ export function updateInteraction(delta) {
 
 // Route raycast based on held tool (Spear vs Axe vs Pickaxe, or custom stick/cane)
 function performToolsRaycast() {
+  if (player.activeCustomItem === 'fishing_rod') {
+    handleFishingInteraction();
+    return;
+  }
+
   if (performCaneRaycast()) {
     return;
   }
@@ -516,9 +581,33 @@ export function spawnDebris(position, normal, type) {
     geom = new THREE.CylinderGeometry(0.02, 0.02, 0.5, 5);
     geom.rotateZ(Math.PI / 2);
     mat = new THREE.MeshStandardMaterial({ color: 0x556b2f, roughness: 0.8, flatShading: true });
+  } else if (type === 'egg') {
+    geom = new THREE.SphereGeometry(0.08, 8, 8);
+    geom.scale(0.8, 1.25, 0.8);
+    mat = new THREE.MeshStandardMaterial({ color: 0xfffcf0, roughness: 0.7, flatShading: true });
   } else {
     geom = new THREE.DodecahedronGeometry(0.12, 0);
     mat = new THREE.MeshStandardMaterial({ color: 0x8a7f76, roughness: 0.9, flatShading: true });
+  }
+
+  let mesh;
+  if (type === 'cooked_egg') {
+    const eggGroup = new THREE.Group();
+    const whiteGeom = new THREE.CylinderGeometry(0.12, 0.12, 0.015, 8);
+    const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, flatShading: true });
+    const whiteMesh = new THREE.Mesh(whiteGeom, whiteMat);
+    eggGroup.add(whiteMesh);
+
+    const yolkGeom = new THREE.SphereGeometry(0.04, 6, 6);
+    yolkGeom.scale(1, 0.6, 1);
+    const yolkMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.4, flatShading: true });
+    const yolkMesh = new THREE.Mesh(yolkGeom, yolkMat);
+    yolkMesh.position.y = 0.01;
+    eggGroup.add(yolkMesh);
+
+    mesh = eggGroup;
+  } else {
+    mesh = new THREE.Mesh(geom, mat);
   }
 
   const mesh = new THREE.Mesh(geom, mat);
@@ -631,11 +720,33 @@ function checkHarvestablePrompt() {
     return;
   }
 
+  // Check proximity to Rosita the Hen
+  let nearRosita = false;
+  if (game.henMesh) {
+    const distToHen = playerPos.distanceTo(game.henMesh.position);
+    if (distToHen < 2.5) {
+      nearRosita = true;
+    }
+  }
+  
+  if (nearRosita) {
+    let rawPrompt = '';
+    const hasWorm = (player.inventory.worm || 0) > 0;
+    if (hasWorm) {
+      rawPrompt = getTranslation('interact_feed_hen') || "PRESS E TO FEED ROSITA (1 Worm)";
+    } else {
+      rawPrompt = "ROSITA (Needs 1 Worm)";
+    }
+    prompt.innerHTML = rawPrompt.replace('E', '<span style="color: #ffd700; font-weight:800;">E</span>');
+    prompt.classList.add('visible');
+    return;
+  }
+
   let foundCloseDebris = null;
   let minDist = 2.2; // Maximum collection distance
 
   activeDebris.forEach(debris => {
-    if (debris.type === 'ore' || debris.type === 'wood' || debris.type === 'raw_crab' || debris.type === 'raw_fish' || debris.type === 'cooked_meat' || debris.type === 'stick' || debris.type === 'cane' || debris.type === 'fallen_log' || debris.type === 'liana' || debris.type === 'worm') {
+    if (debris.type === 'ore' || debris.type === 'wood' || debris.type === 'raw_crab' || debris.type === 'raw_fish' || debris.type === 'cooked_meat' || debris.type === 'stick' || debris.type === 'cane' || debris.type === 'fallen_log' || debris.type === 'liana' || debris.type === 'worm' || debris.type === 'egg' || debris.type === 'cooked_egg') {
       const dist = playerPos.distanceTo(debris.mesh.position);
       if (dist < minDist) {
         minDist = dist;
@@ -667,6 +778,8 @@ function checkHarvestablePrompt() {
       nearFeedbackBoard = true;
     }
   }
+
+  const hasRawMeat = (player.inventory.raw_crab || 0) > 0 || (player.inventory.raw_fish || 0) > 0 || (player.inventory.egg || 0) > 0;
 
   if (closestCampfire) {
     const isBurning = closestCampfire.userData && closestCampfire.userData.burnTime > 0;
@@ -707,6 +820,10 @@ function checkHarvestablePrompt() {
       rawPrompt = getTranslation('interact_harvest_cooked') || 'PRESS E TO HARVEST COOKED MEAT';
     } else if (closestDebris.type === 'worm') {
       rawPrompt = getTranslation('interact_harvest_worm') || 'PRESS E TO COLLECT WORM';
+    } else if (closestDebris.type === 'egg') {
+      rawPrompt = getTranslation('interact_harvest_egg') || 'PRESS E TO COLLECT EGG';
+    } else if (closestDebris.type === 'cooked_egg') {
+      rawPrompt = getTranslation('interact_harvest_cooked_egg') || 'PRESS E TO COLLECT COOKED EGG';
     } else if (closestDebris.type === 'stick') {
       rawPrompt = getTranslation('interact_harvest_stick') || 'PRESS E TO COLLECT STICK';
     } else if (closestDebris.type === 'cane') {
@@ -817,6 +934,12 @@ export function harvestClosestDebris() {
     if (wIdx > -1) {
       game.worms.splice(wIdx, 1);
     }
+  } else if (closestDebris.type === 'egg') {
+    player.inventory.egg = (player.inventory.egg || 0) + 1;
+    showHudMessage(getTranslation('msg_collected_egg') || '+1 Egg');
+  } else if (closestDebris.type === 'cooked_egg') {
+    player.inventory.cooked_egg = (player.inventory.cooked_egg || 0) + 1;
+    showHudMessage(getTranslation('msg_collected_cooked_egg') || '+1 Cooked Egg');
   }
 
   closestDebris = null;
@@ -841,6 +964,123 @@ function cookRawMeat() {
     spawnDebris(spawnPos, new THREE.Vector3(0, 1, 0), 'cooked_meat');
     playSizzling();
     showHudMessage(getTranslation('msg_cooked_fish') || 'Cooked Fish Meat!');
+  } else if (player.inventory.egg > 0) {
+    player.inventory.egg--;
+    const spawnPos = closestCampfire.position.clone();
+    spawnPos.y += 0.25;
+    spawnDebris(spawnPos, new THREE.Vector3(0, 1, 0), 'cooked_egg');
+    playSizzling();
+    showHudMessage(getTranslation('msg_cooked_egg') || 'Cooked Egg!');
+  }
+}
+
+function feedRosita() {
+  const hasWorm = (player.inventory.worm || 0) > 0;
+  if (hasWorm && game.henMesh) {
+    player.inventory.worm--;
+    
+    // Trigger hop animation in AI loop
+    game.henMesh.userData.feedReaction = 1.5;
+    
+    // Spawn egg debris slightly behind the hen
+    const spawnPos = game.henMesh.position.clone();
+    const angle = game.henMesh.rotation.y;
+    spawnPos.x -= Math.sin(angle) * 0.4;
+    spawnPos.z -= Math.cos(angle) * 0.4;
+    spawnPos.y += 0.1;
+    
+    spawnDebris(spawnPos, new THREE.Vector3(0, 1, 0), 'egg');
+    
+    playSelect();
+    showHudMessage(getTranslation('msg_hen_laid_egg') || "Rosita laid an egg!");
+    
+    syncHotbarCounts();
+    renderInventoryUI();
+  }
+}
+
+function handleFishingInteraction() {
+  if (player.isFishing) {
+    // Reel in!
+    if (player.fishingState === 'bite') {
+      player.isFishing = false;
+      player.fishingState = 'idle';
+      
+      if (player.bobberMesh) {
+        game.scene.remove(player.bobberMesh);
+        player.bobberMesh = null;
+      }
+      
+      playRowingSplash();
+      
+      const rand = Math.random();
+      if (rand < 0.9) {
+        player.inventory.raw_fish = (player.inventory.raw_fish || 0) + 1;
+        showHudMessage(getTranslation('msg_fishing_caught') || "Caught a fish!");
+      } else {
+        player.inventory.ore = (player.inventory.ore || 0) + 1;
+        showHudMessage("+1 Gold Ore");
+      }
+      
+      syncHotbarCounts();
+      renderInventoryUI();
+    } else {
+      // Reeled in too early
+      player.isFishing = false;
+      player.fishingState = 'idle';
+      if (player.bobberMesh) {
+        game.scene.remove(player.bobberMesh);
+        player.bobberMesh = null;
+      }
+      showHudMessage(getTranslation('msg_fishing_early') || "Reeled in too early!");
+    }
+  } else {
+    // Cast rod!
+    const playerObj = game.controls.getObject();
+    if (!playerObj) return;
+    const playerPos = playerObj.position.clone();
+    const dir = new THREE.Vector3();
+    game.camera.getWorldDirection(dir);
+
+    const dx = playerPos.x - 41.6;
+    const dz = playerPos.z - 41.6;
+    const inLakeZone = (dx*dx + dz*dz < 24.0 * 24.0);
+    const waterY = inLakeZone ? 14.4 : 4.0;
+
+    if (dir.y < -0.05) {
+      const t = (waterY - playerPos.y) / dir.y;
+      if (t > 0 && t < 12.0) {
+        const hitX = playerPos.x + t * dir.x;
+        const hitZ = playerPos.z + t * dir.z;
+        const terrainH = getSurfaceHeightNear(hitX, 15, hitZ);
+        const isWater = inLakeZone || (terrainH < 4.0);
+
+        if (isWater) {
+          // Spawn bobber mesh
+          const bobberGeom = new THREE.SphereGeometry(0.06, 6, 6);
+          const bobberMat = new THREE.MeshStandardMaterial({ color: 0xff3b30, roughness: 0.5, flatShading: true });
+          const bobberMesh = new THREE.Mesh(bobberGeom, bobberMat);
+          bobberMesh.position.set(hitX, waterY - 0.02, hitZ);
+          game.scene.add(bobberMesh);
+
+          player.bobberMesh = bobberMesh;
+          player.isFishing = true;
+          player.fishingState = 'cast';
+          player.fishingTimer = 0;
+          player.fishingBiteTime = 3.0 + Math.random() * 3.0; // 3 to 6 seconds
+          player.fishingWaterY = waterY;
+
+          playRowingSplash();
+          showHudMessage(getTranslation('msg_fishing_wait') || "Fishing... wait for a bite!");
+        } else {
+          showHudMessage("Must cast into water!");
+        }
+      } else {
+        showHudMessage("Too far to cast!");
+      }
+    } else {
+      showHudMessage("Look down at the water to cast!");
+    }
   }
 }
 

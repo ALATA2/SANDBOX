@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { initControls, updateControls, joystickValues, triggerMobileJump } from './controls.js';
 import { initWorld, updateWorld, world, getSurfaceHeightNear, checkInWater, getWaterHeightAt } from './world.js';
-import { initPlayer, updatePlayer, triggerToolSwing } from './player.js';
+import { initPlayer, updatePlayer, triggerToolSwing, player } from './player.js';
 import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard } from './interact.js';
 import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute, setSubmergedAudio, startAmbientSounds, stopAmbientSounds } from './audio.js';
 import { setLanguage, currentLang } from './lang.js';
@@ -25,6 +25,7 @@ export const game = {
   time: 0,
   paused: false,
   roosterMesh: null,
+  henMesh: null,
   crabs: [],
   fishes: [],
   seagulls: [],
@@ -404,6 +405,12 @@ function init() {
   const roosterSpawnY = getSurfaceHeightNear(84, 15, 84);
   game.roosterMesh.position.set(84, roosterSpawnY, 84);
   game.scene.add(game.roosterMesh);
+
+  // Spawn Rosita the Hen
+  game.henMesh = createHen();
+  const henSpawnY = getSurfaceHeightNear(81, 15, 81);
+  game.henMesh.position.set(81, henSpawnY, 81);
+  game.scene.add(game.henMesh);
 
   // Spawn additional island life (crabs, fishes, seagulls)
   spawnFauna();
@@ -1248,6 +1255,9 @@ function animate() {
       // Update Arturo Rooster
       updateRoosterBehavior(delta);
       
+      // Update Rosita Hen
+      updateHenBehavior(delta);
+      
       // Update Island Life Fauna (crabs, fishes, seagulls)
       updateFauna(delta);
       
@@ -1267,6 +1277,7 @@ function animate() {
     
     // Update floating name tag position
     updateArturoLabel();
+    updateRositaLabel();
   } else {
     const blocker = document.getElementById('blocker');
     const isMainMenu = blocker && blocker.style.display !== 'none';
@@ -1747,6 +1758,120 @@ function createRooster() {
   return group;
 }
 
+// Helper to create low-poly Hen Rosita
+function createHen() {
+  const group = new THREE.Group();
+  
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xf5f5dc, roughness: 0.8, flatShading: true }); // beige body
+  const neckMaterial = new THREE.MeshStandardMaterial({ color: 0xd2b48c, roughness: 0.8, flatShading: true }); // tan head/neck
+  const combMaterial = new THREE.MeshStandardMaterial({ color: 0xc62828, roughness: 0.8, flatShading: true }); // red comb (small)
+  const beakMaterial = new THREE.MeshStandardMaterial({ color: 0xe0c068, roughness: 0.8, flatShading: true }); // yellow beak/legs
+  const tailMaterial = new THREE.MeshStandardMaterial({ color: 0x8b7355, roughness: 0.8, flatShading: true }); // brown tail feathers (small)
+
+  // 1. Plump Body
+  const bodyGeom = new THREE.BoxGeometry(0.26, 0.32, 0.38);
+  const body = new THREE.Mesh(bodyGeom, bodyMaterial);
+  body.position.set(0, 0.34, -0.02);
+  body.castShadow = true;
+  body.receiveShadow = true;
+  group.add(body);
+
+  const chestGeom = new THREE.BoxGeometry(0.24, 0.24, 0.16);
+  const chest = new THREE.Mesh(chestGeom, bodyMaterial);
+  chest.position.set(0, 0.40, 0.1);
+  chest.rotation.x = 0.2;
+  chest.castShadow = true;
+  group.add(chest);
+
+  // 2. Neck & Head
+  const lowerNeckGeom = new THREE.BoxGeometry(0.15, 0.20, 0.15);
+  lowerNeckGeom.translate(0, 0.10, 0);
+  const lowerNeck = new THREE.Mesh(lowerNeckGeom, neckMaterial);
+  lowerNeck.position.set(0, 0.44, 0.1);
+  lowerNeck.rotation.x = 0.3;
+  lowerNeck.castShadow = true;
+  group.add(lowerNeck);
+
+  const headGeom = new THREE.BoxGeometry(0.12, 0.18, 0.14);
+  headGeom.translate(0, 0.09, 0);
+  const head = new THREE.Mesh(headGeom, neckMaterial);
+  head.position.set(0, 0.60, 0.14);
+  head.rotation.x = -0.15;
+  head.castShadow = true;
+  group.add(head);
+
+  // 3. Beak
+  const beakGeom = new THREE.ConeGeometry(0.035, 0.09, 4);
+  beakGeom.rotateX(Math.PI / 2);
+  const beak = new THREE.Mesh(beakGeom, beakMaterial);
+  beak.position.set(0, 0.65, 0.22);
+  beak.castShadow = true;
+  group.add(beak);
+
+  // 4. Tiny Comb
+  const combGeom = new THREE.BoxGeometry(0.025, 0.08, 0.12);
+  combGeom.translate(0, 0.04, -0.02);
+  const comb = new THREE.Mesh(combGeom, combMaterial);
+  comb.position.set(0, 0.74, 0.12);
+  comb.rotation.x = -0.3;
+  comb.castShadow = true;
+  group.add(comb);
+
+  // 5. Tiny Wattle (under beak)
+  const wattleGeom = new THREE.BoxGeometry(0.02, 0.05, 0.04);
+  wattleGeom.translate(0, -0.025, 0);
+  const wattle = new THREE.Mesh(wattleGeom, combMaterial);
+  wattle.position.set(0, 0.60, 0.17);
+  wattle.castShadow = true;
+  group.add(wattle);
+
+  // 6. Tiny Tail Feathers
+  const tailGeom = new THREE.BoxGeometry(0.03, 0.16, 0.1);
+  tailGeom.translate(0, 0.08, -0.03);
+  const tail = new THREE.Mesh(tailGeom, tailMaterial);
+  tail.position.set(0, 0.42, -0.18);
+  tail.rotation.x = -0.5;
+  tail.castShadow = true;
+  group.add(tail);
+
+  // 7. Legs & Feet
+  const leftLegGeom = new THREE.CylinderGeometry(0.012, 0.012, 0.16, 4);
+  leftLegGeom.translate(0, -0.08, 0);
+  const leftLeg = new THREE.Mesh(leftLegGeom, beakMaterial);
+  leftLeg.position.set(-0.06, 0.18, 0);
+  leftLeg.castShadow = true;
+  group.add(leftLeg);
+
+  const leftFoot = new THREE.Group();
+  leftFoot.position.set(-0.06, 0.02, 0);
+  const toeGeom = new THREE.BoxGeometry(0.012, 0.01, 0.06);
+  toeGeom.translate(0, 0, 0.03);
+  const toeCenter = new THREE.Mesh(toeGeom, beakMaterial);
+  toeCenter.castShadow = true;
+  leftFoot.add(toeCenter);
+  const toeLeft = new THREE.Mesh(toeGeom, beakMaterial);
+  toeLeft.rotation.y = 0.35;
+  toeLeft.castShadow = true;
+  leftFoot.add(toeLeft);
+  const toeRight = new THREE.Mesh(toeGeom, beakMaterial);
+  toeRight.rotation.y = -0.35;
+  toeRight.castShadow = true;
+  leftFoot.add(toeRight);
+  group.add(leftFoot);
+
+  const rightLeg = leftLeg.clone();
+  rightLeg.position.x = 0.06;
+  group.add(rightLeg);
+
+  const rightFoot = leftFoot.clone();
+  rightFoot.position.x = 0.06;
+  group.add(rightFoot);
+
+  group.scale.setScalar(0.7);
+
+  return group;
+}
+
 let roosterState = 'idle'; // 'idle', 'walking', 'pecking'
 let roosterTimer = 2.0;
 let roosterTarget = new THREE.Vector3();
@@ -1838,6 +1963,161 @@ function updateArturoLabel() {
     const tempV = new THREE.Vector3();
     tempV.copy(game.roosterMesh.position);
     tempV.y += 0.8; // Position offset above the rooster
+
+    tempV.project(game.camera);
+
+    const x = (tempV.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (tempV.y * -0.5 + 0.5) * window.innerHeight;
+
+    label.style.left = `${x}px`;
+    label.style.top = `${y}px`;
+    label.style.display = 'block';
+  } else {
+    label.style.display = 'none';
+  }
+}
+
+let henState = 'idle'; // 'idle', 'walking', 'pecking', 'following'
+let henTimer = 2.0;
+let henTarget = new THREE.Vector3();
+let henPeckTimer = 0;
+
+function updateHenBehavior(delta) {
+  if (!game.henMesh) return;
+
+  const mesh = game.henMesh;
+  const playerObj = game.controls.getObject();
+  const playerPos = playerObj.position;
+  const distToPlayer = mesh.position.distanceTo(playerPos);
+
+  // Check if player has worm in inventory
+  const hasWorm = player.inventory && player.inventory.worm > 0;
+
+  // Snap Y to terrain height
+  const groundY = getSurfaceHeightNear(mesh.position.x, 15, mesh.position.z);
+
+  // Excitement reaction (e.g. after feeding)
+  if (mesh.userData && mesh.userData.feedReaction > 0) {
+    mesh.userData.feedReaction -= delta;
+    mesh.position.y = groundY + Math.max(0, Math.sin(mesh.userData.feedReaction * 12.0)) * 0.35;
+    mesh.rotation.y += delta * 15.0;
+    mesh.rotation.x = Math.sin(mesh.userData.feedReaction * 25.0) * 0.3;
+    mesh.rotation.z = 0;
+    return;
+  }
+
+  if (hasWorm && distToPlayer < 15.0) {
+    // Follow the player!
+    henState = 'following';
+    
+    // Look at player
+    const dir = playerPos.clone().sub(mesh.position);
+    dir.y = 0;
+    const distance = dir.length();
+    
+    if (distance > 1.8) {
+      dir.normalize();
+      const speed = 1.6; // slightly faster when following/excited
+      mesh.position.addScaledVector(dir, speed * delta);
+      mesh.position.y = groundY;
+      
+      const targetAngle = Math.atan2(dir.x, dir.z);
+      mesh.rotation.y = targetAngle;
+      mesh.rotation.z = Math.sin(game.time * 18.0) * 0.1; // wiggle walk
+      mesh.rotation.x = Math.sin(game.time * 9.0) * 0.05; // bob head
+    } else {
+      // Just stand still and face the player
+      mesh.position.y = groundY;
+      mesh.rotation.x = Math.sin(game.time * 5.0) * 0.03;
+      mesh.rotation.z = 0;
+      const targetAngle = Math.atan2(dir.x, dir.z);
+      mesh.rotation.y = targetAngle;
+    }
+  } else {
+    // Normal wander behavior
+    if (henState === 'following') {
+      henState = 'idle';
+      henTimer = 1.0;
+    }
+    
+    henTimer -= delta;
+
+    if (henState === 'idle') {
+      mesh.position.y = groundY;
+      mesh.rotation.x = Math.sin(game.time * 5.0) * 0.03;
+      mesh.rotation.z = 0;
+      
+      if (henTimer <= 0) {
+        if (Math.random() < 0.65) {
+          henState = 'pecking';
+          henTimer = 1.5 + Math.random() * 2.0;
+          henPeckTimer = 0;
+        } else {
+          henState = 'walking';
+          henTimer = 8.0;
+          let attempts = 0;
+          let tx = mesh.position.x;
+          let tz = mesh.position.z;
+          let ty = groundY;
+          while (attempts < 10) {
+            const dist = 3.0 + Math.random() * 5.0;
+            const ang = Math.random() * Math.PI * 2;
+            tx = mesh.position.x + Math.cos(ang) * dist;
+            tz = mesh.position.z + Math.sin(ang) * dist;
+            tx = Math.max(5, Math.min(world.sizeX * world.spacing - 5, tx));
+            tz = Math.max(5, Math.min(world.sizeZ * world.spacing - 5, tz));
+            ty = getSurfaceHeightNear(tx, 15, tz);
+            if (ty > 4.2) break;
+            attempts++;
+          }
+          henTarget.set(tx, ty, tz);
+        }
+      }
+    } else if (henState === 'pecking') {
+      mesh.position.y = groundY;
+      mesh.rotation.z = 0;
+      henPeckTimer += delta * 12.0;
+      mesh.rotation.x = Math.max(0, Math.sin(henPeckTimer)) * 0.7;
+      
+      if (henTimer <= 0) {
+        henState = 'idle';
+        henTimer = 1.0 + Math.random() * 2.0;
+        mesh.rotation.x = 0;
+      }
+    } else if (henState === 'walking') {
+      const dir = henTarget.clone().sub(mesh.position);
+      dir.y = 0;
+      const distance = dir.length();
+      
+      if (distance < 0.15 || henTimer <= 0) {
+        henState = 'idle';
+        henTimer = 1.0 + Math.random() * 2.0;
+        mesh.rotation.z = 0;
+      } else {
+        dir.normalize();
+        const speed = 1.0;
+        mesh.position.addScaledVector(dir, speed * delta);
+        mesh.position.y = groundY;
+        
+        const targetAngle = Math.atan2(dir.x, dir.z);
+        mesh.rotation.y = targetAngle;
+        mesh.rotation.z = Math.sin(game.time * 15.0) * 0.08;
+      }
+    }
+  }
+}
+
+function updateRositaLabel() {
+  const label = document.getElementById('rosita-label');
+  if (!label || !game.henMesh) return;
+
+  const playerPos = game.controls.getObject().position;
+  const dist = playerPos.distanceTo(game.henMesh.position);
+
+  if (dist < 8.0 && game.pointerLocked && !game.paused) {
+    const tempV = new THREE.Vector3();
+    tempV.copy(game.henMesh.position);
+    tempV.y += 0.8; // Position offset above the hen
 
     tempV.project(game.camera);
 

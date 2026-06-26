@@ -18,12 +18,21 @@ export const player = {
   axeMesh: null,
   stickMesh: null,
   caneMesh: null,
+  fishingRodMesh: null,
   activeCustomItem: null,
   
   // Tool swing animation states
   swingTimer: 0,
   swinging: false,
   swingDuration: 0.25, // seconds
+  
+  // Fishing states
+  isFishing: false,
+  fishingState: 'idle', // 'idle', 'cast', 'bite'
+  fishingTimer: 0,
+  fishingBiteTime: 0,
+  fishingBiteTimer: 0,
+  bobberMesh: null,
   
   // Inventory counts (displayed in HUD)
   inventory: {
@@ -39,6 +48,9 @@ export const player = {
     raw_fish: 0,
     raw_crab: 0,
     cooked_meat: 0,
+    egg: 0,
+    cooked_egg: 0,
+    fishing_rod: 0,
     campfire: 0,
     stick: 0,
     cane: 0,
@@ -81,6 +93,9 @@ export function initPlayer() {
 
   // Build Low-Poly 3D Cane
   buildCaneModel();
+
+  // Build Low-Poly 3D Fishing Rod
+  buildFishingRodModel();
 
   // 4. Set starting slot selection
   selectSlot(-1); // Start with empty hands (free hands)
@@ -352,6 +367,57 @@ function buildCaneModel() {
   player.caneMesh.visible = false;
 }
 
+// Draw a beautiful low-poly Fishing Rod
+function buildFishingRodModel() {
+  player.fishingRodMesh = new THREE.Group();
+  const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9, flatShading: true });
+  const reelMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8, roughness: 0.2, flatShading: true });
+  const lineMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const bobberMaterial = new THREE.MeshStandardMaterial({ color: 0xff3b30, roughness: 0.5, flatShading: true });
+
+  // Main rod pole
+  const poleGeom = new THREE.CylinderGeometry(0.008, 0.015, 0.75, 5);
+  const pole = new THREE.Mesh(poleGeom, woodMaterial);
+  pole.position.y = 0.25;
+  pole.rotation.z = -0.1; // tilted slightly forward
+  player.fishingRodMesh.add(pole);
+
+  // Reel mechanism
+  const reelGeom = new THREE.CylinderGeometry(0.02, 0.02, 0.025, 6);
+  const reel = new THREE.Mesh(reelGeom, reelMaterial);
+  reel.position.set(-0.015, 0.08, 0);
+  reel.rotation.z = Math.PI / 2;
+  player.fishingRodMesh.add(reel);
+
+  // Hanging fishing line
+  const lineGeom = new THREE.CylinderGeometry(0.002, 0.002, 0.35, 4);
+  const line = new THREE.Mesh(lineGeom, lineMaterial);
+  line.position.set(-0.08, 0.42, 0); // attached near the top tip
+  player.fishingRodMesh.add(line);
+
+  // Bobber float
+  const bobberGeom = new THREE.SphereGeometry(0.015, 4, 4);
+  const bobber = new THREE.Mesh(bobberGeom, bobberMaterial);
+  bobber.position.set(-0.08, 0.25, 0);
+  player.fishingRodMesh.add(bobber);
+
+  player.fishingRodMesh.rotation.z = -0.15; // overall group rotation matching stick/cane
+  player.handGroup.add(player.fishingRodMesh);
+  player.fishingRodMesh.visible = false;
+}
+
+// Cancel active fishing
+export function cancelFishing() {
+  if (!player.isFishing) return;
+  player.isFishing = false;
+  player.fishingState = 'idle';
+  if (player.bobberMesh) {
+    game.scene.remove(player.bobberMesh);
+    player.bobberMesh = null;
+  }
+  showHudMessage(getTranslation('msg_fishing_cancelled') || 'Fishing cancelled!');
+}
+
 // Select active slot
 export function selectSlot(index) {
   player.selectedSlot = index;
@@ -372,7 +438,12 @@ export function selectSlot(index) {
     player.axeMesh.visible = false;
     if (player.stickMesh) player.stickMesh.visible = false;
     if (player.caneMesh) player.caneMesh.visible = false;
+    if (player.fishingRodMesh) player.fishingRodMesh.visible = false;
     player.activeCustomItem = null;
+
+    if (player.isFishing) {
+      cancelFishing();
+    }
 
     if (index === 0) {
       player.spearMesh.visible = true; // Spear
@@ -605,6 +676,9 @@ export function renderInventoryUI() {
     { id: 'raw_crab', name: 'Raw Crab', icon: '🦀', labelKey: 'inv.raw_crab' },
     { id: 'worm', name: 'Worm', icon: '🐛', labelKey: 'inv.worm' },
     { id: 'cooked_meat', name: 'Cooked Meat', icon: '🍖', labelKey: 'inv.cooked_meat' },
+    { id: 'egg', name: 'Egg', icon: '🥚', labelKey: 'inv.egg' },
+    { id: 'cooked_egg', name: 'Cooked Egg', icon: '🍳', labelKey: 'inv.cooked_egg' },
+    { id: 'fishing_rod', name: 'Fishing Rod', icon: '🎣', labelKey: 'inv.fishing_rod' },
     { id: 'campfire', name: 'Campfire', icon: '🔥', labelKey: 'inv.campfire' },
     { id: 'straw_hat', name: 'Straw Hat', icon: '👒', labelKey: 'inv.straw_hat' },
     { id: 'explorer_vest', name: 'Explorer Vest', icon: '🦺', labelKey: 'inv.explorer_vest' },
@@ -652,6 +726,7 @@ export function renderInventoryUI() {
     const recipes = [
       { id: 'rope', name: 'Rope', icon: '🧵', cost: { leaves: 3 }, costText: '3 Leaves', labelKey: 'hotbar.rope', descKey: 'recipe.rope' },
       { id: 'campfire', name: 'Campfire', icon: '🔥', cost: { wood: 4, stone: 2 }, costText: '4 Wood, 2 Stone', labelKey: 'inv.campfire', descKey: 'recipe.campfire' },
+      { id: 'fishing_rod', name: 'Fishing Rod', icon: '🎣', cost: { stick: 2, rope: 2 }, costText: '2 Sticks, 2 Ropes', labelKey: 'inv.fishing_rod', descKey: 'recipe.fishing_rod' },
       { id: 'straw_hat', name: 'Straw Hat', icon: '👒', cost: { leaves: 6, rope: 2 }, costText: '6 Leaves, 2 Ropes', labelKey: 'inv.straw_hat', descKey: 'recipe.straw_hat' },
       { id: 'grass_pants', name: 'Grass Pants', icon: '👖', cost: { leaves: 8, rope: 3 }, costText: '8 Leaves, 3 Ropes', labelKey: 'inv.grass_pants', descKey: 'recipe.grass_pants' },
       { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', cost: { wood: 4, rope: 2 }, costText: '4 Wood, 2 Ropes', labelKey: 'inv.wooden_boots', descKey: 'recipe.wooden_boots' }
@@ -661,7 +736,8 @@ export function renderInventoryUI() {
       leaves: '🍃',
       rope: '🧵',
       wood: '🪵',
-      stone: '🪨'
+      stone: '🪨',
+      stick: '🦯'
     };
 
     recipes.forEach(recipe => {
@@ -744,12 +820,22 @@ export function renderInventoryUI() {
     left_hand: `<svg viewBox="0 0 24 24" class="slot-placeholder-svg"><path d="M12 2 C16.5 2 20 3.5 20 7 C20 13.5 16.5 18.5 12 21 C7.5 18.5 4 13.5 4 7 C4 3.5 7.5 2 12 2 Z" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
   };
 
+  const allEquipableItems = {
+    straw_hat: { name: 'Straw Hat', icon: '👒', labelKey: 'inv.straw_hat' },
+    explorer_vest: { name: 'Explorer Vest', icon: '🦺', labelKey: 'inv.explorer_vest' },
+    grass_pants: { name: 'Grass Pants', icon: '👖', labelKey: 'inv.grass_pants' },
+    wooden_boots: { name: 'Wooden Boots', icon: '🥾', labelKey: 'inv.wooden_boots' },
+    stick: { name: 'Stick', icon: '🦯', labelKey: 'inv.stick' },
+    fishing_rod: { name: 'Fishing Rod', icon: '🎣', labelKey: 'inv.fishing_rod' },
+    cane: { name: 'Cane', icon: '🎋', labelKey: 'inv.cane' }
+  };
+
   for (const slotType in clothingSlots) {
     const el = document.querySelector(`.clothing-slot[data-slot="${slotType}"]`);
     if (el) {
       const equippedId = player.equipped[slotType];
       if (equippedId) {
-        const itemInfo = clothingSlots[slotType];
+        const itemInfo = allEquipableItems[equippedId] || clothingSlots[slotType];
         el.classList.remove('empty');
         el.innerHTML = `
           <span class="clothing-slot-type">${getTranslation(`inv_slot_${slotType}`) || slotType.toUpperCase()}</span>
@@ -783,7 +869,7 @@ export function renderInventoryUI() {
 
 // Equip wearable item or use item
 function equipItem(itemId) {
-  if (itemId === 'raw_fish' || itemId === 'raw_crab' || itemId === 'cooked_meat') {
+  if (itemId === 'raw_fish' || itemId === 'raw_crab' || itemId === 'cooked_meat' || itemId === 'egg' || itemId === 'cooked_egg') {
     consumeFood(itemId);
     return;
   }
@@ -800,6 +886,7 @@ function equipItem(itemId) {
   else if (itemId === 'grass_pants') slotType = 'legs';
   else if (itemId === 'wooden_boots') slotType = 'feet';
   else if (itemId === 'stick') slotType = 'right_hand';
+  else if (itemId === 'fishing_rod') slotType = 'right_hand';
   else if (itemId === 'cane') slotType = 'left_hand';
 
   if (!slotType) return; // not wearable/equipable
@@ -823,7 +910,12 @@ function equipItem(itemId) {
     if (player.pickaxeMesh) player.pickaxeMesh.visible = false;
     if (player.axeMesh) player.axeMesh.visible = false;
     if (player.stickMesh) player.stickMesh.visible = (itemId === 'stick');
+    if (player.fishingRodMesh) player.fishingRodMesh.visible = (itemId === 'fishing_rod');
     if (player.caneMesh) player.caneMesh.visible = (itemId === 'cane');
+
+    if (player.isFishing) {
+      cancelFishing();
+    }
   }
 
   playSelect(); // audio feedback
@@ -845,7 +937,12 @@ export function equipCustomItem(itemId) {
     player.axeMesh.visible = false;
   }
   if (player.stickMesh) player.stickMesh.visible = (itemId === 'stick');
+  if (player.fishingRodMesh) player.fishingRodMesh.visible = (itemId === 'fishing_rod');
   if (player.caneMesh) player.caneMesh.visible = (itemId === 'cane');
+  
+  if (player.isFishing) {
+    cancelFishing();
+  }
   playSelect();
 }
 
@@ -860,6 +957,11 @@ function consumeFood(itemId) {
     player.health = Math.min(100, player.health + 20);
     player.hydration = Math.min(100, player.hydration + 5);
     showHudMessage(getTranslation('msg_ate_cooked') || 'Ate cooked meat! +20 HP, +40 Energy');
+  } else if (itemId === 'cooked_egg') {
+    player.energy = Math.min(100, player.energy + 30);
+    player.health = Math.min(100, player.health + 15);
+    player.hydration = Math.min(100, player.hydration + 5);
+    showHudMessage(getTranslation('msg_ate_cooked_egg') || 'Ate cooked egg! +15 HP, +30 Energy, +5 Hydration');
   } else {
     player.energy = Math.max(0, player.energy - 10);
     player.health = Math.max(0, player.health - 5);
@@ -883,6 +985,11 @@ function unequipItem(slotType) {
     player.activeCustomItem = null;
     if (player.stickMesh) player.stickMesh.visible = false;
     if (player.caneMesh) player.caneMesh.visible = false;
+    if (player.fishingRodMesh) player.fishingRodMesh.visible = false;
+
+    if (player.isFishing) {
+      cancelFishing();
+    }
     
     // Restore hotbar tools selection if applicable
     if (player.selectedSlot !== -1) {
