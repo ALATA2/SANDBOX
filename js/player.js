@@ -13,12 +13,14 @@ export const player = {
   
   // Hand held models state
   handGroup: null,
+  leftHandGroup: null,
   spearMesh: null,
   pickaxeMesh: null,
   axeMesh: null,
   stickMesh: null,
   caneMesh: null,
   fishingRodMesh: null,
+  torchMesh: null,
   activeCustomItem: null,
   
   // Tool swing animation states
@@ -54,7 +56,9 @@ export const player = {
     campfire: 0,
     stick: 0,
     cane: 0,
-    worm: 0
+    worm: 0,
+    torch: 0,
+    berries: 0
   },
   equipped: {
     head: null,
@@ -77,7 +81,12 @@ export function initPlayer() {
   player.handGroup.position.set(0.25, -0.32, -0.45);
   player.handGroup.rotation.set(-0.55, -0.65, 0.2);
   game.camera.add(player.handGroup);
-  // Ensure camera child is added to scene properly (implicitly camera is in scene)
+
+  // Mirrored left-hand group for left hand slot items
+  player.leftHandGroup = new THREE.Group();
+  player.leftHandGroup.position.set(-0.25, -0.32, -0.45);
+  player.leftHandGroup.rotation.set(-0.55, 0.65, -0.2);
+  game.camera.add(player.leftHandGroup);
 
   // 2. Build Low-Poly 3D Spear
   buildSpearModel();
@@ -96,6 +105,9 @@ export function initPlayer() {
 
   // Build Low-Poly 3D Fishing Rod
   buildFishingRodModel();
+
+  // Build Low-Poly 3D Torch
+  buildTorchModel();
 
   // 4. Set starting slot selection
   selectSlot(-1); // Start with empty hands (free hands)
@@ -363,7 +375,7 @@ function buildCaneModel() {
   }
   
   player.caneMesh.rotation.z = -0.15;
-  player.handGroup.add(player.caneMesh);
+  player.leftHandGroup.add(player.caneMesh);
   player.caneMesh.visible = false;
 }
 
@@ -406,6 +418,52 @@ function buildFishingRodModel() {
   player.fishingRodMesh.visible = false;
 }
 
+// Draw a beautiful low-poly Torch with a PointLight
+function buildTorchModel() {
+  player.torchMesh = new THREE.Group();
+  
+  const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x5c3d24, roughness: 0.9, flatShading: true }); // Dark brown stick
+  const metalMaterial = new THREE.MeshStandardMaterial({ color: 0x4a4a4a, roughness: 0.5, metalness: 0.5, flatShading: true }); // Dark metal cup
+  const flameMaterial = new THREE.MeshBasicMaterial({ color: 0xffaa00 }); // Glowing orange/yellow flame
+  
+  // Handle (wood cylinder)
+  const handleGeom = new THREE.CylinderGeometry(0.012, 0.012, 0.35, 5);
+  const handle = new THREE.Mesh(handleGeom, woodMaterial);
+  handle.position.y = 0.175;
+  player.torchMesh.add(handle);
+  
+  // Cup/Bracket (metal cylinder on top of handle)
+  const cupGeom = new THREE.CylinderGeometry(0.02, 0.015, 0.08, 6);
+  const cup = new THREE.Mesh(cupGeom, metalMaterial);
+  cup.position.y = 0.35 + 0.04;
+  player.torchMesh.add(cup);
+  
+  // Flame (cone)
+  const flameGeom = new THREE.ConeGeometry(0.025, 0.1, 5);
+  const flame = new THREE.Mesh(flameGeom, flameMaterial);
+  flame.position.y = 0.39 + 0.05;
+  player.torchMesh.add(flame);
+  
+  // PointLight
+  // A warm orange light
+  const light = new THREE.PointLight(0xffaa44, 2.0, 15);
+  light.position.y = 0.39 + 0.05;
+  light.castShadow = true;
+  light.shadow.bias = -0.002;
+  player.torchMesh.add(light);
+  
+  // Keep track of light so we can animate/flicker it in updatePlayer
+  player.torchMesh.userData = {
+    light: light,
+    flame: flame,
+    flickerTime: 0
+  };
+  
+  player.torchMesh.rotation.z = -0.15;
+  player.leftHandGroup.add(player.torchMesh);
+  player.torchMesh.visible = false;
+}
+
 // Cancel active fishing
 export function cancelFishing() {
   if (!player.isFishing) return;
@@ -416,6 +474,38 @@ export function cancelFishing() {
     player.bobberMesh = null;
   }
   showHudMessage(getTranslation('msg_fishing_cancelled') || 'Fishing cancelled!');
+}
+
+// Update visibility of hand meshes based on slot selection and equipped items
+export function updateHandMeshesVisibility() {
+  if (player.spearMesh) player.spearMesh.visible = false;
+  if (player.axeMesh) player.axeMesh.visible = false;
+  if (player.pickaxeMesh) player.pickaxeMesh.visible = false;
+  if (player.stickMesh) player.stickMesh.visible = false;
+  if (player.fishingRodMesh) player.fishingRodMesh.visible = false;
+  if (player.caneMesh) player.caneMesh.visible = false;
+  if (player.torchMesh) player.torchMesh.visible = false;
+
+  // Resolve active custom item for backward compatibility
+  player.activeCustomItem = player.equipped.right_hand || player.equipped.left_hand;
+
+  // Right-hand item/tool
+  const rightHandItem = player.equipped.right_hand;
+  if (rightHandItem) {
+    if (rightHandItem === 'stick' && player.stickMesh) player.stickMesh.visible = true;
+    if (rightHandItem === 'fishing_rod' && player.fishingRodMesh) player.fishingRodMesh.visible = true;
+  } else {
+    if (player.selectedSlot === 0 && player.spearMesh) player.spearMesh.visible = true;
+    if (player.selectedSlot === 1 && player.axeMesh) player.axeMesh.visible = true;
+    if (player.selectedSlot === 6 && player.pickaxeMesh) player.pickaxeMesh.visible = true;
+  }
+
+  // Left-hand item/tool
+  const leftHandItem = player.equipped.left_hand;
+  if (leftHandItem) {
+    if (leftHandItem === 'cane' && player.caneMesh) player.caneMesh.visible = true;
+    if (leftHandItem === 'torch' && player.torchMesh) player.torchMesh.visible = true;
+  }
 }
 
 // Select active slot
@@ -431,27 +521,18 @@ export function selectSlot(index) {
     }
   });
 
-  // Switch visible hand model
-  if (player.spearMesh && player.pickaxeMesh && player.axeMesh) {
-    player.spearMesh.visible = false;
-    player.pickaxeMesh.visible = false;
-    player.axeMesh.visible = false;
-    if (player.stickMesh) player.stickMesh.visible = false;
-    if (player.caneMesh) player.caneMesh.visible = false;
-    if (player.fishingRodMesh) player.fishingRodMesh.visible = false;
-    player.activeCustomItem = null;
+  // If a hotbar slot is selected (which is a right-hand tool), we unequip any custom right-hand item!
+  if (index !== -1 && player.equipped.right_hand) {
+    const rightHandItem = player.equipped.right_hand;
+    player.equipped.right_hand = null;
+    player.inventory[rightHandItem] = (player.inventory[rightHandItem] || 0) + 1;
+    renderInventoryUI();
+  }
 
-    if (player.isFishing) {
-      cancelFishing();
-    }
+  updateHandMeshesVisibility();
 
-    if (index === 0) {
-      player.spearMesh.visible = true; // Spear
-    } else if (index === 1) {
-      player.axeMesh.visible = true;   // Axe
-    } else if (index === 6) {
-      player.pickaxeMesh.visible = true; // Pickaxe
-    }
+  if (player.equipped.right_hand !== 'fishing_rod' && player.isFishing) {
+    cancelFishing();
   }
 }
 
@@ -492,6 +573,24 @@ export function updatePlayer(delta) {
       player.handGroup.rotation.z = 0.2 - progress * 0.3;
       player.handGroup.position.set(0.25 - progress * 0.1, -0.32 - progress * 0.12, -0.45 + progress * 0.05);
     }
+
+    // Left hand bobbing during swing
+    if (player.leftHandGroup) {
+      let isMoving = false;
+      if (game.controls && game.controls.getObject) {
+        const keysPressed = document.querySelectorAll('#blocker[style*="display: none"]').length > 0 &&
+          (moveForward || moveBackward || moveLeft || moveRight);
+        isMoving = keysPressed;
+      }
+      const bobSpeed = isMoving ? 14.0 : 2.5;
+      const bobAmountX = isMoving ? 0.02 : 0.005;
+      const bobAmountY = isMoving ? 0.035 : 0.01;
+
+      player.leftHandGroup.position.x = -0.25 - Math.sin(time * bobSpeed * 0.5) * bobAmountX;
+      player.leftHandGroup.position.y = -0.32 + Math.cos(time * bobSpeed) * bobAmountY;
+      player.leftHandGroup.position.z = -0.45;
+      player.leftHandGroup.rotation.set(-0.55, 0.65, -0.2);
+    }
   } else {
     // 2. Idle / Walking Bobbing (breathing animation)
     let isMoving = false;
@@ -510,6 +609,26 @@ export function updatePlayer(delta) {
     player.handGroup.position.y = -0.32 + Math.cos(time * bobSpeed) * bobAmountY;
     player.handGroup.position.z = -0.45;
     player.handGroup.rotation.set(-0.55, -0.65, 0.2);
+
+    // Left hand bobbing
+    if (player.leftHandGroup) {
+      player.leftHandGroup.position.x = -0.25 - Math.sin(time * bobSpeed * 0.5) * bobAmountX;
+      player.leftHandGroup.position.y = -0.32 + Math.cos(time * bobSpeed) * bobAmountY;
+      player.leftHandGroup.position.z = -0.45;
+      player.leftHandGroup.rotation.set(-0.55, 0.65, -0.2);
+    }
+  }
+
+  // 2.5 Torch flicker animation
+  if (player.torchMesh && player.torchMesh.visible) {
+    const light = player.torchMesh.userData.light;
+    const flame = player.torchMesh.userData.flame;
+    if (light && flame) {
+      player.torchMesh.userData.flickerTime += delta * 15;
+      const flicker = Math.sin(player.torchMesh.userData.flickerTime);
+      light.intensity = 1.8 + flicker * 0.25;
+      flame.scale.set(1 + flicker * 0.1, 1 + Math.cos(player.torchMesh.userData.flickerTime * 0.7) * 0.15, 1 + flicker * 0.1);
+    }
   }
 
   // 3. Update Player Stats decay (Health, Energy, Hydration)
@@ -685,7 +804,9 @@ export function renderInventoryUI() {
     { id: 'grass_pants', name: 'Grass Pants', icon: '👖', labelKey: 'inv.grass_pants' },
     { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', labelKey: 'inv.wooden_boots' },
     { id: 'stick', name: 'Stick', icon: '🦯', labelKey: 'inv.stick' },
-    { id: 'cane', name: 'Cane', icon: '🎋', labelKey: 'inv.cane' }
+    { id: 'cane', name: 'Cane', icon: '🎋', labelKey: 'inv.cane' },
+    { id: 'torch', name: 'Hand Torch', icon: '🔦', labelKey: 'inv.torch' },
+    { id: 'berries', name: 'Wild Berries', icon: '🍒', labelKey: 'inv.berries' }
   ];
 
   // Render items the player actually has
@@ -729,7 +850,8 @@ export function renderInventoryUI() {
       { id: 'fishing_rod', name: 'Fishing Rod', icon: '🎣', cost: { stick: 2, rope: 2 }, costText: '2 Sticks, 2 Ropes', labelKey: 'inv.fishing_rod', descKey: 'recipe.fishing_rod' },
       { id: 'straw_hat', name: 'Straw Hat', icon: '👒', cost: { leaves: 6, rope: 2 }, costText: '6 Leaves, 2 Ropes', labelKey: 'inv.straw_hat', descKey: 'recipe.straw_hat' },
       { id: 'grass_pants', name: 'Grass Pants', icon: '👖', cost: { leaves: 8, rope: 3 }, costText: '8 Leaves, 3 Ropes', labelKey: 'inv.grass_pants', descKey: 'recipe.grass_pants' },
-      { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', cost: { wood: 4, rope: 2 }, costText: '4 Wood, 2 Ropes', labelKey: 'inv.wooden_boots', descKey: 'recipe.wooden_boots' }
+      { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', cost: { wood: 4, rope: 2 }, costText: '4 Wood, 2 Ropes', labelKey: 'inv.wooden_boots', descKey: 'recipe.wooden_boots' },
+      { id: 'torch', name: 'Hand Torch', icon: '🔦', cost: { stick: 1, leaves: 2 }, costText: '1 Stick, 2 Leaves', labelKey: 'inv.torch', descKey: 'recipe.torch' }
     ];
 
     const resourceIcons = {
@@ -827,7 +949,8 @@ export function renderInventoryUI() {
     wooden_boots: { name: 'Wooden Boots', icon: '🥾', labelKey: 'inv.wooden_boots' },
     stick: { name: 'Stick', icon: '🦯', labelKey: 'inv.stick' },
     fishing_rod: { name: 'Fishing Rod', icon: '🎣', labelKey: 'inv.fishing_rod' },
-    cane: { name: 'Cane', icon: '🎋', labelKey: 'inv.cane' }
+    cane: { name: 'Cane', icon: '🎋', labelKey: 'inv.cane' },
+    torch: { name: 'Hand Torch', icon: '🔦', labelKey: 'inv.torch' }
   };
 
   for (const slotType in clothingSlots) {
@@ -869,7 +992,7 @@ export function renderInventoryUI() {
 
 // Equip wearable item or use item
 function equipItem(itemId) {
-  if (itemId === 'raw_fish' || itemId === 'raw_crab' || itemId === 'cooked_meat' || itemId === 'egg' || itemId === 'cooked_egg') {
+  if (itemId === 'raw_fish' || itemId === 'raw_crab' || itemId === 'cooked_meat' || itemId === 'egg' || itemId === 'cooked_egg' || itemId === 'berries') {
     consumeFood(itemId);
     return;
   }
@@ -888,6 +1011,7 @@ function equipItem(itemId) {
   else if (itemId === 'stick') slotType = 'right_hand';
   else if (itemId === 'fishing_rod') slotType = 'right_hand';
   else if (itemId === 'cane') slotType = 'left_hand';
+  else if (itemId === 'torch') slotType = 'left_hand';
 
   if (!slotType) return; // not wearable/equipable
 
@@ -901,19 +1025,16 @@ function equipItem(itemId) {
 
   // Sync hand slots with actual held weapon models
   if (slotType === 'right_hand' || slotType === 'left_hand') {
-    player.activeCustomItem = itemId;
-    player.selectedSlot = -1; // Deselect hotbar slots
-    document.querySelectorAll('.hotbar-slot').forEach(slot => {
-      slot.classList.remove('selected');
-    });
-    if (player.spearMesh) player.spearMesh.visible = false;
-    if (player.pickaxeMesh) player.pickaxeMesh.visible = false;
-    if (player.axeMesh) player.axeMesh.visible = false;
-    if (player.stickMesh) player.stickMesh.visible = (itemId === 'stick');
-    if (player.fishingRodMesh) player.fishingRodMesh.visible = (itemId === 'fishing_rod');
-    if (player.caneMesh) player.caneMesh.visible = (itemId === 'cane');
+    if (slotType === 'right_hand') {
+      player.selectedSlot = -1; // Deselect hotbar slots ONLY when equipping right-hand item
+      document.querySelectorAll('.hotbar-slot').forEach(slot => {
+        slot.classList.remove('selected');
+      });
+    }
 
-    if (player.isFishing) {
+    updateHandMeshesVisibility();
+
+    if (player.equipped.right_hand !== 'fishing_rod' && player.isFishing) {
       cancelFishing();
     }
   }
@@ -926,24 +1047,28 @@ function equipItem(itemId) {
 export function equipCustomItem(itemId) {
   if (!player.inventory[itemId] || player.inventory[itemId] <= 0) return;
   
-  player.activeCustomItem = itemId;
-  player.selectedSlot = -1; // Deselect hotbar slots
-  document.querySelectorAll('.hotbar-slot').forEach(slot => {
-    slot.classList.remove('selected');
-  });
-  if (player.spearMesh && player.pickaxeMesh && player.axeMesh) {
-    player.spearMesh.visible = false;
-    player.pickaxeMesh.visible = false;
-    player.axeMesh.visible = false;
+  let slotType = (itemId === 'cane' || itemId === 'torch') ? 'left_hand' : 'right_hand';
+  const currentEquipped = player.equipped[slotType];
+  if (currentEquipped) {
+    player.inventory[currentEquipped] = (player.inventory[currentEquipped] || 0) + 1;
   }
-  if (player.stickMesh) player.stickMesh.visible = (itemId === 'stick');
-  if (player.fishingRodMesh) player.fishingRodMesh.visible = (itemId === 'fishing_rod');
-  if (player.caneMesh) player.caneMesh.visible = (itemId === 'cane');
+  player.equipped[slotType] = itemId;
+  player.inventory[itemId]--;
+
+  if (slotType === 'right_hand') {
+    player.selectedSlot = -1; // Deselect hotbar slots
+    document.querySelectorAll('.hotbar-slot').forEach(slot => {
+      slot.classList.remove('selected');
+    });
+  }
+
+  updateHandMeshesVisibility();
   
-  if (player.isFishing) {
+  if (player.equipped.right_hand !== 'fishing_rod' && player.isFishing) {
     cancelFishing();
   }
   playSelect();
+  renderInventoryUI();
 }
 
 // Consume food and modify player stats
@@ -962,6 +1087,11 @@ function consumeFood(itemId) {
     player.health = Math.min(100, player.health + 15);
     player.hydration = Math.min(100, player.hydration + 5);
     showHudMessage(getTranslation('msg_ate_cooked_egg') || 'Ate cooked egg! +15 HP, +30 Energy, +5 Hydration');
+  } else if (itemId === 'berries') {
+    player.energy = Math.min(100, player.energy + 15);
+    player.health = Math.min(100, player.health + 5);
+    player.hydration = Math.min(100, player.hydration + 10);
+    showHudMessage(getTranslation('msg_ate_berries') || 'Ate wild berries! +5 HP, +15 Energy, +10 Hydration');
   } else {
     player.energy = Math.max(0, player.energy - 10);
     player.health = Math.max(0, player.health - 5);
@@ -982,12 +1112,9 @@ function unequipItem(slotType) {
 
   // Sync hand slots with actual held weapon models
   if (slotType === 'right_hand' || slotType === 'left_hand') {
-    player.activeCustomItem = null;
-    if (player.stickMesh) player.stickMesh.visible = false;
-    if (player.caneMesh) player.caneMesh.visible = false;
-    if (player.fishingRodMesh) player.fishingRodMesh.visible = false;
+    updateHandMeshesVisibility();
 
-    if (player.isFishing) {
+    if (slotType === 'right_hand' && equippedId === 'fishing_rod' && player.isFishing) {
       cancelFishing();
     }
     
@@ -996,11 +1123,6 @@ function unequipItem(slotType) {
       // Re-select standard tool
       const toolSlots = ['spear', 'axe', '', '', '', '', 'pickaxe'];
       const activeTool = toolSlots[player.selectedSlot];
-      if (activeTool) {
-        if (player.spearMesh) player.spearMesh.visible = (activeTool === 'spear');
-        if (player.axeMesh) player.axeMesh.visible = (activeTool === 'axe');
-        if (player.pickaxeMesh) player.pickaxeMesh.visible = (activeTool === 'pickaxe');
-      }
       const slotEl = document.querySelector(`.hotbar-slot[data-slot="${player.selectedSlot}"]`);
       if (slotEl) slotEl.classList.add('selected');
     }

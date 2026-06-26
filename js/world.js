@@ -24,6 +24,7 @@ export const world = {
   clouds: [], // Array of cloud meshes
   campfires: [], // Array of placed campfire groups
   canes: [], // Array of active cane plant groups
+  berryBushes: [], // Array of active berry bushes
   seabedMesh: null // 3D Seabed Mesh
 };
 
@@ -1908,6 +1909,71 @@ function spawnScenery() {
     item.pos.y = groundY + 0.15;
     spawnDebris(item.pos, new THREE.Vector3(0, 1, 0), item.type);
   });
+
+  // 12. Spawn exactly 12 Wild Berry Bushes across the island
+  let spawnedBushes = 0;
+  let spawnAttempts = 0;
+  while (spawnedBushes < 12 && spawnAttempts < 100) {
+    spawnAttempts++;
+    const rx = Math.random() * (world.sizeX - 10) + 5;
+    const rz = Math.random() * (world.sizeZ - 10) + 5;
+    const wx = rx * spacing;
+    const wz = rz * spacing;
+    const wy = getSurfaceHeightNear(wx, 15, wz);
+    
+    const lakeDist = Math.sqrt((wx - 41.6)*(wx - 41.6) + (wz - 41.6)*(wz - 41.6));
+    if (wy > 4.2 && lakeDist > 25.0) {
+      const bushGroup = new THREE.Group();
+      
+      const bushGeom = new THREE.DodecahedronGeometry(0.55 + Math.random() * 0.15, 1);
+      const bushMaterial = new THREE.MeshStandardMaterial({ color: 0x1f5f38, roughness: 0.9, flatShading: true });
+      
+      const bushMesh = new THREE.Mesh(bushGeom, bushMaterial);
+      bushMesh.castShadow = true;
+      bushMesh.receiveShadow = true;
+      bushGroup.add(bushMesh);
+      
+      // Dynamic additional puff
+      const puffGeom = new THREE.DodecahedronGeometry(0.35, 0);
+      const puff = new THREE.Mesh(puffGeom, bushMaterial);
+      puff.position.set(0.15, 0.15, -0.1);
+      puff.castShadow = true;
+      puff.receiveShadow = true;
+      bushGroup.add(puff);
+
+      // Red berries
+      const berryGeom = new THREE.DodecahedronGeometry(0.06, 0);
+      const berryMaterial = new THREE.MeshStandardMaterial({ color: 0xee2222, roughness: 0.5, flatShading: true });
+      
+      const berryPositions = [
+        new THREE.Vector3(0.4, 0.2, 0.3),
+        new THREE.Vector3(-0.4, 0.25, 0.2),
+        new THREE.Vector3(0.1, 0.45, -0.35),
+        new THREE.Vector3(-0.25, 0.3, -0.3)
+      ];
+      
+      const berriesList = [];
+      berryPositions.forEach(pos => {
+        const berry = new THREE.Mesh(berryGeom, berryMaterial);
+        berry.position.copy(pos);
+        berry.castShadow = true;
+        bushGroup.add(berry);
+        berriesList.push(berry);
+      });
+      
+      bushGroup.position.set(wx, wy, wz);
+      bushGroup.userData = {
+        hasBerries: true,
+        regrowTimer: 0.0,
+        berriesList: berriesList
+      };
+      
+      game.scene.add(bushGroup);
+      world.sceneryMeshes.push({ mesh: bushGroup, type: 'berry_bush' });
+      world.berryBushes.push(bushGroup);
+      spawnedBushes++;
+    }
+  }
 }
 
 // Spawns a 3D wooden bulletin feedback board on the island - Position scaled by 3
@@ -2034,6 +2100,7 @@ export function initWorld() {
   spawnScenery();
   spawnFeedbackBoard();
   spawnSeabed();
+  spawnClouds();
 }
 
 // Snap all scenery close to a deformation hitPoint
@@ -2142,6 +2209,25 @@ export function updateWorld(delta) {
             campfire.userData.light.distance = 8.0 * scaleMult;
           } else {
             campfire.userData.light.intensity = 0;
+          }
+        }
+      }
+    });
+  }
+
+  // Update berry bushes regrowth
+  if (world.berryBushes) {
+    world.berryBushes.forEach(bush => {
+      if (!bush.userData.hasBerries) {
+        bush.userData.regrowTimer -= delta;
+        if (bush.userData.regrowTimer <= 0) {
+          bush.userData.hasBerries = true;
+          bush.userData.regrowTimer = 0.0;
+          // Make all berries visible again
+          if (bush.userData.berriesList) {
+            bush.userData.berriesList.forEach(berry => {
+              berry.visible = true;
+            });
           }
         }
       }

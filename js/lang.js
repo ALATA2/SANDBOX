@@ -146,7 +146,14 @@ export const translations = {
     msg_fishing_caught: "Caught a fish!",
     msg_fishing_escaped: "The fish got away!",
     msg_fishing_early: "Reeled in too early!",
-    msg_fishing_cancelled: "Fishing cancelled!"
+    msg_fishing_cancelled: "Fishing cancelled!",
+    msg_no_bait: "Needs 1 Worm as bait! Collect them from the dead seagull.",
+    "inv.torch": "Hand Torch",
+    "recipe.torch": "1 Stick, 2 Leaves",
+    "inv.berries": "Wild Berries",
+    interact_harvest_berries: "PRESS E TO GATHER BERRIES",
+    msg_collected_berries: "+3 Wild Berries",
+    msg_ate_berries: "Ate wild berries! +5 HP, +15 Energy, +10 Hydration"
   },
   ja: {
     game_subtitle: "夕暮れの生存と採掘",
@@ -669,7 +676,14 @@ export const translations = {
     msg_fishing_caught: "Pesce pescato!",
     msg_fishing_escaped: "Il pesce è fuggito!",
     msg_fishing_early: "Hai tirato troppo presto!",
-    msg_fishing_cancelled: "Pesca annullata!"
+    msg_fishing_cancelled: "Pesca annullata!",
+    msg_no_bait: "Serve 1 Verme come esca! Raccoglili dal gabbiano morto.",
+    "inv.torch": "Torcia a Mano",
+    "recipe.torch": "1 Bastone, 2 Foglie",
+    "inv.berries": "Bacche Selvatiche",
+    interact_harvest_berries: "PREMI E PER RACCOGLIERE LE BACCHE",
+    msg_collected_berries: "+3 Bacche Selvatiche",
+    msg_ate_berries: "Mangiate bacche selvatiche! +5 HP, +15 Energia, +10 Idratazione"
   },
 };
 

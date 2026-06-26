@@ -10,6 +10,7 @@ export const activeDebris = [];
 let closestDebris = null;
 export let nearFeedbackBoard = false;
 let closestCampfire = null;
+let closestBerryBush = null;
 let campfireHologram = null;
 
 // Initialize Raycasting and keyboard listeners for interaction
@@ -98,6 +99,8 @@ export function initInteraction() {
         }
       } else if (nearRosita) {
         feedRosita();
+      } else if (closestBerryBush) {
+        gatherBerries();
       } else if (closestCampfire) {
         const isBurning = closestCampfire.userData && closestCampfire.userData.burnTime > 0;
         if (isBurning) {
@@ -742,6 +745,28 @@ function checkHarvestablePrompt() {
     return;
   }
 
+  // Check proximity to wild berry bushes
+  closestBerryBush = null;
+  if (world.berryBushes) {
+    let minBerryDist = 2.2;
+    world.berryBushes.forEach(bush => {
+      if (bush.userData && bush.userData.hasBerries) {
+        const dist = playerPos.distanceTo(bush.position);
+        if (dist < minBerryDist) {
+          minBerryDist = dist;
+          closestBerryBush = bush;
+        }
+      }
+    });
+  }
+
+  if (closestBerryBush) {
+    const rawPrompt = getTranslation('interact_harvest_berries') || "PRESS E TO GATHER BERRIES";
+    prompt.innerHTML = rawPrompt.replace('E', '<span style="color: #ffd700; font-weight:800;">E</span>');
+    prompt.classList.add('visible');
+    return;
+  }
+
   let foundCloseDebris = null;
   let minDist = 2.2; // Maximum collection distance
 
@@ -1036,6 +1061,11 @@ function handleFishingInteraction() {
     }
   } else {
     // Cast rod!
+    if (!player.inventory.worm || player.inventory.worm <= 0) {
+      showHudMessage(getTranslation('msg_no_bait') || "Needs 1 Worm as bait! Collect them from the dead seagull.");
+      return;
+    }
+
     const playerObj = game.controls.getObject();
     if (!playerObj) return;
     const playerPos = playerObj.position.clone();
@@ -1056,6 +1086,11 @@ function handleFishingInteraction() {
         const isWater = inLakeZone || (terrainH < 4.0);
 
         if (isWater) {
+          // Consume 1 worm as bait
+          player.inventory.worm--;
+          syncHotbarCounts();
+          renderInventoryUI();
+
           // Spawn bobber mesh
           const bobberGeom = new THREE.SphereGeometry(0.06, 6, 6);
           const bobberMat = new THREE.MeshStandardMaterial({ color: 0xff3b30, roughness: 0.5, flatShading: true });
@@ -1194,4 +1229,28 @@ function addFuelToCampfire() {
     const fuelName = getTranslation(`inv.${fuelType}`) || fuelType;
     showHudMessage(getTranslation('msg_added_fuel', { type: fuelName, amount: addAmount }) || `Added fuel! (${fuelName}: +${addAmount}s)`);
   }
+}
+
+// Gather berries from the closest berry bush
+function gatherBerries() {
+  if (!closestBerryBush || !closestBerryBush.userData.hasBerries) return;
+
+  closestBerryBush.userData.hasBerries = false;
+  closestBerryBush.userData.regrowTimer = 60.0; // 60 seconds to regrow
+
+  // Hide the red berry mesh children
+  if (closestBerryBush.userData.berriesList) {
+    closestBerryBush.userData.berriesList.forEach(berry => {
+      berry.visible = false;
+    });
+  }
+
+  // Add 3 berries to inventory
+  player.inventory.berries = (player.inventory.berries || 0) + 3;
+
+  playSelect(); // Play picking sound (use select sound)
+  showHudMessage(getTranslation('msg_collected_berries') || "+3 Wild Berries");
+
+  syncHotbarCounts();
+  renderInventoryUI();
 }
