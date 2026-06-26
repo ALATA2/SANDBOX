@@ -611,8 +611,6 @@ export function spawnDebris(position, normal, type) {
   } else {
     mesh = new THREE.Mesh(geom, mat);
   }
-
-  const mesh = new THREE.Mesh(geom, mat);
   
   // Shift position slightly outward from surface
   mesh.position.copy(position).addScaledVector(normal, 0.1);
