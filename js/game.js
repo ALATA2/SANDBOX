@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { initControls, updateControls, joystickValues, triggerMobileJump } from './controls.js';
 import { initWorld, updateWorld, world, getSurfaceHeightNear, checkInWater, getWaterHeightAt } from './world.js';
 import { initPlayer, updatePlayer, triggerToolSwing, player } from './player.js';
-import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard } from './interact.js';
+import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard, activeDebris } from './interact.js';
 import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute, setSubmergedAudio, startAmbientSounds, stopAmbientSounds } from './audio.js';
 import { setLanguage, currentLang } from './lang.js';
 
@@ -2525,6 +2525,15 @@ function spawnFauna() {
 
     game.scene.add(worm);
     game.worms.push(worm);
+
+    // Add to activeDebris so the player can highlight and collect them by pressing E
+    activeDebris.push({
+      mesh: worm,
+      velocity: new THREE.Vector3(0, 0, 0),
+      type: 'worm',
+      onGround: true,
+      lifeTime: 999999
+    });
   });
   
   // 3. Spawn Seagulls in the sky (Y = 11 to 16)
