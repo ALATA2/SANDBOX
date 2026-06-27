@@ -247,8 +247,7 @@ export function updateInteraction(delta) {
   }
 
   // If the player is swinging a tool, check for hit at the peak of the swing
-  // The swing duration is 0.25s. We cast a ray near the start (e.g. when swinging is active)
-  if (player.swinging && player.swingTimer > 0.1 && player.swingTimer < 0.15) {
+  if (player.swinging && player.swingTimer <= player.swingDuration * 0.6) {
     // Perform hit detection once per click
     if (!player.hasHitThisSwing) {
       performToolsRaycast();
