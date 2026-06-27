@@ -3,7 +3,7 @@ import { game } from './game.js';
 import { moveForward, moveBackward, moveLeft, moveRight } from './controls.js';
 import { getTranslation } from './lang.js';
 import { playSelect } from './audio.js';
-import { startCampfirePlacement, showHudMessage } from './interact.js';
+import { startCampfirePlacement } from './interact.js';
 import { getVertexVirtualDepth, getOriginalHeight, world } from './world.js';
 
 export const player = {
