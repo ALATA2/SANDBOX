@@ -500,7 +500,6 @@ export function scrollWorld(direction) {
   // 5. Rebuild mesh
   buildMarchingCubesMesh();
 }
-}
 
 // Create the island density grid
 function generateDensityGrid() {
