@@ -3,7 +3,8 @@ import { game } from './game.js';
 import { moveForward, moveBackward, moveLeft, moveRight } from './controls.js';
 import { getTranslation } from './lang.js';
 import { playSelect } from './audio.js';
-import { startCampfirePlacement } from './interact.js';
+import { startCampfirePlacement, showHudMessage } from './interact.js';
+import { getVertexVirtualDepth, getOriginalHeight, world } from './world.js';
 
 export const player = {
   health: 100,
@@ -21,6 +22,8 @@ export const player = {
   caneMesh: null,
   fishingRodMesh: null,
   torchMesh: null,
+  spectrometerMesh: null,
+  chemicalAnalyzerMesh: null,
   activeCustomItem: null,
   
   // Tool swing animation states
@@ -58,7 +61,14 @@ export const player = {
     cane: 0,
     worm: 0,
     torch: 0,
-    berries: 0
+    berries: 0,
+    spectrometer: 0,
+    chemical_analyzer: 0,
+    heat_suit: 0,
+    silicon: 0,
+    titanium: 0,
+    copper: 0,
+    glass: 0
   },
   equipped: {
     head: null,
@@ -108,6 +118,10 @@ export function initPlayer() {
 
   // Build Low-Poly 3D Torch
   buildTorchModel();
+
+  // Build Chemistry Voxel tools
+  buildSpectrometerModel();
+  buildChemicalAnalyzerModel();
 
   // 4. Set starting slot selection
   selectSlot(-1); // Start with empty hands (free hands)
@@ -464,6 +478,52 @@ function buildTorchModel() {
   player.torchMesh.visible = false;
 }
 
+function buildSpectrometerModel() {
+  player.spectrometerMesh = new THREE.Group();
+  
+  // Brass body
+  const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8a060, roughness: 0.3, metalness: 0.8, flatShading: true });
+  const bodyGeom = new THREE.CylinderGeometry(0.02, 0.02, 0.25, 6);
+  const bodyMesh = new THREE.Mesh(bodyGeom, brassMat);
+  bodyMesh.position.set(0.12, 0.15, -0.22);
+  bodyMesh.rotation.x = Math.PI / 4;
+  player.spectrometerMesh.add(bodyMesh);
+
+  // Cyan glowing lens/laser head
+  const cyanMat = new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.8, flatShading: true });
+  const lensGeom = new THREE.CylinderGeometry(0.025, 0.015, 0.04, 6);
+  const lensMesh = new THREE.Mesh(lensGeom, cyanMat);
+  lensMesh.position.set(0.12, 0.24, -0.31);
+  lensMesh.rotation.x = Math.PI / 4;
+  player.spectrometerMesh.add(lensMesh);
+
+  player.handGroup.add(player.spectrometerMesh);
+  player.spectrometerMesh.visible = false;
+}
+
+function buildChemicalAnalyzerModel() {
+  player.chemicalAnalyzerMesh = new THREE.Group();
+
+  // Steel body
+  const steelMat = new THREE.MeshStandardMaterial({ color: 0x506070, roughness: 0.4, metalness: 0.8, flatShading: true });
+  const bodyGeom = new THREE.BoxGeometry(0.08, 0.15, 0.05);
+  const bodyMesh = new THREE.Mesh(bodyGeom, steelMat);
+  bodyMesh.position.set(0.12, 0.12, -0.2);
+  bodyMesh.rotation.y = Math.PI / 6;
+  player.chemicalAnalyzerMesh.add(bodyMesh);
+
+  // Green glowing analyzer screen
+  const screenMat = new THREE.MeshStandardMaterial({ color: 0x33cc33, emissive: 0x33cc33, emissiveIntensity: 0.6, flatShading: true });
+  const screenGeom = new THREE.PlaneGeometry(0.06, 0.08);
+  const screenMesh = new THREE.Mesh(screenGeom, screenMat);
+  screenMesh.position.set(0.11, 0.12, -0.173);
+  screenMesh.rotation.y = Math.PI / 6;
+  player.chemicalAnalyzerMesh.add(screenMesh);
+
+  player.handGroup.add(player.chemicalAnalyzerMesh);
+  player.chemicalAnalyzerMesh.visible = false;
+}
+
 // Cancel active fishing
 export function cancelFishing() {
   if (!player.isFishing) return;
@@ -485,6 +545,8 @@ export function updateHandMeshesVisibility() {
   if (player.fishingRodMesh) player.fishingRodMesh.visible = false;
   if (player.caneMesh) player.caneMesh.visible = false;
   if (player.torchMesh) player.torchMesh.visible = false;
+  if (player.spectrometerMesh) player.spectrometerMesh.visible = false;
+  if (player.chemicalAnalyzerMesh) player.chemicalAnalyzerMesh.visible = false;
 
   // Resolve active custom item for backward compatibility
   player.activeCustomItem = player.equipped.right_hand || player.equipped.left_hand;
@@ -494,6 +556,8 @@ export function updateHandMeshesVisibility() {
   if (rightHandItem) {
     if (rightHandItem === 'stick' && player.stickMesh) player.stickMesh.visible = true;
     if (rightHandItem === 'fishing_rod' && player.fishingRodMesh) player.fishingRodMesh.visible = true;
+    if (rightHandItem === 'spectrometer' && player.spectrometerMesh) player.spectrometerMesh.visible = true;
+    if (rightHandItem === 'chemical_analyzer' && player.chemicalAnalyzerMesh) player.chemicalAnalyzerMesh.visible = true;
   } else {
     if (player.selectedSlot === 0 && player.spearMesh) player.spearMesh.visible = true;
     if (player.selectedSlot === 1 && player.axeMesh) player.axeMesh.visible = true;
@@ -688,6 +752,46 @@ export function updatePlayer(delta) {
     player.health = Math.max(0, player.health - healthDamageRate * delta);
   }
 
+  // 3.5 Subterranean depth, temperature, and heat damage calculations
+  let depth = 0;
+  let temp = 25;
+  if (game.controls && game.controls.getObject) {
+    const pos = game.controls.getObject().position;
+    const H = getOriginalHeight(pos.x, pos.z);
+    const physicalDepth = H - pos.y;
+    depth = Math.max(0, Math.round(physicalDepth * (3.0 / world.spacing) + (world.currentVirtualDepth || 0)));
+
+    if (depth > 67) {
+      // Temperature rises up to 120°C at 700m depth
+      temp = 25 + Math.min(95, ((depth - 67) / (700 - 67)) * 95);
+    }
+    if (depth >= 700) {
+      // Rises up to 250°C at 1100m depth
+      temp = 120 + Math.min(130, ((depth - 700) / (1100 - 700)) * 130);
+    }
+    temp = Math.round(temp);
+
+    // Lava damage in Magma layer (Layer 6, 99m to 700m)
+    if (depth >= 99 && depth < 700) {
+      const hasHeatSuit = player.equipped && player.equipped.torso === 'heat_suit';
+      if (!hasHeatSuit) {
+        player.health = Math.max(0, player.health - 25.0 * delta); // 25 HP per second
+        if (!player.lastLavaWarnTime) player.lastLavaWarnTime = 0;
+        player.lastLavaWarnTime += delta;
+        if (player.lastLavaWarnTime > 1.0) {
+          player.lastLavaWarnTime = 0;
+          showHudMessage(getTranslation('msg_in_lava') || "🔥 IN LAVA! TAKING DAMAGE! 🔥");
+        }
+      }
+    }
+  }
+
+  // Update HUD values
+  const depthVal = document.getElementById('hud-depth-val');
+  if (depthVal) depthVal.innerText = `-${depth} m`;
+  const tempVal = document.getElementById('hud-temp-val');
+  if (tempVal) tempVal.innerText = `${temp} °C`;
+
   if (inLava) {
     player.health = Math.max(0, player.health - 10.0 * delta); // 10 HP per second
     if (!player.lastLavaWarnTime) player.lastLavaWarnTime = 0;
@@ -806,7 +910,14 @@ export function renderInventoryUI() {
     { id: 'stick', name: 'Stick', icon: '🦯', labelKey: 'inv.stick' },
     { id: 'cane', name: 'Cane', icon: '🎋', labelKey: 'inv.cane' },
     { id: 'torch', name: 'Hand Torch', icon: '🔦', labelKey: 'inv.torch' },
-    { id: 'berries', name: 'Wild Berries', icon: '🍒', labelKey: 'inv.berries' }
+    { id: 'berries', name: 'Wild Berries', icon: '🍒', labelKey: 'inv.berries' },
+    { id: 'silicon', name: 'Silicon', icon: '🧪', labelKey: 'inv.silicon' },
+    { id: 'copper', name: 'Copper', icon: '🥉', labelKey: 'inv.copper' },
+    { id: 'glass', name: 'Glass', icon: '🥛', labelKey: 'inv.glass' },
+    { id: 'titanium', name: 'Titanium', icon: '⚙️', labelKey: 'inv.titanium' },
+    { id: 'spectrometer', name: 'Spectrometer', icon: '🔬', labelKey: 'inv.spectrometer' },
+    { id: 'chemical_analyzer', name: 'Chemical Analyzer', icon: '🧪', labelKey: 'inv.chemical_analyzer' },
+    { id: 'heat_suit', name: 'Heat Suit', icon: '🦺', labelKey: 'inv.heat_suit' }
   ];
 
   // Render items the player actually has
@@ -851,7 +962,11 @@ export function renderInventoryUI() {
       { id: 'straw_hat', name: 'Straw Hat', icon: '👒', cost: { leaves: 6, rope: 2 }, costText: '6 Leaves, 2 Ropes', labelKey: 'inv.straw_hat', descKey: 'recipe.straw_hat' },
       { id: 'grass_pants', name: 'Grass Pants', icon: '👖', cost: { leaves: 8, rope: 3 }, costText: '8 Leaves, 3 Ropes', labelKey: 'inv.grass_pants', descKey: 'recipe.grass_pants' },
       { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', cost: { wood: 4, rope: 2 }, costText: '4 Wood, 2 Ropes', labelKey: 'inv.wooden_boots', descKey: 'recipe.wooden_boots' },
-      { id: 'torch', name: 'Hand Torch', icon: '🔦', cost: { stick: 1, leaves: 2 }, costText: '1 Stick, 2 Leaves', labelKey: 'inv.torch', descKey: 'recipe.torch' }
+      { id: 'torch', name: 'Hand Torch', icon: '🔦', cost: { stick: 1, leaves: 2 }, costText: '1 Stick, 2 Leaves', labelKey: 'inv.torch', descKey: 'recipe.torch' },
+      { id: 'glass', name: 'Glass', icon: '🥛', cost: { silicon: 2 }, costText: '2 Silicon', labelKey: 'inv.glass', descKey: 'recipe.glass' },
+      { id: 'spectrometer', name: 'Spectrometer', icon: '🔬', cost: { copper: 2, glass: 1 }, costText: '2 Copper, 1 Glass', labelKey: 'inv.spectrometer', descKey: 'recipe.spectrometer' },
+      { id: 'chemical_analyzer', name: 'Chemical Analyzer', icon: '🧪', cost: { spectrometer: 1, rope: 2 }, costText: '1 Spectrometer, 2 Ropes', labelKey: 'inv.chemical_analyzer', descKey: 'recipe.chemical_analyzer' },
+      { id: 'heat_suit', name: 'Heat Suit', icon: '🦺', cost: { titanium: 3, explorer_vest: 1 }, costText: '3 Titanium, 1 Vest', labelKey: 'inv.heat_suit', descKey: 'recipe.heat_suit' }
     ];
 
     const resourceIcons = {
@@ -859,7 +974,13 @@ export function renderInventoryUI() {
       rope: '🧵',
       wood: '🪵',
       stone: '🪨',
-      stick: '🦯'
+      stick: '🦯',
+      silicon: '🧪',
+      copper: '🥉',
+      glass: '🥛',
+      titanium: '⚙️',
+      spectrometer: '🔬',
+      explorer_vest: '🦺'
     };
 
     recipes.forEach(recipe => {
@@ -982,7 +1103,7 @@ export function renderInventoryUI() {
 
   // 4. Update Stats Modifiers Labels
   const hasHat = player.equipped.head === 'straw_hat';
-  const hasVest = player.equipped.torso === 'explorer_vest';
+  const hasVest = player.equipped.torso === 'explorer_vest' || player.equipped.torso === 'heat_suit';
   const hasBoots = player.equipped.feet === 'wooden_boots';
 
   document.getElementById('stat-mod-energy').innerText = hasVest ? '80%' : '100%';
@@ -1005,10 +1126,10 @@ function equipItem(itemId) {
 
   let slotType = null;
   if (itemId === 'straw_hat') slotType = 'head';
-  else if (itemId === 'explorer_vest') slotType = 'torso';
+  else if (itemId === 'explorer_vest' || itemId === 'heat_suit') slotType = 'torso';
   else if (itemId === 'grass_pants') slotType = 'legs';
   else if (itemId === 'wooden_boots') slotType = 'feet';
-  else if (itemId === 'stick') slotType = 'right_hand';
+  else if (itemId === 'stick' || itemId === 'spectrometer' || itemId === 'chemical_analyzer') slotType = 'right_hand';
   else if (itemId === 'fishing_rod') slotType = 'right_hand';
   else if (itemId === 'cane') slotType = 'left_hand';
   else if (itemId === 'torch') slotType = 'left_hand';

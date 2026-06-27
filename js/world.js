@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { edgeTable, triTable } from './mctable.js';
 import { game } from './game.js';
 import { spawnDebris } from './interact.js';
+import { player } from './player.js';
 
 // World Configuration
 export const world = {
@@ -9,6 +10,8 @@ export const world = {
   sizeY: 16,
   sizeZ: 120,
   spacing: 1.6,
+  currentVirtualDepth: 0,
+  carvedVoxels: {},
   density: null, // Flat Float32Array
   terrainMesh: null,
   waterMesh: null,
@@ -223,20 +226,280 @@ export function getOriginalHeight(vx, vz) {
   return calculateIslandHeightVoxel(gx, gz) * spacing;
 }
 
+export function getVirtualDepthAt(y) {
+  return Math.max(0, (15 - y) * 3 + (world.currentVirtualDepth || 0));
+}
+
+export function getVertexVirtualDepth(vx, vy, vz) {
+  const H = getOriginalHeight(vx, vz);
+  const physicalDepth = H - vy;
+  return Math.max(0, physicalDepth * (3.0 / world.spacing) + (world.currentVirtualDepth || 0));
+}
+
 // Compute dynamic vertex color based on depth from original surface
 function getVertexColorForDepth(vx, vy, vz) {
-  const H = getOriginalHeight(vx, vz);
-  const depth = H - vy;
-  
-  // Interpolation factor (0 at surface, 1 at 0.5 meters depth)
-  const t = Math.max(0, Math.min(1.0, depth / 0.5));
-  
-  // Sandy peach-gold: #dfb48c -> (0.87, 0.70, 0.55)
-  // Dark earth/clay: #3d2f25 -> (0.24, 0.18, 0.14)
-  const r = 0.87 + t * (0.24 - 0.87);
-  const g = 0.70 + t * (0.18 - 0.70);
-  const b = 0.55 + t * (0.14 - 0.55);
-  return [r, g, b];
+  const depth = getVertexVirtualDepth(vx, vy, vz);
+
+  let color = [0.54, 0.38, 0.25]; // Layer 1 default
+
+  if (depth < 7.0) {
+    // Layer 1: Soil (Light Brown) -> Layer 2: Clay (Ochre) transition
+    const t = Math.max(0, Math.min(1.0, (depth - 5.0) / 2.0));
+    color = [
+      0.54 + t * (0.65 - 0.54),
+      0.38 + t * (0.52 - 0.38),
+      0.25 + t * (0.35 - 0.25)
+    ];
+  } else if (depth < 11.0) {
+    // Layer 2: Clay (Ochre) -> Layer 3: Stone (Cold Grey) transition
+    const t = Math.max(0, Math.min(1.0, (depth - 9.0) / 2.0));
+    color = [
+      0.65 + t * (0.48 - 0.65),
+      0.52 + t * (0.52 - 0.52),
+      0.35 + t * (0.52 - 0.35)
+    ];
+  } else if (depth < 33.0) {
+    // Layer 3: Stone (Cold Grey) -> Layer 4: Caves (Dark Brown Rock) transition
+    const t = Math.max(0, Math.min(1.0, (depth - 30.0) / 3.0));
+    color = [
+      0.48 + t * (0.35 - 0.48),
+      0.52 + t * (0.25 - 0.52),
+      0.52 + t * (0.18 - 0.52)
+    ];
+  } else if (depth < 67.0) {
+    // Layer 4: Caves (Dark Brown Rock) -> Layer 5: Basalt (Dark Grey) transition
+    const t = Math.max(0, Math.min(1.0, (depth - 64.0) / 3.0));
+    color = [
+      0.35 + t * (0.12 - 0.35),
+      0.25 + t * (0.12 - 0.25),
+      0.18 + t * (0.14 - 0.18)
+    ];
+  } else if (depth < 99.0) {
+    // Layer 5: Deep Basalt with glowing red veins
+    const basalt = [0.12, 0.12, 0.14];
+    const veinFactor = Math.sin(vx * 1.5) * Math.sin(vy * 1.5) * Math.sin(vz * 1.5);
+    if (veinFactor > 0.65) {
+      color = [0.95, 0.15, 0.05]; // Glowing red
+    } else {
+      // Lerp to Layer 6 Magma near 99m
+      const t = Math.max(0, Math.min(1.0, (depth - 95.0) / 4.0));
+      color = [
+        basalt[0] + t * (0.95 - basalt[0]),
+        basalt[1] + t * (0.3 - basalt[1]),
+        basalt[2] + t * (0.05 - basalt[2])
+      ];
+    }
+  } else if (depth < 700.0) {
+    // Layer 6: Magma (Glowing Orange-Red)
+    const magma = [0.95, 0.3, 0.05];
+    const geo = [0.1, 0.15, 0.3];
+    if (depth > 680.0) {
+      const t = (depth - 680.0) / 20.0;
+      color = [
+        magma[0] + t * (geo[0] - magma[0]),
+        magma[1] + t * (geo[1] - magma[1]),
+        magma[2] + t * (geo[2] - magma[2])
+      ];
+    } else {
+      color = magma;
+    }
+  } else if (depth < 1100.0) {
+    // Layer 7: Geomagnetic (Dark Blue/Purple with glowing blue highlights)
+    const baseGeo = [0.1, 0.15, 0.3];
+    const highlightFactor = Math.sin(vx * 1.2 + vy * 1.2) * Math.sin(vz * 1.2);
+    if (highlightFactor > 0.5) {
+      color = [0.1, 0.6, 0.95]; // Glowing cyan highlights
+    } else {
+      // Lerp to Layer 8 Core near 1100m
+      if (depth > 1080.0) {
+        const t = (depth - 1080.0) / 20.0;
+        color = [
+          baseGeo[0] + t * (0.3 - baseGeo[0]),
+          baseGeo[1] + t * (0.33 - baseGeo[1]),
+          baseGeo[2] + t * (0.35 - baseGeo[2])
+        ];
+      } else {
+        color = baseGeo;
+      }
+    }
+  } else {
+    // Layer 8: Nucleo (Nickel-Iron core)
+    color = [0.3, 0.33, 0.35];
+  }
+
+  return color;
+}
+
+// 3D Noise for subterranean caves
+function hash3DLocal(x, y, z) {
+  const sx = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453;
+  return sx - Math.floor(sx);
+}
+
+function simpleNoise3D(x, y, z) {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const zi = Math.floor(z);
+  const xf = x - xi;
+  const yf = y - yi;
+  const zf = z - zi;
+
+  const u = xf * xf * (3 - 2 * xf);
+  const v = yf * yf * (3 - 2 * yf);
+  const w = zf * zf * (3 - 2 * zf);
+
+  const c000 = hash3DLocal(xi, yi, zi);
+  const c100 = hash3DLocal(xi + 1, yi, zi);
+  const c010 = hash3DLocal(xi, yi + 1, zi);
+  const c110 = hash3DLocal(xi + 1, yi + 1, zi);
+  const c001 = hash3DLocal(xi, yi, zi + 1);
+  const c101 = hash3DLocal(xi + 1, yi, zi + 1);
+  const c011 = hash3DLocal(xi, yi + 1, zi + 1);
+  const c111 = hash3DLocal(xi + 1, yi + 1, zi + 1);
+
+  const c00 = c000 * (1 - u) + c100 * u;
+  const c10 = c010 * (1 - u) + c110 * u;
+  const c01 = c001 * (1 - u) + c101 * u;
+  const c11 = c011 * (1 - u) + c111 * u;
+
+  const c0 = c00 * (1 - v) + c10 * v;
+  const c1 = c01 * (1 - v) + c11 * v;
+
+  return c0 * (1 - w) + c1 * w;
+}
+
+export function calculateProceduralDensityAt(x, y, z, virtualDepth) {
+  let dens = 1.0; // Solid rock default density
+
+  // Border taper
+  const borderDist = Math.min(x, Math.min(world.sizeX - 1 - x, Math.min(z, world.sizeZ - 1 - z)));
+  if (borderDist < 5) {
+    const factor = borderDist / 5.0;
+    dens = (dens + 2.0) * factor - 2.0;
+    return dens;
+  }
+
+  // Cave carving in Layer 4 (33m to 67m)
+  if (virtualDepth >= 33 && virtualDepth <= 67) {
+    const nx = x * 0.15;
+    const ny = virtualDepth * 0.1;
+    const nz = z * 0.15;
+    const noiseVal = simpleNoise3D(nx, ny, nz);
+    if (noiseVal < 0.28) {
+      dens = -1.5; // cave air
+    }
+  }
+
+  return dens;
+}
+
+export function getOrGenerateDensity(x, y, z, virtualDepth) {
+  const key = `${x},${virtualDepth},${z}`;
+  if (world.carvedVoxels && world.carvedVoxels[key] !== undefined) {
+    return world.carvedVoxels[key];
+  }
+
+  // If at currentVirtualDepth = 0 and y is above 0, we want the original terrain base!
+  if (world.currentVirtualDepth === 0) {
+    const y = 15 - (virtualDepth / 3);
+    if (y > 0) {
+      const islandHeight = calculateIslandHeightVoxel(x, z);
+      let dens = islandHeight - y;
+
+      // Central tunnel
+      const cx = world.sizeX / 2;
+      const cz = world.sizeZ / 2;
+      const tunnelRadius = 2.2;
+      const distToTunnelAxis = Math.sqrt(Math.pow(x - cx, 2) + Math.pow(y - 4.5, 2));
+      if (distToTunnelAxis < tunnelRadius && z > (cz - 30) && z < (cz + 30)) {
+        dens -= (1.0 - distToTunnelAxis / tunnelRadius) * 2.5;
+      }
+
+      // Border taper
+      const borderDist = Math.min(x, Math.min(world.sizeX - 1 - x, Math.min(z, world.sizeZ - 1 - z)));
+      if (borderDist < 5) {
+        const factor = borderDist / 5.0;
+        dens = (dens + 2.0) * factor - 2.0;
+      }
+      return dens;
+    }
+  }
+
+  return calculateProceduralDensityAt(x, y, z, virtualDepth);
+}
+
+export function scrollWorld(direction) {
+  if (!world.density) return;
+  const sizeX = world.sizeX;
+  const sizeY = world.sizeY;
+  const sizeZ = world.sizeZ;
+
+  if (direction === 'down') {
+    // 1. Shift densities UP (y -> y+1)
+    for (let x = 0; x < sizeX; x++) {
+      for (let z = 0; z < sizeZ; z++) {
+        for (let y = sizeY - 1; y > 0; y--) {
+          const valBelow = world.density[x * sizeY * sizeZ + (y - 1) * sizeZ + z];
+          world.density[x * sizeY * sizeZ + y * sizeZ + z] = valBelow;
+        }
+      }
+    }
+
+    // 2. Increment depth
+    world.currentVirtualDepth += 3;
+
+    // 3. Generate new bottom layer at y = 0
+    for (let x = 0; x < sizeX; x++) {
+      for (let z = 0; z < sizeZ; z++) {
+        const virtualDepth = getVirtualDepthAt(0);
+        const newDens = getOrGenerateDensity(x, 0, z, virtualDepth);
+        world.density[x * sizeY * sizeZ + 0 * sizeZ + z] = newDens;
+      }
+    }
+
+    // 4. Teleport player up
+    if (game.controls) {
+      const playerObj = game.controls.getObject();
+      if (playerObj) {
+        playerObj.position.y += world.spacing;
+      }
+    }
+
+  } else if (direction === 'up') {
+    // 1. Shift densities DOWN (y -> y-1)
+    for (let x = 0; x < sizeX; x++) {
+      for (let z = 0; z < sizeZ; z++) {
+        for (let y = 0; y < sizeY - 1; y++) {
+          const valAbove = world.density[x * sizeY * sizeZ + (y + 1) * sizeZ + z];
+          world.density[x * sizeY * sizeZ + y * sizeZ + z] = valAbove;
+        }
+      }
+    }
+
+    // 2. Decrement depth
+    world.currentVirtualDepth = Math.max(0, world.currentVirtualDepth - 3);
+
+    // 3. Generate new top layer at y = sizeY - 1
+    for (let x = 0; x < sizeX; x++) {
+      for (let z = 0; z < sizeZ; z++) {
+        const virtualDepth = getVirtualDepthAt(sizeY - 1);
+        const newDens = getOrGenerateDensity(x, sizeY - 1, z, virtualDepth);
+        world.density[x * sizeY * sizeZ + (sizeY - 1) * sizeZ + z] = newDens;
+      }
+    }
+
+    // 4. Teleport player down
+    if (game.controls) {
+      const playerObj = game.controls.getObject();
+      if (playerObj) {
+        playerObj.position.y -= world.spacing;
+      }
+    }
+  }
+
+  // 5. Rebuild mesh
+  buildMarchingCubesMesh();
+}
 }
 
 // Create the island density grid
@@ -465,11 +728,26 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
         const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
         if (dist < gRadius) {
-          if (y === 0) continue; // Bedrock is indestructible!
+          const virtualDepth = getVirtualDepthAt(y);
+          if (virtualDepth >= 1100) continue; // Bedrock core is indestructible!
+
+          // Magma is indestructible without heat suit
+          if (virtualDepth >= 99 && virtualDepth < 700) {
+            const hasHeatSuit = player.equipped && player.equipped.torso === 'heat_suit';
+            if (!hasHeatSuit) continue; // Magma blocks excavation!
+          }
+
           const currentDens = getDensity(x, y, z);
           // Subtract density (air has negative density)
           const reduction = depth * (1.0 - dist / gRadius);
-          setDensity(x, y, z, currentDens - reduction);
+          const newDens = currentDens - reduction;
+          setDensity(x, y, z, newDens);
+
+          // Save to carved voxels
+          const virtualY = y + ((world.currentVirtualDepth || 0) / 3);
+          const key = `${x},${virtualY},${z}`;
+          world.carvedVoxels[key] = newDens;
+
           modified = true;
         }
       }

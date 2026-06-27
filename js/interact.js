@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { game } from './game.js';
-import { world, deformTerrainLowPoly, getSurfaceHeightNear, createCampfireMesh } from './world.js';
+import { world, deformTerrainLowPoly, getSurfaceHeightNear, createCampfireMesh, getVertexVirtualDepth } from './world.js';
 import { player, showHudMessage, selectSlot, syncHotbarCounts, renderInventoryUI, cancelFishing } from './player.js';
-import { getTranslation } from './lang.js';
+import { getTranslation, currentLang } from './lang.js';
 import { playWoodChop, playSelect, playSizzling, playDrink, playSpark, playRowingSplash } from './audio.js';
+import { getBlockChemicalComposition, analyzeBlockComposition, scanAndUnlock } from './chemistry.js';
 
 let raycaster;
 export const activeDebris = [];
@@ -26,6 +27,38 @@ export function initInteraction() {
 
     if (game.pointerLocked && e.code === 'KeyE') {
       const playerPos = game.controls.getObject().position;
+
+      // 0. Prioritize Spectrometer scanning if held
+      const holdingSpectrometer = player.equipped && player.equipped.right_hand === 'spectrometer';
+      if (holdingSpectrometer && world.terrainMesh) {
+        raycaster.setFromCamera(new THREE.Vector2(0, 0), game.camera);
+        const intersects = raycaster.intersectObject(world.terrainMesh);
+        if (intersects.length > 0 && intersects[0].distance < 4.0) {
+          const hit = intersects[0];
+          const virtualDepth = getVertexVirtualDepth(hit.point.x, hit.point.y, hit.point.z);
+
+          // Unlock element knowledge
+          const unlocked = scanAndUnlock(hit.point.x, virtualDepth, hit.point.z);
+          if (unlocked.length > 0) {
+            unlocked.forEach(el => {
+              const elName = getTranslation(`inv.${el}`) || el;
+              showHudMessage(`${currentLang === 'it' ? 'ELEMENTO SCOPERTO' : 'DISCOVERED ELEMENT'}: ${elName.toUpperCase()}!`);
+            });
+          }
+
+          // Build report
+          const report = analyzeBlockComposition(hit.point.x, virtualDepth, hit.point.z, currentLang);
+          let reportStr = getTranslation('msg_scanned') || "Analyzed block composition!";
+          if (report && report.length > 0) {
+            const topLines = report.slice(0, 3).map(item => `${item.name}: ${item.pct.toFixed(1)}%`);
+            reportStr += " | " + topLines.join(" | ");
+          }
+          showHudMessage(reportStr);
+          playSelect();
+          return;
+        }
+      }
+
       const raftPos = new THREE.Vector3(80.0, 4.05, 127.2);
       const distToRaft = playerPos.distanceTo(raftPos);
       if (distToRaft < 3.5) {
@@ -548,9 +581,39 @@ function performMiningRaycast() {
         showHudMessage(getTranslation('msg_depleted'));
       }
     } else {
-      // 2. Generic terrain hits: deform (carve crater) and spawn stone debris
+      // 2. Generic terrain hits: deform (carve crater) and spawn chemistry or stone debris
+      const virtualDepth = getVertexVirtualDepth(hitPoint.x, hitPoint.y, hitPoint.z);
       deformTerrainLowPoly(hitPoint, 1.8, 1.2);
-      spawnDebris(hitPoint, hitNormal, 'stone');
+
+      const comp = getBlockChemicalComposition(hitPoint.x, virtualDepth, hitPoint.z);
+      let spawned = false;
+      const rand = Math.random() * 100;
+      let accum = 0;
+
+      // Priority list: check rare resources first
+      const checkElements = ['Au', 'Ag', 'U', 'Nh', 'Ti', 'Cu', 'Si'];
+      for (const el of checkElements) {
+        const pct = comp[el] || 0;
+        if (pct > 0.5) {
+          accum += pct;
+          if (rand < accum * 1.5) {
+            let dropType = 'stone';
+            if (el === 'Au') dropType = 'ore';
+            else if (el === 'Si') dropType = 'silicon';
+            else if (el === 'Cu') dropType = 'copper';
+            else if (el === 'Ti') dropType = 'titanium';
+            else if (el === 'U') dropType = 'uranium';
+
+            spawnDebris(hitPoint, hitNormal, dropType);
+            spawned = true;
+            break;
+          }
+        }
+      }
+
+      if (!spawned) {
+        spawnDebris(hitPoint, hitNormal, 'stone');
+      }
     }
   }
 }
@@ -587,6 +650,21 @@ export function spawnDebris(position, normal, type) {
     geom = new THREE.SphereGeometry(0.08, 8, 8);
     geom.scale(0.8, 1.25, 0.8);
     mat = new THREE.MeshStandardMaterial({ color: 0xfffcf0, roughness: 0.7, flatShading: true });
+  } else if (type === 'silicon') {
+    geom = new THREE.DodecahedronGeometry(0.1, 0);
+    mat = new THREE.MeshStandardMaterial({ color: 0x99ccff, roughness: 0.1, metalness: 0.8, flatShading: true });
+  } else if (type === 'copper') {
+    geom = new THREE.DodecahedronGeometry(0.11, 0);
+    mat = new THREE.MeshStandardMaterial({ color: 0xd87a50, roughness: 0.2, metalness: 0.9, flatShading: true });
+  } else if (type === 'titanium') {
+    geom = new THREE.BoxGeometry(0.12, 0.12, 0.12);
+    mat = new THREE.MeshStandardMaterial({ color: 0xb0c4de, roughness: 0.2, metalness: 0.9, flatShading: true });
+  } else if (type === 'uranium') {
+    geom = new THREE.OctahedronGeometry(0.11, 0);
+    mat = new THREE.MeshStandardMaterial({ color: 0x33cc33, roughness: 0.3, metalness: 0.5, emissive: 0x22aa22, emissiveIntensity: 0.3, flatShading: true });
+  } else if (type === 'glass') {
+    geom = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+    mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.7, flatShading: true });
   } else {
     geom = new THREE.DodecahedronGeometry(0.12, 0);
     mat = new THREE.MeshStandardMaterial({ color: 0x8a7f76, roughness: 0.9, flatShading: true });
@@ -696,6 +774,19 @@ function checkHarvestablePrompt() {
   const playerPos = game.controls.getObject().position;
   
   const prompt = document.getElementById('interaction-prompt');
+  // 0. Spectrometer scanning prompt
+  const holdingSpectrometer = player.equipped && player.equipped.right_hand === 'spectrometer';
+  if (holdingSpectrometer && world.terrainMesh) {
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), game.camera);
+    const intersects = raycaster.intersectObject(world.terrainMesh);
+    if (intersects.length > 0 && intersects[0].distance < 4.0) {
+      const rawPrompt = getTranslation('interact_scan') || "PRESS E TO ANALYZE ELEMENTAL COMPOSITION";
+      prompt.innerHTML = rawPrompt.replace('E', '<span style="color: #ffd700; font-weight:800;">E</span>');
+      prompt.classList.add('visible');
+      return;
+    }
+  }
+
   // Check proximity to raft
   const raftPos = new THREE.Vector3(80.0, 4.05, 127.2);
   const distToRaft = playerPos.distanceTo(raftPos);
@@ -855,7 +946,9 @@ function checkHarvestablePrompt() {
     } else if (closestDebris.type === 'liana') {
       rawPrompt = getTranslation('interact_harvest_liana') || 'PRESS E TO COLLECT LIANA';
     } else {
-      rawPrompt = 'PRESS E TO HARVEST';
+      const displayName = getTranslation(`inv.${closestDebris.type}`) || closestDebris.type;
+      const actText = currentLang === 'it' ? 'PREMI E PER RACCOGLIERE' : 'PRESS E TO COLLECT';
+      rawPrompt = `${actText} ${displayName.toUpperCase()}`;
     }
     prompt.innerHTML = rawPrompt.replace('E', '<span style="color: #ffd700; font-weight:800;">E</span>');
     prompt.classList.add('visible');
@@ -962,6 +1055,11 @@ export function harvestClosestDebris() {
   } else if (closestDebris.type === 'cooked_egg') {
     player.inventory.cooked_egg = (player.inventory.cooked_egg || 0) + 1;
     showHudMessage(getTranslation('msg_collected_cooked_egg') || '+1 Cooked Egg');
+  } else {
+    // Dynamic fallback for all new chemistry items
+    player.inventory[closestDebris.type] = (player.inventory[closestDebris.type] || 0) + 1;
+    const name = getTranslation(`inv.${closestDebris.type}`) || closestDebris.type;
+    showHudMessage(`+1 ${name}`);
   }
 
   closestDebris = null;
