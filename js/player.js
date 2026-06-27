@@ -41,11 +41,11 @@ export const player = {
   
   // Inventory counts (displayed in HUD)
   inventory: {
-    ore: 0,
-    stone: 1,
-    wood: 5,
-    leaves: 4,
-    rope: 2,
+    ore: 10,
+    stone: 50,
+    wood: 50,
+    leaves: 50,
+    rope: 20,
     straw_hat: 0,
     explorer_vest: 1, // Start with explorer vest
     grass_pants: 0,
@@ -57,18 +57,18 @@ export const player = {
     cooked_egg: 0,
     fishing_rod: 0,
     campfire: 0,
-    stick: 0,
+    stick: 20,
     cane: 0,
-    worm: 0,
+    worm: 10,
     torch: 0,
     berries: 0,
     spectrometer: 0,
     chemical_analyzer: 0,
     heat_suit: 0,
-    silicon: 0,
-    titanium: 0,
-    copper: 0,
-    glass: 0
+    silicon: 30,
+    titanium: 30,
+    copper: 30,
+    glass: 10
   },
   equipped: {
     head: null,
