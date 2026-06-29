@@ -1050,9 +1050,9 @@ function animate() {
     
     // Precompute boundary wave heights outside the loop (saves N * 4 trig calls!)
     const h00 = Math.sin(-20.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(-20.8 * 0.12 + time * 1.2) * 0.18;
-    const h10 = Math.sin(84.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(-20.8 * 0.12 + time * 1.2) * 0.18;
-    const h01 = Math.sin(-20.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(84.8 * 0.12 + time * 1.2) * 0.18;
-    const h11 = Math.sin(84.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(84.8 * 0.12 + time * 1.2) * 0.18;
+    const h10 = Math.sin(212.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(-20.8 * 0.12 + time * 1.2) * 0.18;
+    const h01 = Math.sin(-20.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(212.8 * 0.12 + time * 1.2) * 0.18;
+    const h11 = Math.sin(212.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(212.8 * 0.12 + time * 1.2) * 0.18;
     
     for (let i = 0; i < positionAttribute.count; i++) {
       const vx = positionAttribute.getX(i);
@@ -1088,18 +1088,18 @@ function animate() {
       }
       
       // Stitch boundary vertices between high-resolution inner ocean and low-resolution outer ocean
-      const isInner = (vx >= -20.801 && vx <= 84.801 && vz >= -20.801 && vz <= 84.801);
+      const isInner = (vx >= -20.801 && vx <= 212.801 && vz >= -20.801 && vz <= 212.801);
       if (isInner) {
         const distToLeft = vx - (-20.8);
-        const distToRight = 84.8 - vx;
+        const distToRight = 212.8 - vx;
         const distToBottom = vz - (-20.8);
-        const distToTop = 84.8 - vz;
+        const distToTop = 212.8 - vz;
         const dMin = Math.min(distToLeft, distToRight, distToBottom, distToTop);
         
         if (dMin < 12.0) {
           // Bilinear interpolation between the four corners of the inner ocean boundary
-          const tx = Math.max(0, Math.min(1, (vx - (-20.8)) / 105.6));
-          const tz = Math.max(0, Math.min(1, (vz - (-20.8)) / 105.6));
+          const tx = Math.max(0, Math.min(1, (vx - (-20.8)) / 233.6));
+          const tz = Math.max(0, Math.min(1, (vz - (-20.8)) / 233.6));
           
           const y_boundary = (1 - tx) * (1 - tz) * h00 +
                              tx * (1 - tz) * h10 +
