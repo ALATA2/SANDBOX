@@ -10,7 +10,7 @@ export const player = {
   health: 100,
   energy: 100,
   hydration: 100,
-  selectedSlot: 6, // Starting selected slot (Slot 7 is index 6, Pickaxe)
+  selectedSlot: -1, // Start with free hands!
   
   // Hand held models state
   handGroup: null,
@@ -41,13 +41,13 @@ export const player = {
   
   // Inventory counts (displayed in HUD)
   inventory: {
-    ore: 10,
-    stone: 50,
-    wood: 50,
-    leaves: 50,
-    rope: 20,
+    ore: 0,
+    stone: 0,
+    wood: 0,
+    leaves: 0,
+    rope: 0,
     straw_hat: 0,
-    explorer_vest: 1, // Start with explorer vest
+    explorer_vest: 0, // Starts with nothing!
     grass_pants: 0,
     wooden_boots: 0,
     raw_fish: 0,
@@ -57,18 +57,32 @@ export const player = {
     cooked_egg: 0,
     fishing_rod: 0,
     campfire: 0,
-    stick: 20,
+    stick: 0,
     cane: 0,
-    worm: 10,
+    worm: 0,
     torch: 0,
     berries: 0,
+    raw_silicon: 0,
+    raw_copper: 0,
+    raw_titanium: 0,
+    copper_ingot: 0,
+    titanium_plate: 0,
+    glass: 0,
+    sharp_stone: 0,
+    plank: 0,
+    stone_block: 0,
+    primitive_spear: 0,
+    primitive_axe: 0,
+    primitive_pickaxe: 0,
+    refined_spear: 0,
+    refined_axe: 0,
+    refined_pickaxe: 0,
+    workbench: 0,
+    furnace: 0,
+    lab_table: 0,
     spectrometer: 0,
     chemical_analyzer: 0,
-    heat_suit: 0,
-    silicon: 30,
-    titanium: 30,
-    copper: 30,
-    glass: 10
+    heat_suit: 0
   },
   equipped: {
     head: null,
@@ -79,6 +93,62 @@ export const player = {
     left_hand: null
   }
 };
+
+export function getActiveSpear() {
+  if ((player.inventory.refined_spear || 0) > 0) return 'refined_spear';
+  if ((player.inventory.primitive_spear || 0) > 0) return 'primitive_spear';
+  return null;
+}
+
+export function getActiveAxe() {
+  if ((player.inventory.refined_axe || 0) > 0) return 'refined_axe';
+  if ((player.inventory.primitive_axe || 0) > 0) return 'primitive_axe';
+  return null;
+}
+
+export function getActivePickaxe() {
+  if ((player.inventory.refined_pickaxe || 0) > 0) return 'refined_pickaxe';
+  if ((player.inventory.primitive_pickaxe || 0) > 0) return 'primitive_pickaxe';
+  return null;
+}
+
+export function isNearStation(type) {
+  if (!world || !world.placedWorkstations) return false;
+  if (game.controls && game.controls.getObject) {
+    const pos = game.controls.getObject().position;
+    for (const ws of world.placedWorkstations) {
+      if (ws.type === type && pos.distanceTo(ws.position) < 3.0) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+export function setToolMeshMaterial(group, toolType) {
+  const isPrimitive = toolType.startsWith('primitive');
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x8a7f76, roughness: 0.9, flatShading: true });
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9, flatShading: true });
+  const metalMat = new THREE.MeshStandardMaterial({ color: 0xc0c0c0, roughness: 0.2, metalness: 0.9, flatShading: true });
+  
+  group.traverse(child => {
+    if (child.isMesh) {
+      if (isPrimitive) {
+        if (child.name === 'shaft' || (child.geometry.type === 'CylinderGeometry' && child.position.y === 0)) {
+          child.material = woodMat;
+        } else {
+          child.material = stoneMat;
+        }
+      } else {
+        if (child.name === 'shaft' || (child.geometry.type === 'CylinderGeometry' && child.position.y === 0)) {
+          child.material = woodMat;
+        } else {
+          child.material = metalMat;
+        }
+      }
+    }
+  });
+}
 
 // Target location (Lighthouse on distant island)
 const targetLoc = new THREE.Vector3(80, -5, -120);
@@ -559,9 +629,27 @@ export function updateHandMeshesVisibility() {
     if (rightHandItem === 'spectrometer' && player.spectrometerMesh) player.spectrometerMesh.visible = true;
     if (rightHandItem === 'chemical_analyzer' && player.chemicalAnalyzerMesh) player.chemicalAnalyzerMesh.visible = true;
   } else {
-    if (player.selectedSlot === 0 && player.spearMesh) player.spearMesh.visible = true;
-    if (player.selectedSlot === 1 && player.axeMesh) player.axeMesh.visible = true;
-    if (player.selectedSlot === 6 && player.pickaxeMesh) player.pickaxeMesh.visible = true;
+    if (player.selectedSlot === 0) {
+      const activeSpear = getActiveSpear();
+      if (activeSpear && player.spearMesh) {
+        player.spearMesh.visible = true;
+        setToolMeshMaterial(player.spearMesh, activeSpear);
+      }
+    }
+    if (player.selectedSlot === 1) {
+      const activeAxe = getActiveAxe();
+      if (activeAxe && player.axeMesh) {
+        player.axeMesh.visible = true;
+        setToolMeshMaterial(player.axeMesh, activeAxe);
+      }
+    }
+    if (player.selectedSlot === 6) {
+      const activePickaxe = getActivePickaxe();
+      if (activePickaxe && player.pickaxeMesh) {
+        player.pickaxeMesh.visible = true;
+        setToolMeshMaterial(player.pickaxeMesh, activePickaxe);
+      }
+    }
   }
 
   // Left-hand item/tool
@@ -574,6 +662,18 @@ export function updateHandMeshesVisibility() {
 
 // Select active slot
 export function selectSlot(index) {
+  // Enforce tool possession checks
+  if (index === 0 && getActiveSpear() === null) {
+    showHudMessage(player.currentLang === 'it' ? "Non hai una lancia!" : "You don't have a spear!");
+    index = -1;
+  } else if (index === 1 && getActiveAxe() === null) {
+    showHudMessage(player.currentLang === 'it' ? "Non hai un'accetta!" : "You don't have an axe!");
+    index = -1;
+  } else if (index === 6 && getActivePickaxe() === null) {
+    showHudMessage(player.currentLang === 'it' ? "Non hai un piccone!" : "You don't have a pickaxe!");
+    index = -1;
+  }
+
   player.selectedSlot = index;
 
   // Update HUD selected border
@@ -911,10 +1011,27 @@ export function renderInventoryUI() {
     { id: 'cane', name: 'Cane', icon: '🎋', labelKey: 'inv.cane' },
     { id: 'torch', name: 'Hand Torch', icon: '🔦', labelKey: 'inv.torch' },
     { id: 'berries', name: 'Wild Berries', icon: '🍒', labelKey: 'inv.berries' },
-    { id: 'silicon', name: 'Silicon', icon: '🧪', labelKey: 'inv.silicon' },
-    { id: 'copper', name: 'Copper', icon: '🥉', labelKey: 'inv.copper' },
+    
+    // New progression items
+    { id: 'sharp_stone', name: 'Sharp Stone', icon: '🪨', labelKey: 'inv.sharp_stone' },
+    { id: 'plank', name: 'Plank', icon: '🪵', labelKey: 'inv.plank' },
+    { id: 'stone_block', name: 'Stone Block', icon: '🧱', labelKey: 'inv.stone_block' },
+    { id: 'primitive_spear', name: 'Bamboo Spear', icon: '⚔️', labelKey: 'inv.primitive_spear' },
+    { id: 'primitive_axe', name: 'Primitive Axe', icon: '🪓', labelKey: 'inv.primitive_axe' },
+    { id: 'primitive_pickaxe', name: 'Primitive Pickaxe', icon: '⛏️', labelKey: 'inv.primitive_pickaxe' },
+    { id: 'refined_spear', name: 'Refined Spear', icon: '⚔️', labelKey: 'inv.refined_spear' },
+    { id: 'refined_axe', name: 'Refined Axe', icon: '🪓', labelKey: 'inv.refined_axe' },
+    { id: 'refined_pickaxe', name: 'Refined Pickaxe', icon: '⛏️', labelKey: 'inv.refined_pickaxe' },
+    { id: 'workbench', name: 'Workbench', icon: '🛠️', labelKey: 'inv.workbench' },
+    { id: 'furnace', name: 'Smelting Furnace', icon: '🧱', labelKey: 'inv.furnace' },
+    { id: 'lab_table', name: 'Lab Table', icon: '🧪', labelKey: 'inv.lab_table' },
+    
+    { id: 'raw_silicon', name: 'Raw Silicon', icon: '🧪', labelKey: 'inv.raw_silicon' },
+    { id: 'raw_copper', name: 'Raw Copper', icon: '🥉', labelKey: 'inv.raw_copper' },
+    { id: 'raw_titanium', name: 'Raw Titanium', icon: '⚙️', labelKey: 'inv.raw_titanium' },
+    { id: 'copper_ingot', name: 'Copper Ingot', icon: '🥉', labelKey: 'inv.copper_ingot' },
+    { id: 'titanium_plate', name: 'Titanium Plate', icon: '⚙️', labelKey: 'inv.titanium_plate' },
     { id: 'glass', name: 'Glass', icon: '🥛', labelKey: 'inv.glass' },
-    { id: 'titanium', name: 'Titanium', icon: '⚙️', labelKey: 'inv.titanium' },
     { id: 'spectrometer', name: 'Spectrometer', icon: '🔬', labelKey: 'inv.spectrometer' },
     { id: 'chemical_analyzer', name: 'Chemical Analyzer', icon: '🧪', labelKey: 'inv.chemical_analyzer' },
     { id: 'heat_suit', name: 'Heat Suit', icon: '🦺', labelKey: 'inv.heat_suit' }
@@ -956,17 +1073,40 @@ export function renderInventoryUI() {
   if (craftingList) {
     craftingList.innerHTML = '';
     const recipes = [
-      { id: 'rope', name: 'Rope', icon: '🧵', cost: { leaves: 3 }, costText: '3 Leaves', labelKey: 'hotbar.rope', descKey: 'recipe.rope' },
-      { id: 'campfire', name: 'Campfire', icon: '🔥', cost: { wood: 4, stone: 2 }, costText: '4 Wood, 2 Stone', labelKey: 'inv.campfire', descKey: 'recipe.campfire' },
-      { id: 'fishing_rod', name: 'Fishing Rod', icon: '🎣', cost: { stick: 2, rope: 2 }, costText: '2 Sticks, 2 Ropes', labelKey: 'inv.fishing_rod', descKey: 'recipe.fishing_rod' },
-      { id: 'straw_hat', name: 'Straw Hat', icon: '👒', cost: { leaves: 6, rope: 2 }, costText: '6 Leaves, 2 Ropes', labelKey: 'inv.straw_hat', descKey: 'recipe.straw_hat' },
-      { id: 'grass_pants', name: 'Grass Pants', icon: '👖', cost: { leaves: 8, rope: 3 }, costText: '8 Leaves, 3 Ropes', labelKey: 'inv.grass_pants', descKey: 'recipe.grass_pants' },
-      { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', cost: { wood: 4, rope: 2 }, costText: '4 Wood, 2 Ropes', labelKey: 'inv.wooden_boots', descKey: 'recipe.wooden_boots' },
-      { id: 'torch', name: 'Hand Torch', icon: '🔦', cost: { stick: 1, leaves: 2 }, costText: '1 Stick, 2 Leaves', labelKey: 'inv.torch', descKey: 'recipe.torch' },
-      { id: 'glass', name: 'Glass', icon: '🥛', cost: { silicon: 2 }, costText: '2 Silicon', labelKey: 'inv.glass', descKey: 'recipe.glass' },
-      { id: 'spectrometer', name: 'Spectrometer', icon: '🔬', cost: { copper: 2, glass: 1 }, costText: '2 Copper, 1 Glass', labelKey: 'inv.spectrometer', descKey: 'recipe.spectrometer' },
-      { id: 'chemical_analyzer', name: 'Chemical Analyzer', icon: '🧪', cost: { spectrometer: 1, rope: 2 }, costText: '1 Spectrometer, 2 Ropes', labelKey: 'inv.chemical_analyzer', descKey: 'recipe.chemical_analyzer' },
-      { id: 'heat_suit', name: 'Heat Suit', icon: '🦺', cost: { titanium: 3, explorer_vest: 1 }, costText: '3 Titanium, 1 Vest', labelKey: 'inv.heat_suit', descKey: 'recipe.heat_suit' }
+      // Tier 0: Hand-Crafted
+      { id: 'sharp_stone', name: 'Sharp Stone', icon: '🪨', cost: { stone: 2 }, costText: '2 Stones', labelKey: 'inv.sharp_stone', descKey: 'recipe.sharp_stone', station: 'none' },
+      { id: 'primitive_spear', name: 'Bamboo Spear', icon: '⚔️', cost: { cane: 1, sharp_stone: 1, rope: 1 }, costText: '1 Cane, 1 Sharp Stone, 1 Rope', labelKey: 'inv.primitive_spear', descKey: 'recipe.primitive_spear', station: 'none' },
+      { id: 'primitive_axe', name: 'Primitive Axe', icon: '🪓', cost: { stick: 1, sharp_stone: 1, rope: 1 }, costText: '1 Stick, 1 Sharp Stone, 1 Rope', labelKey: 'inv.primitive_axe', descKey: 'recipe.primitive_axe', station: 'none' },
+      { id: 'primitive_pickaxe', name: 'Primitive Pickaxe', icon: '⛏️', cost: { stick: 1, sharp_stone: 1, rope: 1 }, costText: '1 Stick, 1 Sharp Stone, 1 Rope', labelKey: 'inv.primitive_pickaxe', descKey: 'recipe.primitive_pickaxe', station: 'none' },
+      
+      // Tier 0.5: Processing
+      { id: 'plank', name: 'Planks', icon: '🪵', cost: { wood: 1 }, costText: '1 Wood (Needs Axe)', labelKey: 'inv.plank', descKey: 'recipe.plank', station: 'none', tool: 'axe' },
+      { id: 'stone_block', name: 'Stone Blocks', icon: '🧱', cost: { stone: 2 }, costText: '2 Stones (Needs Pickaxe)', labelKey: 'inv.stone_block', descKey: 'recipe.stone_block', station: 'none', tool: 'pickaxe' },
+      
+      // Tier 1: Structures (Hand-crafted, but workbench is the gateway)
+      { id: 'workbench', name: 'Workbench', icon: '🛠️', cost: { plank: 4, stone_block: 2, rope: 2 }, costText: '4 Planks, 2 Stone Blocks, 2 Ropes', labelKey: 'inv.workbench', descKey: 'recipe.workbench', station: 'none' },
+      
+      // Tier 2: Workbench Crafts
+      { id: 'furnace', name: 'Smelting Furnace', icon: '🧱', cost: { stone: 12, wood: 6 }, costText: '12 Stone, 6 Wood', labelKey: 'inv.furnace', descKey: 'recipe.furnace', station: 'workbench' },
+      { id: 'fishing_rod', name: 'Fishing Rod', icon: '🎣', cost: { stick: 2, rope: 2 }, costText: '2 Sticks, 2 Ropes', labelKey: 'inv.fishing_rod', descKey: 'recipe.fishing_rod', station: 'workbench' },
+      { id: 'straw_hat', name: 'Straw Hat', icon: '👒', cost: { leaves: 6, rope: 2 }, costText: '6 Leaves, 2 Ropes', labelKey: 'inv.straw_hat', descKey: 'recipe.straw_hat', station: 'workbench' },
+      { id: 'grass_pants', name: 'Grass Pants', icon: '👖', cost: { leaves: 8, rope: 3 }, costText: '8 Leaves, 3 Ropes', labelKey: 'inv.grass_pants', descKey: 'recipe.grass_pants', station: 'workbench' },
+      { id: 'wooden_boots', name: 'Wooden Boots', icon: '🥾', cost: { wood: 4, rope: 2 }, costText: '4 Wood, 2 Ropes', labelKey: 'inv.wooden_boots', descKey: 'recipe.wooden_boots', station: 'workbench' },
+      { id: 'torch', name: 'Hand Torch', icon: '🔦', cost: { stick: 1, leaves: 2 }, costText: '1 Stick, 2 Leaves', labelKey: 'inv.torch', descKey: 'recipe.torch', station: 'none' },
+      { id: 'campfire', name: 'Campfire', icon: '🔥', cost: { wood: 4, stone: 2 }, costText: '4 Wood, 2 Stone', labelKey: 'inv.campfire', descKey: 'recipe.campfire', station: 'none' },
+      
+      // Refined Tools at Workbench
+      { id: 'refined_spear', name: 'Refined Spear', icon: '⚔️', cost: { plank: 1, stone_block: 1, rope: 1 }, costText: '1 Plank, 1 Stone Block, 1 Rope', labelKey: 'inv.refined_spear', descKey: 'recipe.refined_spear', station: 'workbench' },
+      { id: 'refined_axe', name: 'Refined Axe', icon: '🪓', cost: { plank: 2, stone_block: 2, rope: 1 }, costText: '2 Planks, 2 Stone Blocks, 1 Rope', labelKey: 'inv.refined_axe', descKey: 'recipe.refined_axe', station: 'workbench' },
+      { id: 'refined_pickaxe', name: 'Refined Pickaxe', icon: '⛏️', cost: { plank: 2, stone_block: 2, rope: 1 }, costText: '2 Planks, 2 Stone Blocks, 1 Rope', labelKey: 'inv.refined_pickaxe', descKey: 'recipe.refined_pickaxe', station: 'workbench' },
+      
+      // Lab Table at Workbench
+      { id: 'lab_table', name: 'Lab Table', icon: '🧪', cost: { copper_ingot: 4, glass: 2, wood: 10 }, costText: '4 Copper Ingots, 2 Glass, 10 Wood', labelKey: 'inv.lab_table', descKey: 'recipe.lab_table', station: 'workbench' },
+      
+      // Tier 4: Lab Table Crafts
+      { id: 'spectrometer', name: 'Spectrometer', icon: '🔬', cost: { copper_ingot: 2, glass: 1 }, costText: '2 Copper Ingots, 1 Glass', labelKey: 'inv.spectrometer', descKey: 'recipe.spectrometer', station: 'lab' },
+      { id: 'chemical_analyzer', name: 'Chemical Analyzer', icon: '🧪', cost: { spectrometer: 1, rope: 2 }, costText: '1 Spectrometer, 2 Ropes', labelKey: 'inv.chemical_analyzer', descKey: 'recipe.chemical_analyzer', station: 'lab' },
+      { id: 'heat_suit', name: 'Heat Suit', icon: '🦺', cost: { titanium_plate: 3, explorer_vest: 1 }, costText: '3 Titanium Plates, 1 Vest', labelKey: 'inv.heat_suit', descKey: 'recipe.heat_suit', station: 'lab' }
     ];
 
     const resourceIcons = {
@@ -975,10 +1115,16 @@ export function renderInventoryUI() {
       wood: '🪵',
       stone: '🪨',
       stick: '🦯',
-      silicon: '🧪',
-      copper: '🥉',
+      cane: '🎋',
+      sharp_stone: '🪨',
+      plank: '🪵',
+      stone_block: '🧱',
+      raw_silicon: '🧪',
+      raw_copper: '🥉',
+      raw_titanium: '⚙️',
+      copper_ingot: '🥉',
+      titanium_plate: '⚙️',
       glass: '🥛',
-      titanium: '⚙️',
       spectrometer: '🔬',
       explorer_vest: '🦺'
     };
@@ -1011,6 +1157,22 @@ export function renderInventoryUI() {
         `);
       }
 
+      // Proximity & tool checks
+      let isStationSatisfied = true;
+      if (recipe.station && recipe.station !== 'none') {
+        isStationSatisfied = isNearStation(recipe.station);
+      }
+      
+      let isToolSatisfied = true;
+      if (recipe.tool === 'axe' && getActiveAxe() === null) {
+        isToolSatisfied = false;
+      }
+      if (recipe.tool === 'pickaxe' && getActivePickaxe() === null) {
+        isToolSatisfied = false;
+      }
+
+      const canCraft = isAffordable && isStationSatisfied && isToolSatisfied;
+
       itemEl.innerHTML = `
         <div class="crafting-info">
           <div class="crafting-title-row">
@@ -1019,11 +1181,21 @@ export function renderInventoryUI() {
           </div>
           <div class="crafting-costs-container">${costBadges.join('')}</div>
         </div>
-        <button class="craft-btn ${isAffordable ? 'active' : ''}" ${isAffordable ? '' : 'disabled'}>CRAFT</button>
+        <button class="craft-btn ${canCraft ? 'active' : ''}" ${canCraft ? '' : 'disabled'}>CRAFT</button>
       `;
 
       const btn = itemEl.querySelector('.craft-btn');
       btn.addEventListener('click', () => {
+        if (!isStationSatisfied) {
+          const name = getTranslation(`inv.${recipe.station}`) || recipe.station;
+          showHudMessage(player.currentLang === 'it' ? `Serve la stazione: ${name.toUpperCase()} nelle vicinanze!` : `Needs workstation: ${name.toUpperCase()} nearby!`);
+          return;
+        }
+        if (!isToolSatisfied) {
+          showHudMessage(player.currentLang === 'it' ? `Devi possedere uno strumento (Accetta/Piccone) per lavorare la risorsa!` : `You need the required tool (Axe/Pickaxe) to process this resource!`);
+          return;
+        }
+
         if (isAffordable) {
           // Deduct
           for (const res in recipe.cost) {
@@ -1033,6 +1205,15 @@ export function renderInventoryUI() {
           player.inventory[recipe.id] = (player.inventory[recipe.id] || 0) + 1;
           
           playSelect(); // audio feedback
+
+          // If placed structure, start placement immediately!
+          if (recipe.id === 'campfire' || recipe.id === 'workbench' || recipe.id === 'furnace' || recipe.id === 'lab_table') {
+            toggleInventory(); // close inventory
+            import('./interact.js').then(module => {
+              module.startStructurePlacement(recipe.id);
+            });
+            return;
+          }
 
           // Sync & Render
           syncHotbarCounts();
@@ -1118,9 +1299,24 @@ function equipItem(itemId) {
     return;
   }
 
-  if (itemId === 'campfire') {
+  if (itemId === 'campfire' || itemId === 'workbench' || itemId === 'furnace' || itemId === 'lab_table') {
     toggleInventory(); // close inventory
-    startCampfirePlacement();
+    import('./interact.js').then(module => {
+      module.startStructurePlacement(itemId);
+    });
+    return;
+  }
+
+  if (itemId.endsWith('_axe')) {
+    showHudMessage(player.currentLang === 'it' ? "Premi il tasto 2 (Slot 2) per usare l'Accetta!" : "Press key 2 (Slot 2) to equip the Axe!");
+    return;
+  }
+  if (itemId.endsWith('_pickaxe')) {
+    showHudMessage(player.currentLang === 'it' ? "Premi il tasto 7 (Slot 7) per usare il Piccone!" : "Press key 7 (Slot 7) to equip the Pickaxe!");
+    return;
+  }
+  if (itemId.endsWith('_spear')) {
+    showHudMessage(player.currentLang === 'it' ? "Premi il tasto 1 (Slot 1) per usare la Lancia!" : "Press key 1 (Slot 1) to equip the Spear!");
     return;
   }
 

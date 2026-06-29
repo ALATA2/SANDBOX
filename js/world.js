@@ -26,6 +26,7 @@ export const world = {
   feedbackBoard: null, // Feedback Board Mesh
   clouds: [], // Array of cloud meshes
   campfires: [], // Array of placed campfire groups
+  placedWorkstations: [], // Array of placed workstations
   canes: [], // Array of active cane plant groups
   berryBushes: [], // Array of active berry bushes
   seabedMesh: null // 3D Seabed Mesh
@@ -729,6 +730,19 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
         if (dist < gRadius) {
           const virtualDepth = getVirtualDepthAt(y);
           if (virtualDepth >= 1100) continue; // Bedrock core is indestructible!
+
+          // Enforce tool checks: Primitive Pickaxe cannot mine basalt (Layer 5, >= 67m)
+          if (virtualDepth >= 67) {
+            const hasRefined = (player.inventory.refined_pickaxe || 0) > 0;
+            if (!hasRefined) {
+              if (Math.random() < 0.005) {
+                import('./player.js').then(m => {
+                  m.showHudMessage(player.currentLang === 'it' ? "REQUISITO: Serve il Piccone Rifinito per scavare il Basalto!" : "LOCKED: Needs Refined Pickaxe to mine Basalt!");
+                });
+              }
+              continue;
+            }
+          }
 
           // Magma is indestructible without heat suit
           if (virtualDepth >= 99 && virtualDepth < 700) {
@@ -1697,8 +1711,8 @@ function spawnScenery() {
 
       // Initialize health and falling state for woodcutting in userData
       treeGroup.userData = {
-        health: 3,
-        maxHealth: 3,
+        health: 6,
+        maxHealth: 6,
         falling: false,
         fallTimer: 0,
         type: isPalm ? 'palm' : 'pine'
@@ -2595,6 +2609,163 @@ export function createCampfireMesh(isHologram) {
   }
 
   return campfireGroup;
+}
+
+export function createWorkbenchMesh(isHologram) {
+  const group = new THREE.Group();
+  group.name = "workbench";
+
+  let woodMat, metalMat;
+  if (isHologram) {
+    woodMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, wireframe: true, transparent: true, opacity: 0.4 });
+    metalMat = woodMat;
+  } else {
+    woodMat = new THREE.MeshStandardMaterial({ color: 0x6e4722, roughness: 0.9, flatShading: true });
+    metalMat = new THREE.MeshStandardMaterial({ color: 0x7c858e, roughness: 0.4, metalness: 0.8, flatShading: true });
+  }
+
+  // Table top
+  const topGeom = new THREE.BoxGeometry(0.8, 0.08, 0.45);
+  const topMesh = new THREE.Mesh(topGeom, woodMat);
+  topMesh.position.y = 0.36;
+  topMesh.castShadow = !isHologram;
+  topMesh.receiveShadow = !isHologram;
+  group.add(topMesh);
+
+  // Legs
+  const legGeom = new THREE.BoxGeometry(0.06, 0.32, 0.06);
+  const legPositions = [
+    [-0.35, 0.16, -0.18],
+    [0.35, 0.16, -0.18],
+    [-0.35, 0.16, 0.18],
+    [0.35, 0.16, 0.18]
+  ];
+  legPositions.forEach(pos => {
+    const leg = new THREE.Mesh(legGeom, woodMat);
+    leg.position.set(pos[0], pos[1], pos[2]);
+    leg.castShadow = !isHologram;
+    leg.receiveShadow = !isHologram;
+    group.add(leg);
+  });
+
+  if (!isHologram) {
+    const hammerHandleGeom = new THREE.CylinderGeometry(0.006, 0.006, 0.12, 4);
+    hammerHandleGeom.rotateX(Math.PI / 2);
+    const hammerHandle = new THREE.Mesh(hammerHandleGeom, woodMat);
+    hammerHandle.position.set(-0.1, 0.41, 0.05);
+    group.add(hammerHandle);
+
+    const hammerHeadGeom = new THREE.BoxGeometry(0.02, 0.02, 0.04);
+    const hammerHead = new THREE.Mesh(hammerHeadGeom, metalMat);
+    hammerHead.position.set(-0.1, 0.41, 0.11);
+    group.add(hammerHead);
+  }
+
+  return group;
+}
+
+export function createFurnaceMesh(isHologram) {
+  const group = new THREE.Group();
+  group.name = "furnace";
+
+  let stoneMat, fireMat;
+  if (isHologram) {
+    stoneMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, wireframe: true, transparent: true, opacity: 0.4 });
+    fireMat = stoneMat;
+  } else {
+    stoneMat = new THREE.MeshStandardMaterial({ color: 0x5e5a56, roughness: 0.8, flatShading: true });
+    fireMat = new THREE.MeshStandardMaterial({ color: 0x221100, emissive: 0xff3300, emissiveIntensity: 0.0, flatShading: true });
+  }
+
+  const bodyGeom = new THREE.CylinderGeometry(0.3, 0.35, 0.55, 8);
+  const body = new THREE.Mesh(bodyGeom, stoneMat);
+  body.position.y = 0.275;
+  body.castShadow = !isHologram;
+  body.receiveShadow = !isHologram;
+  group.add(body);
+
+  const chimneyGeom = new THREE.CylinderGeometry(0.08, 0.1, 0.25, 6);
+  const chimney = new THREE.Mesh(chimneyGeom, stoneMat);
+  chimney.position.set(0, 0.65, 0);
+  chimney.castShadow = !isHologram;
+  chimney.receiveShadow = !isHologram;
+  group.add(chimney);
+
+  const holeGeom = new THREE.BoxGeometry(0.18, 0.18, 0.15);
+  const hole = new THREE.Mesh(holeGeom, fireMat);
+  hole.position.set(0, 0.22, 0.28);
+  hole.name = "fireHole";
+  group.add(hole);
+
+  if (!isHologram) {
+    const light = new THREE.PointLight(0xff5500, 0.0, 5);
+    light.position.set(0, 0.22, 0.32);
+    light.name = "fireLight";
+    group.add(light);
+
+    group.userData = {
+      light: light,
+      fireHole: hole,
+      smeltTimer: 0,
+      active: false,
+      productType: null
+    };
+  }
+
+  return group;
+}
+
+export function createLabTableMesh(isHologram) {
+  const group = new THREE.Group();
+  group.name = "lab_table";
+
+  let metalMat, screenMat, glassMat;
+  if (isHologram) {
+    metalMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, wireframe: true, transparent: true, opacity: 0.4 });
+    screenMat = metalMat;
+    glassMat = metalMat;
+  } else {
+    metalMat = new THREE.MeshStandardMaterial({ color: 0x7c858e, metalness: 0.8, roughness: 0.3, flatShading: true });
+    screenMat = new THREE.MeshStandardMaterial({ color: 0x003366, emissive: 0x0088ff, emissiveIntensity: 0.8, flatShading: true });
+    glassMat = new THREE.MeshStandardMaterial({ color: 0x33ccff, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.6, flatShading: true });
+  }
+
+  const topGeom = new THREE.BoxGeometry(0.9, 0.05, 0.5);
+  const top = new THREE.Mesh(topGeom, metalMat);
+  top.position.y = 0.38;
+  top.castShadow = !isHologram;
+  top.receiveShadow = !isHologram;
+  group.add(top);
+
+  const legGeom = new THREE.BoxGeometry(0.04, 0.36, 0.04);
+  const legPositions = [
+    [-0.4, 0.18, -0.2],
+    [0.4, 0.18, -0.2],
+    [-0.4, 0.18, 0.2],
+    [0.4, 0.18, 0.2]
+  ];
+  legPositions.forEach(pos => {
+    const leg = new THREE.Mesh(legGeom, metalMat);
+    leg.position.set(pos[0], pos[1], pos[2]);
+    leg.castShadow = !isHologram;
+    leg.receiveShadow = !isHologram;
+    group.add(leg);
+  });
+
+  if (!isHologram) {
+    const screenGeom = new THREE.BoxGeometry(0.18, 0.12, 0.06);
+    const screen = new THREE.Mesh(screenGeom, screenMat);
+    screen.position.set(0.2, 0.46, -0.05);
+    screen.rotation.y = -Math.PI / 6;
+    group.add(screen);
+
+    const flaskGeom = new THREE.ConeGeometry(0.05, 0.1, 6);
+    const flask = new THREE.Mesh(flaskGeom, glassMat);
+    flask.position.set(-0.2, 0.45, 0.05);
+    group.add(flask);
+  }
+
+  return group;
 }
 
 function updateWaterHeights(delta) {

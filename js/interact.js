@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { game } from './game.js';
 import { world, deformTerrainLowPoly, getSurfaceHeightNear, createCampfireMesh, getVertexVirtualDepth } from './world.js';
-import { player, showHudMessage, selectSlot, syncHotbarCounts, renderInventoryUI, cancelFishing } from './player.js';
+import { player, showHudMessage, selectSlot, syncHotbarCounts, renderInventoryUI, cancelFishing, getActiveAxe, getActivePickaxe, getActiveSpear } from './player.js';
 import { getTranslation, currentLang } from './lang.js';
 import { playWoodChop, playSelect, playSizzling, playDrink, playSpark, playRowingSplash } from './audio.js';
 import { getBlockChemicalComposition, analyzeBlockComposition, scanAndUnlock } from './chemistry.js';
@@ -12,16 +12,17 @@ let closestDebris = null;
 export let nearFeedbackBoard = false;
 let closestCampfire = null;
 let closestBerryBush = null;
-let campfireHologram = null;
+let structureHologram = null;
+let closestWorkstation = null;
 
 // Initialize Raycasting and keyboard listeners for interaction
 export function initInteraction() {
   raycaster = new THREE.Raycaster();
 
-  // Listen for the "E" harvest key and Escape for campfire cancel
+  // Listen for the "E" harvest key and Escape for structure placement cancel
   document.addEventListener('keydown', (e) => {
-    if (game.isPlacingCampfire && e.key === 'Escape') {
-      cancelCampfirePlacement();
+    if (game.isPlacingStructure && e.key === 'Escape') {
+      cancelStructurePlacement();
       return;
     }
 
@@ -133,6 +134,62 @@ export function initInteraction() {
         feedRosita();
       } else if (closestBerryBush) {
         gatherBerries();
+      } else if (closestWorkstation && closestWorkstation.type === 'furnace') {
+        const isSmelting = closestWorkstation.mesh.userData && closestWorkstation.mesh.userData.active;
+        if (!isSmelting) {
+          let oreType = null;
+          let productType = null;
+          let oreCost = 0;
+          
+          if ((player.inventory.raw_titanium || 0) >= 3) {
+            oreType = 'raw_titanium';
+            productType = 'titanium_plate';
+            oreCost = 3;
+          } else if ((player.inventory.raw_copper || 0) >= 2) {
+            oreType = 'raw_copper';
+            productType = 'copper_ingot';
+            oreCost = 2;
+          } else if ((player.inventory.raw_silicon || 0) >= 2) {
+            oreType = 'raw_silicon';
+            productType = 'glass';
+            oreCost = 2;
+          }
+
+          if (oreType) {
+            let fuelType = null;
+            let fuelCost = 0;
+            if ((player.inventory.wood || 0) >= 1) {
+              fuelType = 'wood';
+              fuelCost = 1;
+            } else if ((player.inventory.leaves || 0) >= 2) {
+              fuelType = 'leaves';
+              fuelCost = 2;
+            }
+
+            if (fuelType) {
+              player.inventory[oreType] -= oreCost;
+              player.inventory[fuelType] -= fuelCost;
+
+              closestWorkstation.mesh.userData.active = true;
+              closestWorkstation.mesh.userData.smeltTimer = 5.0;
+              closestWorkstation.mesh.userData.productType = productType;
+              if (closestWorkstation.mesh.userData.light) {
+                closestWorkstation.mesh.userData.light.intensity = 1.5;
+              }
+              if (closestWorkstation.mesh.userData.fireHole) {
+                closestWorkstation.mesh.userData.fireHole.material.emissiveIntensity = 1.0;
+              }
+
+              playSizzling();
+              showHudMessage(currentLang === 'it' ? "FUSIONE INIZIATA..." : "SMELTING INITIATED...");
+              renderInventoryUI();
+            } else {
+              showHudMessage(currentLang === 'it' ? "Manca il combustibile!" : "Missing fuel!");
+            }
+          } else {
+            showHudMessage(currentLang === 'it' ? "Nessun minerale da fondere!" : "No smeltable ores in inventory!");
+          }
+        }
       } else if (closestCampfire) {
         const isBurning = closestCampfire.userData && closestCampfire.userData.burnTime > 0;
         if (isBurning) {
@@ -152,13 +209,13 @@ export function initInteraction() {
     }
   });
 
-  // Listen for placing/canceling campfires via mouse buttons
+  // Listen for placing/canceling structures via mouse buttons
   document.addEventListener('mousedown', (e) => {
-    if (game.isPlacingCampfire && game.pointerLocked) {
+    if (game.isPlacingStructure && game.pointerLocked) {
       if (e.button === 0) { // Left click
-        placeCampfire();
+        placeStructure();
       } else if (e.button === 2) { // Right click
-        cancelCampfirePlacement();
+        cancelStructurePlacement();
       }
     }
   });
@@ -221,15 +278,15 @@ export function updateInteraction(delta) {
   // Check if any debris is near the player to show the "PRESS E" prompt
   checkHarvestablePrompt();
 
-  // Update campfire placement hologram positioning
-  if (game.isPlacingCampfire && campfireHologram) {
+  // Update structure placement hologram positioning
+  if (game.isPlacingStructure && structureHologram) {
     raycaster.setFromCamera(new THREE.Vector2(0, 0), game.camera);
     const targets = [];
     if (world.terrainMesh) targets.push(world.terrainMesh);
     const intersections = raycaster.intersectObjects(targets);
     if (intersections.length > 0 && intersections[0].distance < 6.0) {
-      campfireHologram.position.copy(intersections[0].point);
-      campfireHologram.visible = true;
+      structureHologram.position.copy(intersections[0].point);
+      structureHologram.visible = true;
     } else {
       const dir = new THREE.Vector3();
       game.camera.getWorldDirection(dir);
@@ -241,9 +298,35 @@ export function updateInteraction(delta) {
       const groundY = getSurfaceHeightNear(targetPos.x, 15, targetPos.z);
       targetPos.y = groundY;
       
-      campfireHologram.position.copy(targetPos);
-      campfireHologram.visible = true;
+      structureHologram.position.copy(targetPos);
+      structureHologram.visible = true;
     }
+  }
+
+  // Update smelting timers on active furnaces
+  if (world.placedWorkstations) {
+    world.placedWorkstations.forEach(ws => {
+      if (ws.type === 'furnace' && ws.mesh.userData && ws.mesh.userData.active) {
+        ws.mesh.userData.smeltTimer -= delta;
+        if (ws.mesh.userData.light) {
+          ws.mesh.userData.light.intensity = 1.5 + Math.sin(game.time * 20.0) * 0.3;
+        }
+        if (ws.mesh.userData.smeltTimer <= 0) {
+          ws.mesh.userData.active = false;
+          ws.mesh.userData.smeltTimer = 0;
+          if (ws.mesh.userData.light) ws.mesh.userData.light.intensity = 0.0;
+          if (ws.mesh.userData.fireHole) ws.mesh.userData.fireHole.material.emissiveIntensity = 0.0;
+
+          // Spawn smelting product
+          const product = ws.mesh.userData.productType;
+          const spawnPos = ws.position.clone();
+          spawnPos.z += 0.35;
+          spawnPos.y += 0.2;
+          spawnDebris(spawnPos, new THREE.Vector3(0, 1, 0), product);
+          showHudMessage(`${getTranslation(`inv.${product}`) || product.toUpperCase()} SMELTED!`);
+        }
+      }
+    });
   }
 
   // If the player is swinging a tool, check for hit at the peak of the swing
@@ -476,7 +559,9 @@ function performWoodcuttingRaycast() {
       const hitNormal = hit.face.normal.clone().applyQuaternion(hitMesh.getWorldQuaternion(new THREE.Quaternion()));
       spawnDebris(hit.point, hitNormal, 'wood');
 
-      treeGroup.userData.health -= 1;
+      const activeAxe = getActiveAxe();
+      const dmg = activeAxe === 'primitive_axe' ? 0.5 : 1.0;
+      treeGroup.userData.health -= dmg;
       showHudMessage(getTranslation('msg_chopped') || 'Chop!');
 
       if (treeGroup.userData.health <= 0) {
@@ -598,9 +683,9 @@ function performMiningRaycast() {
           if (rand < accum * 1.5) {
             let dropType = 'stone';
             if (el === 'Au') dropType = 'ore';
-            else if (el === 'Si') dropType = 'silicon';
-            else if (el === 'Cu') dropType = 'copper';
-            else if (el === 'Ti') dropType = 'titanium';
+            else if (el === 'Si') dropType = 'raw_silicon';
+            else if (el === 'Cu') dropType = 'raw_copper';
+            else if (el === 'Ti') dropType = 'raw_titanium';
             else if (el === 'U') dropType = 'uranium';
 
             spawnDebris(hitPoint, hitNormal, dropType);
@@ -649,21 +734,36 @@ export function spawnDebris(position, normal, type) {
     geom = new THREE.SphereGeometry(0.08, 8, 8);
     geom.scale(0.8, 1.25, 0.8);
     mat = new THREE.MeshStandardMaterial({ color: 0xfffcf0, roughness: 0.7, flatShading: true });
-  } else if (type === 'silicon') {
+  } else if (type === 'silicon' || type === 'raw_silicon') {
     geom = new THREE.DodecahedronGeometry(0.1, 0);
-    mat = new THREE.MeshStandardMaterial({ color: 0x99ccff, roughness: 0.1, metalness: 0.8, flatShading: true });
-  } else if (type === 'copper') {
+    mat = new THREE.MeshStandardMaterial({ color: 0x99ccff, roughness: 0.8, flatShading: true });
+  } else if (type === 'copper' || type === 'raw_copper') {
     geom = new THREE.DodecahedronGeometry(0.11, 0);
+    mat = new THREE.MeshStandardMaterial({ color: 0xa0522d, roughness: 0.8, flatShading: true });
+  } else if (type === 'copper_ingot') {
+    geom = new THREE.BoxGeometry(0.18, 0.04, 0.06);
     mat = new THREE.MeshStandardMaterial({ color: 0xd87a50, roughness: 0.2, metalness: 0.9, flatShading: true });
-  } else if (type === 'titanium') {
-    geom = new THREE.BoxGeometry(0.12, 0.12, 0.12);
+  } else if (type === 'titanium' || type === 'raw_titanium') {
+    geom = new THREE.DodecahedronGeometry(0.12, 0);
+    mat = new THREE.MeshStandardMaterial({ color: 0x708090, roughness: 0.8, flatShading: true });
+  } else if (type === 'titanium_plate') {
+    geom = new THREE.BoxGeometry(0.16, 0.02, 0.16);
     mat = new THREE.MeshStandardMaterial({ color: 0xb0c4de, roughness: 0.2, metalness: 0.9, flatShading: true });
-  } else if (type === 'uranium') {
-    geom = new THREE.OctahedronGeometry(0.11, 0);
-    mat = new THREE.MeshStandardMaterial({ color: 0x33cc33, roughness: 0.3, metalness: 0.5, emissive: 0x22aa22, emissiveIntensity: 0.3, flatShading: true });
+  } else if (type === 'sharp_stone') {
+    geom = new THREE.DodecahedronGeometry(0.09, 0);
+    mat = new THREE.MeshStandardMaterial({ color: 0x5a544f, roughness: 0.9, flatShading: true });
+  } else if (type === 'plank') {
+    geom = new THREE.BoxGeometry(0.25, 0.02, 0.08);
+    mat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9, flatShading: true });
+  } else if (type === 'stone_block') {
+    geom = new THREE.BoxGeometry(0.16, 0.08, 0.08);
+    mat = new THREE.MeshStandardMaterial({ color: 0x808080, roughness: 0.9, flatShading: true });
   } else if (type === 'glass') {
     geom = new THREE.BoxGeometry(0.1, 0.1, 0.1);
     mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.7, flatShading: true });
+  } else if (type === 'uranium') {
+    geom = new THREE.OctahedronGeometry(0.11, 0);
+    mat = new THREE.MeshStandardMaterial({ color: 0x33cc33, roughness: 0.3, metalness: 0.5, emissive: 0x22aa22, emissiveIntensity: 0.3, flatShading: true });
   } else {
     geom = new THREE.DodecahedronGeometry(0.12, 0);
     mat = new THREE.MeshStandardMaterial({ color: 0x8a7f76, roughness: 0.9, flatShading: true });
@@ -810,6 +910,54 @@ function checkHarvestablePrompt() {
     return;
   }
 
+  // Check proximity to placed workstations
+  closestWorkstation = null;
+  if (world.placedWorkstations) {
+    let minWSDist = 2.2;
+    world.placedWorkstations.forEach(ws => {
+      const dist = playerPos.distanceTo(ws.position);
+      if (dist < minWSDist) {
+        minWSDist = dist;
+        closestWorkstation = ws;
+      }
+    });
+  }
+
+  if (closestWorkstation) {
+    if (closestWorkstation.type === 'furnace') {
+      const isSmelting = closestWorkstation.mesh.userData && closestWorkstation.mesh.userData.active;
+      if (isSmelting) {
+        const rawPrompt = currentLang === 'it' ? 'FUSIONE IN CORSO...' : 'SMELTING IN PROGRESS...';
+        prompt.innerText = rawPrompt;
+        prompt.classList.add('visible');
+        return;
+      } else {
+        const hasFuel = (player.inventory.wood || 0) >= 1 || (player.inventory.leaves || 0) >= 2;
+        const hasOres = (player.inventory.raw_titanium || 0) >= 3 || (player.inventory.raw_copper || 0) >= 2 || (player.inventory.raw_silicon || 0) >= 2;
+        
+        let rawPrompt = '';
+        if (hasOres && hasFuel) {
+          rawPrompt = getTranslation('interact_smelt') || "PRESS E TO SMELT ORES";
+        } else if (!hasOres) {
+          rawPrompt = currentLang === 'it' ? "FORNACE (Richiede Rame/Silicio/Titanio grezzo)" : "FURNACE (Needs raw Copper/Silicon/Titanium)";
+        } else {
+          rawPrompt = currentLang === 'it' ? "FORNACE (Richiede Combustibile: 1 Legno o 2 Foglie)" : "FURNACE (Needs Fuel: 1 Wood or 2 Leaves)";
+        }
+        prompt.innerHTML = rawPrompt.replace('E', '<span style="color: #ffd700; font-weight:800;">E</span>');
+        prompt.classList.add('visible');
+        return;
+      }
+    } else if (closestWorkstation.type === 'workbench') {
+      const rawPrompt = currentLang === 'it' ? "VICINO AL BANCO DA LAVORO" : "NEAR WORKBENCH";
+      prompt.innerText = rawPrompt;
+      prompt.classList.add('visible');
+    } else if (closestWorkstation.type === 'lab_table') {
+      const rawPrompt = currentLang === 'it' ? "VICINO AL TAVOLO DA LABORATORIO" : "NEAR LAB TABLE";
+      prompt.innerText = rawPrompt;
+      prompt.classList.add('visible');
+    }
+  }
+
   // Check proximity to Rosita the Hen
   let nearRosita = false;
   if (game.henMesh) {
@@ -858,7 +1006,7 @@ function checkHarvestablePrompt() {
   let minDist = 2.2; // Maximum collection distance
 
   activeDebris.forEach(debris => {
-    if (debris.type === 'ore' || debris.type === 'wood' || debris.type === 'raw_crab' || debris.type === 'raw_fish' || debris.type === 'cooked_meat' || debris.type === 'stick' || debris.type === 'cane' || debris.type === 'fallen_log' || debris.type === 'liana' || debris.type === 'worm' || debris.type === 'egg' || debris.type === 'cooked_egg') {
+    if (debris.type) {
       const dist = playerPos.distanceTo(debris.mesh.position);
       if (dist < minDist) {
         minDist = dist;
@@ -1213,45 +1361,88 @@ function handleFishingInteraction() {
   }
 }
 
-// Start campfire holographic placement mode
-export function startCampfirePlacement() {
-  if (!player.inventory.campfire || player.inventory.campfire <= 0) return;
+// Generalized structure holographic placement mode
+export function startStructurePlacement(type) {
+  if (!player.inventory[type] || player.inventory[type] <= 0) return;
 
-  if (campfireHologram) {
-    cancelCampfirePlacement();
+  if (structureHologram) {
+    cancelStructurePlacement();
   }
 
-  game.isPlacingCampfire = true;
-  campfireHologram = createCampfireMesh(true);
-  game.scene.add(campfireHologram);
+  game.isPlacingStructure = true;
+  game.placingStructureType = type;
+
+  if (type === 'campfire') {
+    structureHologram = createCampfireMesh(true);
+  } else if (type === 'workbench') {
+    structureHologram = createWorkbenchMesh(true);
+  } else if (type === 'furnace') {
+    structureHologram = createFurnaceMesh(true);
+  } else if (type === 'lab_table') {
+    structureHologram = createLabTableMesh(true);
+  }
+
+  if (structureHologram) {
+    game.scene.add(structureHologram);
+  }
 }
 
 // Cancel holographic placement mode
-export function cancelCampfirePlacement() {
-  if (campfireHologram) {
-    game.scene.remove(campfireHologram);
-    campfireHologram = null;
+export function cancelStructurePlacement() {
+  if (structureHologram) {
+    game.scene.remove(structureHologram);
+    structureHologram = null;
   }
-  game.isPlacingCampfire = false;
+  game.isPlacingStructure = false;
+  game.placingStructureType = null;
 }
 
-// Place the real campfire on the ground
-function placeCampfire() {
-  if (!campfireHologram || !player.inventory.campfire || player.inventory.campfire <= 0) return;
+// Place the real structure on the ground
+function placeStructure() {
+  const type = game.placingStructureType;
+  if (!structureHologram || !type || !player.inventory[type] || player.inventory[type] <= 0) return;
 
-  const realCampfire = createCampfireMesh(false);
-  realCampfire.position.copy(campfireHologram.position);
-  realCampfire.rotation.copy(campfireHologram.rotation);
+  let realMesh;
+  if (type === 'campfire') {
+    realMesh = createCampfireMesh(false);
+    realMesh.position.copy(structureHologram.position);
+    realMesh.rotation.copy(structureHologram.rotation);
+    game.scene.add(realMesh);
+    world.campfires.push(realMesh);
+  } else {
+    if (type === 'workbench') {
+      realMesh = createWorkbenchMesh(false);
+    } else if (type === 'furnace') {
+      realMesh = createFurnaceMesh(false);
+    } else if (type === 'lab_table') {
+      realMesh = createLabTableMesh(false);
+    }
+    realMesh.position.copy(structureHologram.position);
+    realMesh.rotation.copy(structureHologram.rotation);
+    game.scene.add(realMesh);
+    world.placedWorkstations.push({
+      type: type,
+      position: realMesh.position.clone(),
+      mesh: realMesh
+    });
+  }
 
-  game.scene.add(realCampfire);
-  world.campfires.push(realCampfire);
-
-  // Deduct campfire from inventory
-  player.inventory.campfire--;
+  player.inventory[type]--;
 
   playSelect();
-  showHudMessage(getTranslation('msg_placed_campfire') || 'Campfire Placed!');
-  cancelCampfirePlacement();
+  const displayName = getTranslation(`inv.${type}`) || type;
+  showHudMessage(`${displayName.toUpperCase()} PLACED!`);
+  cancelStructurePlacement();
+  renderInventoryUI();
+}
+
+// Legacy wrappers for compatibility
+export function startCampfirePlacement() {
+  startStructurePlacement('campfire');
+}
+
+export function cancelCampfirePlacement() {
+  cancelStructurePlacement();
 }
 
 // Drink water from slot 3 (Water)
