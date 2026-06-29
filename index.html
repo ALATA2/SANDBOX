@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ARCHIPELAGO - Low-Poly Survival Prototype</title>
-  <link rel="stylesheet" href="style.css?v=0.069g">
+  <link rel="stylesheet" href="style.css?v=0.069h">
   
   <!-- Import maps polyfill if needed -->
   <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
@@ -15,14 +15,14 @@
       "imports": {
         "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
         "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/",
-        "./js/controls.js": "./js/controls.js?v=0.069g",
-        "./js/world.js": "./js/world.js?v=0.069g",
-        "./js/player.js": "./js/player.js?v=0.069g",
-        "./js/interact.js": "./js/interact.js?v=0.069g",
-        "./js/audio.js": "./js/audio.js?v=0.069g",
-        "./js/lang.js": "./js/lang.js?v=0.069g",
-        "./js/chemistry.js": "./js/chemistry.js?v=0.069g",
-        "./js/game.js": "./js/game.js?v=0.069g"
+        "./js/controls.js": "./js/controls.js?v=0.069h",
+        "./js/world.js": "./js/world.js?v=0.069h",
+        "./js/player.js": "./js/player.js?v=0.069h",
+        "./js/interact.js": "./js/interact.js?v=0.069h",
+        "./js/audio.js": "./js/audio.js?v=0.069h",
+        "./js/lang.js": "./js/lang.js?v=0.069h",
+        "./js/chemistry.js": "./js/chemistry.js?v=0.069h",
+        "./js/game.js": "./js/game.js?v=0.069h"
       }
     }
   </script>
@@ -444,6 +444,20 @@
     </div>
   </div>
 
+  <!-- Worn Map Overlay -->
+  <div id="map-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10000; background: rgba(0,0,0,0.65); align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div style="position: relative; width: min(90vw, 550px); height: min(90vh, 580px); background: #f2e9cb url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22 viewBox=%220 0 100 100%22><filter id=%22noise%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%224%22 stitchTiles=%22stitch%22/></filter><rect width=%22100%22 height=%22100%22 opacity=%220.1%22 filter=%22url(%23noise)%22/></svg>'); border: 5px solid #5a3f24; border-radius: 8px; box-shadow: 0 15px 35px rgba(0,0,0,0.8); display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; font-family: 'Courier New', Courier, monospace;">
+      <button id="map-close-btn" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 28px; color: #5a3f24; cursor: pointer; font-weight: bold; padding: 0; line-height: 1;">✖</button>
+      <h2 style="text-align: center; color: #5a3f24; margin: 0 0 15px 0; border-bottom: 3px double #5a3f24; padding-bottom: 8px; font-weight: bold; letter-spacing: 0.1em; font-size: 1.3rem;">MAPPA LOGORA (WORN MAP)</h2>
+      <div style="flex: 1; position: relative; border: 3px solid #5a3f24; border-radius: 4px; overflow: hidden; background: #e6dbbb; box-shadow: inset 0 0 10px rgba(0,0,0,0.2);">
+        <canvas id="map-canvas" style="width: 100%; height: 100%; display: block; image-rendering: pixelated;"></canvas>
+      </div>
+      <div style="text-align: center; color: #5a3f24; font-size: 12px; margin-top: 12px; font-weight: bold; letter-spacing: 0.05em;">
+        <span id="map-help-text">CAMMINA PER RIVELARE L'ISOLA E ELIMINARE LA NEBBIA DI GUERRA</span>
+      </div>
+    </div>
+  </div>
+
   <!-- Exit Confirmation Modal -->
   <div id="confirm-modal" style="display: none;">
     <div class="confirm-box">
@@ -485,9 +499,9 @@
   </div>
 
   <!-- Version Tag for Deployment Tracking -->
-  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.069g</div>
+  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.069h</div>
 
   <!-- Main JS entry point as an ES Module -->
-  <script type="module" src="js/game.js?v=0.069g"></script>
+  <script type="module" src="js/game.js?v=0.069h"></script>
 </body>
 </html>

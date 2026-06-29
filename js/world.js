@@ -28,6 +28,7 @@ export const world = {
   campfires: [], // Array of placed campfire groups
   placedWorkstations: [], // Array of placed workstations
   canes: [], // Array of active cane plant groups
+  placedStructures: [], // Array of placed modular structures (foundations, walls, etc.)
   berryBushes: [], // Array of active berry bushes
   seabedMesh: null // 3D Seabed Mesh
 };
@@ -2472,9 +2473,12 @@ export function updateWorld(delta) {
   if (world.campfires) {
     world.campfires.forEach(campfire => {
       if (campfire.userData) {
-        // Decrease burn time
+        // Decrease burn time (burns 3x faster in rain/storm if not sheltered)
         if (campfire.userData.burnTime > 0) {
-          campfire.userData.burnTime = Math.max(0, campfire.userData.burnTime - delta);
+          const isRaining = game.weather === 'rain' || game.weather === 'storm';
+          const sheltered = checkIsSheltered(campfire.position);
+          const decayMult = (isRaining && !sheltered) ? 3.0 : 1.0;
+          campfire.userData.burnTime = Math.max(0, campfire.userData.burnTime - delta * decayMult);
         }
 
         const isBurning = campfire.userData.burnTime > 0;
@@ -2933,3 +2937,204 @@ function spawnSeabed() {
   game.scene.add(mesh);
   world.seabedMesh = mesh;
 }
+
+export function createFoundationMesh(isHologram) {
+  const group = new THREE.Group();
+  group.name = "foundation";
+
+  let mat;
+  if (isHologram) {
+    mat = new THREE.MeshBasicMaterial({ color: 0x00ff88, wireframe: true, transparent: true, opacity: 0.4 });
+  } else {
+    mat = new THREE.MeshStandardMaterial({ color: 0x6e4e37, roughness: 0.9, flatShading: true });
+  }
+
+  const geom = new THREE.BoxGeometry(3.2, 0.2, 3.2);
+  geom.translate(0, 0.1, 0);
+  const mesh = new THREE.Mesh(geom, mat);
+  mesh.castShadow = !isHologram;
+  mesh.receiveShadow = !isHologram;
+  group.add(mesh);
+
+  const pillarGeom = new THREE.BoxGeometry(0.2, 0.6, 0.2);
+  pillarGeom.translate(0, -0.3, 0);
+  const cornerPositions = [
+    [-1.5, 0, -1.5],
+    [1.5, 0, -1.5],
+    [-1.5, 0, 1.5],
+    [1.5, 0, 1.5]
+  ];
+  cornerPositions.forEach(pos => {
+    const pillar = new THREE.Mesh(pillarGeom, mat);
+    pillar.position.set(pos[0], pos[1], pos[2]);
+    pillar.castShadow = !isHologram;
+    pillar.receiveShadow = !isHologram;
+    group.add(pillar);
+  });
+
+  return group;
+}
+
+export function createWallMesh(isHologram) {
+  const group = new THREE.Group();
+  group.name = "wall";
+
+  let mat;
+  if (isHologram) {
+    mat = new THREE.MeshBasicMaterial({ color: 0x00ff88, wireframe: true, transparent: true, opacity: 0.4 });
+  } else {
+    mat = new THREE.MeshStandardMaterial({ color: 0x805d43, roughness: 0.9, flatShading: true });
+  }
+
+  const geom = new THREE.BoxGeometry(3.2, 2.4, 0.15);
+  geom.translate(0, 1.2, 0);
+  const mesh = new THREE.Mesh(geom, mat);
+  mesh.castShadow = !isHologram;
+  mesh.receiveShadow = !isHologram;
+  group.add(mesh);
+
+  return group;
+}
+
+export function createRoofMesh(isHologram, isPrimitive) {
+  const group = new THREE.Group();
+  group.name = isPrimitive ? "primitive_roof" : "roof";
+
+  let mat;
+  if (isHologram) {
+    mat = new THREE.MeshBasicMaterial({ color: 0x00ff88, wireframe: true, transparent: true, opacity: 0.4 });
+  } else {
+    mat = new THREE.MeshStandardMaterial({
+      color: isPrimitive ? 0x2e6f40 : 0x5c4033,
+      roughness: 0.95,
+      flatShading: true
+    });
+  }
+
+  const slopeGeom1 = new THREE.BoxGeometry(3.3, 0.12, 1.95);
+  slopeGeom1.translate(0, 0.06, 0.9);
+  slopeGeom1.rotateX(Math.PI / 6);
+
+  const slope1 = new THREE.Mesh(slopeGeom1, mat);
+  slope1.position.y = 0.5;
+  slope1.castShadow = !isHologram;
+  slope1.receiveShadow = !isHologram;
+  group.add(slope1);
+
+  const slopeGeom2 = new THREE.BoxGeometry(3.3, 0.12, 1.95);
+  slopeGeom2.translate(0, 0.06, -0.9);
+  slopeGeom2.rotateX(-Math.PI / 6);
+
+  const slope2 = new THREE.Mesh(slopeGeom2, mat);
+  slope2.position.y = 0.5;
+  slope2.castShadow = !isHologram;
+  slope2.receiveShadow = !isHologram;
+  group.add(slope2);
+
+  return group;
+}
+
+export function createDoorMesh(isHologram) {
+  const group = new THREE.Group();
+  group.name = "door";
+
+  let frameMat, doorMat;
+  if (isHologram) {
+    frameMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, wireframe: true, transparent: true, opacity: 0.4 });
+    doorMat = frameMat;
+  } else {
+    frameMat = new THREE.MeshStandardMaterial({ color: 0x5a3e2c, roughness: 0.9, flatShading: true });
+    doorMat = new THREE.MeshStandardMaterial({ color: 0xaa704c, roughness: 0.8, flatShading: true });
+  }
+
+  const postGeom = new THREE.BoxGeometry(0.15, 2.4, 0.15);
+  postGeom.translate(0, 1.2, 0);
+
+  const leftPost = new THREE.Mesh(postGeom, frameMat);
+  leftPost.position.set(-1.5, 0, 0);
+  leftPost.castShadow = !isHologram;
+  leftPost.receiveShadow = !isHologram;
+  group.add(leftPost);
+
+  const rightPost = new THREE.Mesh(postGeom, frameMat);
+  rightPost.position.set(1.5, 0, 0);
+  rightPost.castShadow = !isHologram;
+  rightPost.receiveShadow = !isHologram;
+  group.add(rightPost);
+
+  const lintelGeom = new THREE.BoxGeometry(3.2, 0.15, 0.15);
+  lintelGeom.translate(0, 2.32, 0);
+  const lintel = new THREE.Mesh(lintelGeom, frameMat);
+  lintel.castShadow = !isHologram;
+  lintel.receiveShadow = !isHologram;
+  group.add(lintel);
+
+  const sidePanelGeom = new THREE.BoxGeometry(0.85, 2.4, 0.12);
+  sidePanelGeom.translate(0, 1.2, 0);
+  const leftPanel = new THREE.Mesh(sidePanelGeom, frameMat);
+  leftPanel.position.set(-1.0, 0, 0);
+  leftPanel.castShadow = !isHologram;
+  leftPanel.receiveShadow = !isHologram;
+  group.add(leftPanel);
+
+  const rightPanel = new THREE.Mesh(sidePanelGeom, frameMat);
+  rightPanel.position.set(1.0, 0, 0);
+  rightPanel.castShadow = !isHologram;
+  rightPanel.receiveShadow = !isHologram;
+  group.add(rightPanel);
+
+  const doorPanelGeom = new THREE.BoxGeometry(1.2, 2.2, 0.08);
+  doorPanelGeom.translate(0.6, 1.1, 0);
+
+  const doorPanel = new THREE.Mesh(doorPanelGeom, doorMat);
+  doorPanel.name = "doorPanel";
+  doorPanel.position.set(-0.6, 0, 0);
+  doorPanel.castShadow = !isHologram;
+  doorPanel.receiveShadow = !isHologram;
+  group.add(doorPanel);
+
+  group.userData = {
+    isOpen: false,
+    angle: 0,
+    targetAngle: 0
+  };
+
+  return group;
+}
+
+// Check if a 3D position is inside a sheltered structure (Foundation below, 3 Walls nearby, Roof above)
+export function checkIsSheltered(pos) {
+  if (!world.placedStructures || world.placedStructures.length === 0) return false;
+  
+  let hasFoundationBelow = false;
+  let wallCount = 0;
+  let hasRoofAbove = false;
+  
+  for (let i = 0; i < world.placedStructures.length; i++) {
+    const struct = world.placedStructures[i];
+    if (!struct || !struct.position) continue;
+    const type = struct.userData.type;
+    const sPos = struct.position;
+    
+    const dx = pos.x - sPos.x;
+    const dz = pos.z - sPos.z;
+    const dist2D = Math.sqrt(dx * dx + dz * dz);
+    
+    if (type === 'foundation') {
+      if (dist2D < 2.5 && pos.y >= sPos.y - 0.2 && pos.y <= sPos.y + 1.5) {
+        hasFoundationBelow = true;
+      }
+    } else if (type === 'wall') {
+      if (dist2D < 3.5 && Math.abs(pos.y - sPos.y) < 2.5) {
+        wallCount++;
+      }
+    } else if (type === 'roof' || type === 'primitive_roof' || type === 'wood_roof') {
+      if (dist2D < 2.5 && sPos.y > pos.y && sPos.y - pos.y <= 4.5) {
+        hasRoofAbove = true;
+      }
+    }
+  }
+  
+  return hasFoundationBelow && (wallCount >= 3) && hasRoofAbove;
+}
+

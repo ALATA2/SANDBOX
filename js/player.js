@@ -1,16 +1,17 @@
 import * as THREE from 'three';
 import { game } from './game.js';
-import { moveForward, moveBackward, moveLeft, moveRight } from './controls.js';
+import { moveForward, moveBackward, moveLeft, moveRight, shiftPressed } from './controls.js';
 import { getTranslation } from './lang.js';
 import { playSelect } from './audio.js';
-import { startCampfirePlacement } from './interact.js';
-import { getVertexVirtualDepth, getOriginalHeight, world } from './world.js';
+import { startCampfirePlacement, closestCampfire } from './interact.js';
+import { getVertexVirtualDepth, getOriginalHeight, world, checkIsSheltered, getSurfaceHeightNear } from './world.js';
 
 export const player = {
   health: 100,
   energy: 100,
   hydration: 100,
   selectedSlot: -1, // Start with free hands!
+  exploredGrid: null,
   
   // Hand held models state
   handGroup: null,
@@ -82,7 +83,14 @@ export const player = {
     lab_table: 0,
     spectrometer: 0,
     chemical_analyzer: 0,
-    heat_suit: 0
+    heat_suit: 0,
+    foundation: 0,
+    wall: 0,
+    primitive_roof: 0,
+    wood_roof: 0,
+    door: 0,
+    worn_map: 0,
+    charcoal: 0
   },
   equipped: {
     head: null,
@@ -197,6 +205,11 @@ export function initPlayer() {
   selectSlot(-1); // Start with empty hands (free hands)
   syncHotbarCounts();
 
+  // Initialize Fog of War Explored Grid
+  if (!player.exploredGrid) {
+    player.exploredGrid = new Uint8Array(120 * 120);
+  }
+
   // 5. Setup Keyboard listener for slot swapping (1-8 keys) and inventory toggle
   document.addEventListener('keydown', (e) => {
     if (e.key >= '1' && e.key <= '8') {
@@ -254,6 +267,14 @@ export function initPlayer() {
   if (closeBtn) {
     closeBtn.addEventListener('click', () => {
       toggleInventory();
+    });
+  }
+
+  // Setup map close button click
+  const mapCloseBtn = document.getElementById('map-close-btn');
+  if (mapCloseBtn) {
+    mapCloseBtn.addEventListener('click', () => {
+      closeWornMap();
     });
   }
 
@@ -706,11 +727,36 @@ export function triggerToolSwing() {
   if (player.swinging) return;
   player.swinging = true;
   player.swingTimer = player.swingDuration;
+  
+  // Deduct 2 energy per swing
+  player.energy = Math.max(0, player.energy - 2);
 }
 
 // Update player metrics, hand bobbing, animations, and HUD panels
 export function updatePlayer(delta) {
   const time = game.time;
+
+  // Update Fog of War explored grid based on player position
+  if (game.controls && game.controls.getObject) {
+    const playerPos = game.controls.getObject().position;
+    const gx = Math.floor(playerPos.x / 1.6);
+    const gz = Math.floor(playerPos.z / 1.6);
+    
+    if (player.exploredGrid) {
+      const revealRadius = 8;
+      for (let dz = -revealRadius; dz <= revealRadius; dz++) {
+        for (let dx = -revealRadius; dx <= revealRadius; dx++) {
+          if (dx * dx + dz * dz <= revealRadius * revealRadius) {
+            const nx = gx + dx;
+            const nz = gz + dz;
+            if (nx >= 0 && nx < 120 && nz >= 0 && nz < 120) {
+              player.exploredGrid[nz * 120 + nx] = 1;
+            }
+          }
+        }
+      }
+    }
+  }
 
   // 1. Tool Swing animation math
   if (player.swinging) {
@@ -842,10 +888,14 @@ export function updatePlayer(delta) {
     isWalking = keys; // Simple estimation
   }
   
+  const playerPos = game.controls && game.controls.getObject ? game.controls.getObject().position : null;
   if (isWalking) {
-    player.energy = Math.max(0, player.energy - energyDecayRate * delta);
+    const runFactor = (shiftPressed && player.energy > 10) ? 3.0 : 1.0;
+    player.energy = Math.max(0, player.energy - energyDecayRate * runFactor * delta);
   } else {
-    player.energy = Math.min(100, player.energy + 8.0 * delta); // recover
+    // Regenerate stamina faster if sheltered
+    const recoverSpeed = (playerPos && checkIsSheltered(playerPos)) ? 16.0 : 8.0;
+    player.energy = Math.min(100, player.energy + recoverSpeed * delta); // recover
   }
 
   // Health decays if starved or dehydrated, or if standing in lava
@@ -856,21 +906,64 @@ export function updatePlayer(delta) {
   // 3.5 Subterranean depth, temperature, and heat damage calculations
   let depth = 0;
   let temp = 25;
-  if (game.controls && game.controls.getObject) {
-    const pos = game.controls.getObject().position;
-    const H = getOriginalHeight(pos.x, pos.z);
-    const physicalDepth = H - pos.y;
+  if (playerPos) {
+    const H = getOriginalHeight(playerPos.x, playerPos.z);
+    const physicalDepth = H - playerPos.y;
     depth = Math.max(0, Math.round(physicalDepth * (3.0 / world.spacing) + (world.currentVirtualDepth || 0)));
 
-    if (depth > 67) {
+    if (isNearVolcano) {
+      temp = 45; // Extreme volcanic heat
+    } else if (depth > 67) {
       // Temperature rises up to 120°C at 700m depth
       temp = 25 + Math.min(95, ((depth - 67) / (700 - 67)) * 95);
-    }
-    if (depth >= 700) {
+    } else if (depth >= 700) {
       // Rises up to 250°C at 1100m depth
       temp = 120 + Math.min(130, ((depth - 700) / (1100 - 700)) * 130);
+    } else {
+      // Surface temperature: depends on day/night cycle
+      const cycleDuration = 240;
+      const progress = (game.time / cycleDuration) % 1.0;
+      const angle = progress * Math.PI * 2;
+      const isDay = Math.sin(angle) >= 0;
+      
+      if (isDay) {
+        temp = 25;
+      } else {
+        temp = 5; // Cold night
+        
+        // Check heat sources
+        const isNearFire = closestCampfire && closestCampfire.userData && closestCampfire.userData.burnTime > 0;
+        const isSheltered = checkIsSheltered(playerPos);
+        
+        if (isNearFire) {
+          temp = 25;
+        } else if (isSheltered) {
+          temp = 21; // Warm shelter
+        }
+        
+        // Explorer vest adds thermal protection (+5°C)
+        if (hasVest) {
+          temp += 5;
+        }
+      }
     }
+    
     temp = Math.round(temp);
+    
+    // Handle freezing warning and hypothermia damage
+    if (temp < 10) {
+      player.energy = Math.max(0, player.energy - 6.0 * delta); // drains stamina fast
+      if (player.energy <= 0) {
+        player.health = Math.max(0, player.health - 3.0 * delta); // freezing hypothermia damage
+      }
+      
+      if (!player.lastColdWarnTime) player.lastColdWarnTime = 0;
+      player.lastColdWarnTime += delta;
+      if (player.lastColdWarnTime > 8.0) {
+        player.lastColdWarnTime = 0;
+        showHudMessage(player.currentLang === 'it' ? "🥶 CONGELAMENTO: Scaldati vicino a un fuoco o in un rifugio!" : "🥶 FREEZING: Warm up near a fire or inside a shelter!");
+      }
+    }
 
     // Lava damage in Magma layer (Layer 6, 99m to 700m)
     if (depth >= 99 && depth < 700) {
@@ -891,7 +984,11 @@ export function updatePlayer(delta) {
   const depthVal = document.getElementById('hud-depth-val');
   if (depthVal) depthVal.innerText = `-${depth} m`;
   const tempVal = document.getElementById('hud-temp-val');
-  if (tempVal) tempVal.innerText = `${temp} °C`;
+  if (tempVal) {
+    const isSheltered = playerPos && checkIsSheltered(playerPos);
+    const shelterSuffix = isSheltered ? (player.currentLang === 'it' ? " (AL RIPARO)" : " (SHELTERED)") : "";
+    tempVal.innerText = `${temp} °C${shelterSuffix}`;
+  }
 
   if (inLava) {
     player.health = Math.max(0, player.health - 10.0 * delta); // 10 HP per second
@@ -1104,6 +1201,16 @@ export function renderInventoryUI() {
       // Lab Table at Workbench
       { id: 'lab_table', name: 'Lab Table', icon: '🧪', cost: { copper_ingot: 4, glass: 2, wood: 10 }, costText: '4 Copper Ingots, 2 Glass, 10 Wood', labelKey: 'inv.lab_table', descKey: 'recipe.lab_table', station: 'workbench' },
       
+      // Modular Building Blocks at Workbench
+      { id: 'foundation', name: 'Wood Foundation', icon: '🪵', cost: { plank: 4, wood: 2 }, costText: '4 Planks, 2 Wood', labelKey: 'inv.foundation', descKey: 'recipe.foundation', station: 'workbench' },
+      { id: 'wall', name: 'Wood Wall', icon: '🪵', cost: { plank: 3, stick: 4 }, costText: '3 Planks, 4 Sticks', labelKey: 'inv.wall', descKey: 'recipe.wall', station: 'workbench' },
+      { id: 'primitive_roof', name: 'Leaf Roof', icon: '🍃', cost: { leaves: 4, rope: 2 }, costText: '4 Leaves, 2 Ropes', labelKey: 'inv.primitive_roof', descKey: 'recipe.primitive_roof', station: 'workbench' },
+      { id: 'wood_roof', name: 'Wood Roof', icon: '🪵', cost: { plank: 3, wood: 2 }, costText: '3 Planks, 2 Wood', labelKey: 'inv.wood_roof', descKey: 'recipe.wood_roof', station: 'workbench' },
+      { id: 'door', name: 'Wood Door', icon: '🚪', cost: { plank: 2, rope: 2 }, costText: '2 Planks, 2 Ropes', labelKey: 'inv.door', descKey: 'recipe.door', station: 'workbench' },
+      
+      // Exploration Map at Workbench
+      { id: 'worn_map', name: 'Worn Map', icon: '🗺️', cost: { leaves: 4, charcoal: 1 }, costText: '4 Leaves, 1 Charcoal', labelKey: 'inv.worn_map', descKey: 'recipe.worn_map', station: 'workbench' },
+
       // Tier 4: Lab Table Crafts
       { id: 'spectrometer', name: 'Spectrometer', icon: '🔬', cost: { copper_ingot: 2, glass: 1 }, costText: '2 Copper Ingots, 1 Glass', labelKey: 'inv.spectrometer', descKey: 'recipe.spectrometer', station: 'lab' },
       { id: 'chemical_analyzer', name: 'Chemical Analyzer', icon: '🧪', cost: { spectrometer: 1, rope: 2 }, costText: '1 Spectrometer, 2 Ropes', labelKey: 'inv.chemical_analyzer', descKey: 'recipe.chemical_analyzer', station: 'lab' },
@@ -1127,7 +1234,14 @@ export function renderInventoryUI() {
       titanium_plate: '⚙️',
       glass: '🥛',
       spectrometer: '🔬',
-      explorer_vest: '🦺'
+      explorer_vest: '🦺',
+      charcoal: '🌑',
+      foundation: '🪵',
+      wall: '🪵',
+      primitive_roof: '🍃',
+      wood_roof: '🪵',
+      door: '🚪',
+      worn_map: '🗺️'
     };
 
     recipes.forEach(recipe => {
@@ -1208,7 +1322,9 @@ export function renderInventoryUI() {
           playSelect(); // audio feedback
 
           // If placed structure, start placement immediately!
-          if (recipe.id === 'campfire' || recipe.id === 'workbench' || recipe.id === 'furnace' || recipe.id === 'lab_table') {
+          const isStructure = recipe.id === 'campfire' || recipe.id === 'workbench' || recipe.id === 'furnace' || recipe.id === 'lab_table' ||
+                              recipe.id === 'foundation' || recipe.id === 'wall' || recipe.id === 'primitive_roof' || recipe.id === 'wood_roof' || recipe.id === 'door';
+          if (isStructure) {
             toggleInventory(); // close inventory
             import('./interact.js').then(module => {
               module.startStructurePlacement(recipe.id);
@@ -1300,11 +1416,18 @@ function equipItem(itemId) {
     return;
   }
 
-  if (itemId === 'campfire' || itemId === 'workbench' || itemId === 'furnace' || itemId === 'lab_table') {
+  const isStructure = itemId === 'campfire' || itemId === 'workbench' || itemId === 'furnace' || itemId === 'lab_table' ||
+                      itemId === 'foundation' || itemId === 'wall' || itemId === 'primitive_roof' || itemId === 'wood_roof' || itemId === 'door';
+  if (isStructure) {
     toggleInventory(); // close inventory
     import('./interact.js').then(module => {
       module.startStructurePlacement(itemId);
     });
+    return;
+  }
+
+  if (itemId === 'worn_map') {
+    openWornMap();
     return;
   }
 
@@ -1551,3 +1674,134 @@ export function syncHotbarCounts() {
     }
   }
 }
+
+// Open the Worn Map UI overlay
+export function openWornMap() {
+  const overlay = document.getElementById('map-overlay');
+  if (!overlay) return;
+
+  const invOverlay = document.getElementById('inventory-overlay');
+  if (invOverlay) invOverlay.style.display = 'none';
+
+  overlay.style.display = 'flex';
+  game.paused = true;
+  if (game.controls) {
+    game.controls.unlock();
+  }
+
+  drawExploredMap();
+}
+
+// Close the Worn Map UI overlay
+export function closeWornMap() {
+  const overlay = document.getElementById('map-overlay');
+  if (!overlay) return;
+
+  overlay.style.display = 'none';
+  if (game.controls) {
+    game.controls.lock();
+  }
+}
+
+// Draw explored grid to 2D Canvas with fog of war
+export function drawExploredMap() {
+  const canvas = document.getElementById('map-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  canvas.width = 512;
+  canvas.height = 512;
+
+  const w = canvas.width;
+  const h = canvas.height;
+  const gridW = 120;
+  const gridH = 120;
+  const cellSize = w / gridW;
+
+  ctx.fillStyle = '#1c1b18';
+  ctx.fillRect(0, 0, w, h);
+
+  for (let gz = 0; gz < gridH; gz++) {
+    for (let gx = 0; gx < gridW; gx++) {
+      const idx = gz * gridW + gx;
+      const isExplored = player.exploredGrid && player.exploredGrid[idx] === 1;
+
+      if (!isExplored) {
+        ctx.fillStyle = '#3a352a';
+        ctx.fillRect(gx * cellSize, gz * cellSize, cellSize + 0.5, cellSize + 0.5);
+        continue;
+      }
+
+      const wx = gx * 1.6;
+      const wz = gz * 1.6;
+      const height = getSurfaceHeightNear(wx, 15, wz);
+
+      let color = '#adc2d1';
+      if (height < 3.7) {
+        color = '#b0c4de';
+      } else if (height < 4.8) {
+        color = '#dfcf9f';
+      } else if (height < 10.0) {
+        color = '#8fad77';
+      } else if (height < 14.0) {
+        color = '#8c7c64';
+      } else if (height === 14.4) {
+        color = '#5f9ea0';
+      } else {
+        color = '#dcdcdc';
+      }
+
+      ctx.fillStyle = color;
+      ctx.fillRect(gx * cellSize, gz * cellSize, cellSize + 0.5, cellSize + 0.5);
+    }
+  }
+
+  ctx.strokeStyle = 'rgba(138, 90, 54, 0.1)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= gridW; i += 10) {
+    ctx.beginPath();
+    ctx.moveTo(i * cellSize, 0);
+    ctx.lineTo(i * cellSize, h);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(0, i * cellSize);
+    ctx.lineTo(w, i * cellSize);
+    ctx.stroke();
+  }
+
+  if (game.controls && game.controls.getObject) {
+    const playerPos = game.controls.getObject().position;
+    const pGridX = (playerPos.x / (120 * 1.6)) * w;
+    const pGridZ = (playerPos.z / (120 * 1.6)) * h;
+
+    const dir = new THREE.Vector3();
+    game.camera.getWorldDirection(dir);
+    const yaw = Math.atan2(dir.x, dir.z);
+
+    ctx.save();
+    ctx.translate(pGridX, pGridZ);
+    ctx.rotate(yaw);
+
+    ctx.fillStyle = '#d9534f';
+    ctx.beginPath();
+    ctx.moveTo(0, 8);
+    ctx.lineTo(-4, 0);
+    ctx.lineTo(4, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = '#555';
+    ctx.beginPath();
+    ctx.moveTo(0, -8);
+    ctx.lineTo(-4, 0);
+    ctx.lineTo(4, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
+
+

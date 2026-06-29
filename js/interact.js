@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { game } from './game.js';
-import { world, deformTerrainLowPoly, getSurfaceHeightNear, createCampfireMesh, getVertexVirtualDepth } from './world.js';
+import { world, deformTerrainLowPoly, getSurfaceHeightNear, createCampfireMesh, getVertexVirtualDepth, getWaterHeightAt, createFoundationMesh, createWallMesh, createRoofMesh, createDoorMesh } from './world.js';
 import { player, showHudMessage, selectSlot, syncHotbarCounts, renderInventoryUI, cancelFishing, getActiveAxe, getActivePickaxe, getActiveSpear } from './player.js';
 import { getTranslation, currentLang } from './lang.js';
 import { playWoodChop, playSelect, playSizzling, playDrink, playSpark, playRowingSplash } from './audio.js';
@@ -14,20 +14,38 @@ let closestCampfire = null;
 let closestBerryBush = null;
 let structureHologram = null;
 let closestWorkstation = null;
+let closestDoor = null;
 
 // Initialize Raycasting and keyboard listeners for interaction
 export function initInteraction() {
   raycaster = new THREE.Raycaster();
 
-  // Listen for the "E" harvest key and Escape for structure placement cancel
+  // Listen for the "E" harvest key and Escape / R for structure placement
   document.addEventListener('keydown', (e) => {
-    if (game.isPlacingStructure && e.key === 'Escape') {
-      cancelStructurePlacement();
-      return;
+    if (game.isPlacingStructure) {
+      if (e.key === 'Escape') {
+        cancelStructurePlacement();
+        return;
+      }
+      if (e.key === 'r' || e.key === 'R') {
+        if (structureHologram) {
+          structureHologram.userData.rotationOffset = (structureHologram.userData.rotationOffset || 0) + Math.PI / 2;
+          playSelect();
+        }
+        return;
+      }
     }
 
     if (game.pointerLocked && e.code === 'KeyE') {
       const playerPos = game.controls.getObject().position;
+
+      // Handle doors interaction first
+      if (closestDoor) {
+        closestDoor.userData.isOpen = !closestDoor.userData.isOpen;
+        closestDoor.userData.targetAngle = closestDoor.userData.isOpen ? Math.PI * 0.6 : 0;
+        playSelect();
+        return;
+      }
 
       // 0. Prioritize Spectrometer scanning if held
       const holdingSpectrometer = player.equipped && player.equipped.right_hand === 'spectrometer';
@@ -283,9 +301,124 @@ export function updateInteraction(delta) {
     raycaster.setFromCamera(new THREE.Vector2(0, 0), game.camera);
     const targets = [];
     if (world.terrainMesh) targets.push(world.terrainMesh);
-    const intersections = raycaster.intersectObjects(targets);
+    
+    // Intersect placed structures to allow snapping
+    const structureMeshes = [];
+    if (world.placedStructures) {
+      world.placedStructures.forEach(struct => {
+        struct.traverse(child => {
+          if (child.isMesh) structureMeshes.push(child);
+        });
+      });
+    }
+
+    const intersections = raycaster.intersectObjects([...targets, ...structureMeshes]);
     if (intersections.length > 0 && intersections[0].distance < 6.0) {
-      structureHologram.position.copy(intersections[0].point);
+      const hitPoint = intersections[0].point;
+      
+      let snapped = false;
+      const type = game.placingStructureType;
+      
+      let closestSnapDist = Infinity;
+      const snapPos = new THREE.Vector3();
+      let snapRotationY = 0;
+      
+      if (world.placedStructures && world.placedStructures.length > 0) {
+        for (let i = 0; i < world.placedStructures.length; i++) {
+          const other = world.placedStructures[i];
+          const otherType = other.userData.type;
+          const otherPos = other.position;
+          
+          const dx = hitPoint.x - otherPos.x;
+          const dz = hitPoint.z - otherPos.z;
+          const dist2D = Math.sqrt(dx * dx + dz * dz);
+          
+          if (dist2D < 4.0) {
+            const otherRotY = other.rotation.y;
+            
+            if (otherType === 'foundation') {
+              if (type === 'foundation') {
+                const offsets = [
+                  { x: 3.2, z: 0 },
+                  { x: -3.2, z: 0 },
+                  { x: 0, z: 3.2 },
+                  { x: 0, z: -3.2 }
+                ];
+                for (const offset of offsets) {
+                  const rotatedOffset = new THREE.Vector3(offset.x, 0, offset.z).applyAxisAngle(new THREE.Vector3(0, 1, 0), otherRotY);
+                  const p = otherPos.clone().add(rotatedOffset);
+                  const d = hitPoint.distanceTo(p);
+                  if (d < 1.5 && d < closestSnapDist) {
+                    closestSnapDist = d;
+                    snapPos.copy(p);
+                    snapRotationY = otherRotY;
+                    snapped = true;
+                  }
+                }
+              } else if (type === 'wall' || type === 'door') {
+                const offsets = [
+                  { x: 1.6, z: 0, rot: Math.PI / 2 },
+                  { x: -1.6, z: 0, rot: -Math.PI / 2 },
+                  { x: 0, z: 1.6, rot: 0 },
+                  { x: 0, z: -1.6, rot: Math.PI }
+                ];
+                for (const offset of offsets) {
+                  const rotatedOffset = new THREE.Vector3(offset.x, 0, offset.z).applyAxisAngle(new THREE.Vector3(0, 1, 0), otherRotY);
+                  const p = otherPos.clone().add(rotatedOffset);
+                  p.y += 0.1;
+                  const d = hitPoint.distanceTo(p);
+                  if (d < 1.5 && d < closestSnapDist) {
+                    closestSnapDist = d;
+                    snapPos.copy(p);
+                    snapRotationY = otherRotY + offset.rot;
+                    snapped = true;
+                  }
+                }
+              }
+            } else if (otherType === 'wall' || otherType === 'door') {
+              if (type === 'roof' || type === 'primitive_roof' || type === 'wood_roof') {
+                const p = otherPos.clone();
+                p.y += 2.4;
+                const d = hitPoint.distanceTo(p);
+                if (d < 1.5 && d < closestSnapDist) {
+                  closestSnapDist = d;
+                  snapPos.copy(p);
+                  snapRotationY = otherRotY;
+                  snapped = true;
+                }
+              } else if (type === 'wall' || type === 'door') {
+                const p = otherPos.clone();
+                p.y += 2.4;
+                const d = hitPoint.distanceTo(p);
+                if (d < 1.5 && d < closestSnapDist) {
+                  closestSnapDist = d;
+                  snapPos.copy(p);
+                  snapRotationY = otherRotY;
+                  snapped = true;
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      const rotationOffset = structureHologram.userData.rotationOffset || 0;
+      
+      if (snapped) {
+        structureHologram.position.copy(snapPos);
+        structureHologram.rotation.set(0, snapRotationY + rotationOffset, 0);
+      } else {
+        structureHologram.position.copy(hitPoint);
+        if (type === 'foundation') {
+          structureHologram.position.y = Math.floor(hitPoint.y * 5) / 5;
+        }
+        
+        const dir = new THREE.Vector3();
+        game.camera.getWorldDirection(dir);
+        const yaw = Math.atan2(-dir.x, -dir.z);
+        const snappedYaw = Math.round(yaw / (Math.PI / 4)) * (Math.PI / 4);
+        structureHologram.rotation.set(0, snappedYaw + rotationOffset, 0);
+      }
       structureHologram.visible = true;
     } else {
       const dir = new THREE.Vector3();
@@ -298,7 +431,12 @@ export function updateInteraction(delta) {
       const groundY = getSurfaceHeightNear(targetPos.x, 15, targetPos.z);
       targetPos.y = groundY;
       
+      const rotationOffset = structureHologram.userData.rotationOffset || 0;
+      const yaw = Math.atan2(-dir.x, -dir.z);
+      const snappedYaw = Math.round(yaw / (Math.PI / 4)) * (Math.PI / 4);
+      
       structureHologram.position.copy(targetPos);
+      structureHologram.rotation.set(0, snappedYaw + rotationOffset, 0);
       structureHologram.visible = true;
     }
   }
@@ -324,6 +462,20 @@ export function updateInteraction(delta) {
           spawnPos.y += 0.2;
           spawnDebris(spawnPos, new THREE.Vector3(0, 1, 0), product);
           showHudMessage(`${getTranslation(`inv.${product}`) || product.toUpperCase()} SMELTED!`);
+        }
+      }
+    });
+  }
+
+  // Animate placed doors opening/closing
+  if (world.placedStructures) {
+    world.placedStructures.forEach(struct => {
+      if (struct.userData.type === 'door') {
+        const doorPanel = struct.getObjectByName('doorPanel');
+        if (doorPanel) {
+          const target = struct.userData.targetAngle || 0;
+          const curr = doorPanel.rotation.y;
+          doorPanel.rotation.y = THREE.MathUtils.lerp(curr, target, 10.0 * delta);
         }
       }
     });
@@ -560,7 +712,8 @@ function performWoodcuttingRaycast() {
       spawnDebris(hit.point, hitNormal, 'wood');
 
       const activeAxe = getActiveAxe();
-      const dmg = activeAxe === 'primitive_axe' ? 0.5 : 1.0;
+      let dmg = activeAxe === 'primitive_axe' ? 0.5 : 1.0;
+      if (player.energy < 10) dmg *= 0.5; // low stamina reduces chopping power
       treeGroup.userData.health -= dmg;
       showHudMessage(getTranslation('msg_chopped') || 'Chop!');
 
@@ -648,8 +801,9 @@ function performMiningRaycast() {
       spawnDebris(hitPoint, hitNormal, 'ore');
       showHudMessage(getTranslation('msg_mined'));
       
-      // Shrink the gold crystals slightly to show decay
-      oreGroupRef.scale.subScalar(0.12);
+      // Shrink the gold crystals slightly to show decay (slower if low stamina)
+      const shrinkVal = player.energy < 10 ? 0.06 : 0.12;
+      oreGroupRef.scale.subScalar(shrinkVal);
       
       // If shrunk too small, destroy the deposit
       if (oreGroupRef.scale.x < 0.5) {
@@ -667,7 +821,9 @@ function performMiningRaycast() {
     } else {
       // 2. Generic terrain hits: deform (carve crater) and spawn chemistry or stone debris
       const virtualDepth = getVertexVirtualDepth(hitPoint.x, hitPoint.y, hitPoint.z);
-      deformTerrainLowPoly(hitPoint, 1.8, 1.2);
+      const deformRadius = player.energy < 10 ? 0.9 : 1.8;
+      const deformDepth = player.energy < 10 ? 0.6 : 1.2;
+      deformTerrainLowPoly(hitPoint, deformRadius, deformDepth);
 
       const comp = getBlockChemicalComposition(hitPoint.x, virtualDepth, hitPoint.z);
       let spawned = false;
@@ -696,7 +852,11 @@ function performMiningRaycast() {
       }
 
       if (!spawned) {
-        spawnDebris(hitPoint, hitNormal, 'stone');
+        if (player.energy >= 10 || Math.random() > 0.5) {
+          spawnDebris(hitPoint, hitNormal, 'stone');
+        } else {
+          showHudMessage(player.currentLang === 'it' ? "Troppo stanco per scavare pietre!" : "Too tired to harvest stone!");
+        }
       }
     }
   }
@@ -884,6 +1044,41 @@ function checkHarvestablePrompt() {
       prompt.classList.add('visible');
       return;
     }
+  }
+
+  // Door raycast check
+  closestDoor = null;
+  if (world.placedStructures && world.placedStructures.length > 0) {
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), game.camera);
+    const doorMeshes = [];
+    const meshToDoorMap = new Map();
+    world.placedStructures.forEach(struct => {
+      if (struct.userData.type === 'door') {
+        struct.traverse(child => {
+          if (child.isMesh) {
+            doorMeshes.push(child);
+            meshToDoorMap.set(child, struct);
+          }
+        });
+      }
+    });
+    
+    if (doorMeshes.length > 0) {
+      const intersects = raycaster.intersectObjects(doorMeshes);
+      if (intersects.length > 0 && intersects[0].distance < 3.5) {
+        closestDoor = meshToDoorMap.get(intersects[0].object);
+      }
+    }
+  }
+  
+  if (closestDoor) {
+    const isOpen = closestDoor.userData.isOpen;
+    const rawPrompt = isOpen ? 
+      (player.currentLang === 'it' ? "PREMI E PER CHIUDERE LA PORTA" : "PRESS E TO CLOSE DOOR") : 
+      (player.currentLang === 'it' ? "PREMI E PER APRIRE LA PORTA" : "PRESS E TO OPEN DOOR");
+    prompt.innerHTML = rawPrompt.replace('E', '<span style="color: #ffd700; font-weight:800;">E</span>');
+    prompt.classList.add('visible');
+    return;
   }
 
   // Check proximity to raft
@@ -1380,6 +1575,16 @@ export function startStructurePlacement(type) {
     structureHologram = createFurnaceMesh(true);
   } else if (type === 'lab_table') {
     structureHologram = createLabTableMesh(true);
+  } else if (type === 'foundation') {
+    structureHologram = createFoundationMesh(true);
+  } else if (type === 'wall') {
+    structureHologram = createWallMesh(true);
+  } else if (type === 'primitive_roof') {
+    structureHologram = createRoofMesh(true, true);
+  } else if (type === 'wood_roof') {
+    structureHologram = createRoofMesh(true, false);
+  } else if (type === 'door') {
+    structureHologram = createDoorMesh(true);
   }
 
   if (structureHologram) {
@@ -1409,7 +1614,7 @@ function placeStructure() {
     realMesh.rotation.copy(structureHologram.rotation);
     game.scene.add(realMesh);
     world.campfires.push(realMesh);
-  } else {
+  } else if (type === 'workbench' || type === 'furnace' || type === 'lab_table') {
     if (type === 'workbench') {
       realMesh = createWorkbenchMesh(false);
     } else if (type === 'furnace') {
@@ -1425,6 +1630,29 @@ function placeStructure() {
       position: realMesh.position.clone(),
       mesh: realMesh
     });
+  } else {
+    // Modular Building blocks (foundation, wall, primitive_roof, wood_roof, door)
+    if (type === 'foundation') {
+      realMesh = createFoundationMesh(false);
+    } else if (type === 'wall') {
+      realMesh = createWallMesh(false);
+    } else if (type === 'primitive_roof') {
+      realMesh = createRoofMesh(false, true);
+    } else if (type === 'wood_roof') {
+      realMesh = createRoofMesh(false, false);
+    } else if (type === 'door') {
+      realMesh = createDoorMesh(false);
+    }
+    
+    realMesh.position.copy(structureHologram.position);
+    realMesh.rotation.copy(structureHologram.rotation);
+    game.scene.add(realMesh);
+    
+    // Add type and durability metadata
+    realMesh.userData.type = type;
+    realMesh.userData.durability = 100;
+    
+    world.placedStructures.push(realMesh);
   }
 
   player.inventory[type]--;
@@ -1447,13 +1675,33 @@ export function cancelCampfirePlacement() {
 
 // Drink water from slot 3 (Water)
 function drinkWater() {
-  if (player.hydration >= 100) {
-    showHudMessage(getTranslation('msg_already_hydrated') || "Already hydrated!");
+  const playerPos = game.controls.getObject().position;
+  const waterHeight = getWaterHeightAt(playerPos.x, playerPos.z);
+  
+  // Check if near water source
+  const isNearOcean = playerPos.y <= 5.5 && waterHeight === 4.0;
+  const isNearLake = playerPos.y <= 15.5 && waterHeight === 14.4;
+  
+  if (!isNearOcean && !isNearLake) {
+    showHudMessage(player.currentLang === 'it' ? "Non c'è acqua qui! Cerca il lago di montagna o fonti dolci." : "No water here! Look for the mountain lake or fresh water.");
     return;
   }
-  player.hydration = Math.min(100, player.hydration + 30);
-  playDrink();
-  showHudMessage(getTranslation('msg_drank_water') || "Drank water! +30 Hydration");
+  
+  if (isNearOcean) {
+    // Saltwater penalty!
+    player.hydration = Math.max(0, player.hydration - 15);
+    player.health = Math.max(0, player.health - 5);
+    playDrink();
+    showHudMessage(player.currentLang === 'it' ? "Hai bevuto acqua di mare salata! -15 Idratazione, -5 HP!" : "Drank salty seawater! -15 Hydration, -5 HP!");
+  } else if (isNearLake) {
+    if (player.hydration >= 100) {
+      showHudMessage(getTranslation('msg_already_hydrated') || "Already hydrated!");
+      return;
+    }
+    player.hydration = Math.min(100, player.hydration + 30);
+    playDrink();
+    showHudMessage(player.currentLang === 'it' ? "Hai bevuto acqua dolce fresca! +30 Idratazione" : "Drank fresh water! +30 Hydration");
+  }
 }
 
 // Add fuel or light/spark the campfire using 2 stones and 1 leaf

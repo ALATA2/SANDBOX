@@ -246,7 +246,7 @@ export function updateControls(delta) {
   const speedMultiplier = hasBoots ? 1.15 : 1.0;
 
   // Walking vs Running Speed Scale (Walk at 40% speed, run at 100%)
-  const isRunning = shiftPressed || game.isMobile;
+  const isRunning = (shiftPressed || game.isMobile) && (player.energy > 10);
   const speedScale = isRunning ? 1.0 : 0.4;
 
   // Apply acceleration input

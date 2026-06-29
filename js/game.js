@@ -3,7 +3,7 @@ import { initControls, updateControls, joystickValues, triggerMobileJump } from 
 import { initWorld, updateWorld, world, getSurfaceHeightNear, checkInWater, getWaterHeightAt, scrollWorld } from './world.js';
 import { initPlayer, updatePlayer, triggerToolSwing, player } from './player.js';
 import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard, activeDebris } from './interact.js';
-import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute, setSubmergedAudio, startAmbientSounds, stopAmbientSounds } from './audio.js';
+import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute, setSubmergedAudio, startAmbientSounds, stopAmbientSounds, playWoodChop } from './audio.js';
 import { setLanguage, currentLang } from './lang.js';
 
 // Global Game State
@@ -418,6 +418,7 @@ function init() {
   // Initialize atmospheric particles
   initMenuParticles();
   initUnderwaterParticles();
+  initRainParticles();
 
   // Apply default lighting preset color adjustments
   applyPreset('sunset');
@@ -489,6 +490,12 @@ function init() {
         inventoryOverlay.style.display = 'none';
       }
       
+      // Close map overlay if pointer is locked
+      const mapOverlay = document.getElementById('map-overlay');
+      if (mapOverlay) {
+        mapOverlay.style.display = 'none';
+      }
+      
       // Close confirmation modal & pause screen on relock
       const confirmModal = document.getElementById('confirm-modal');
       if (confirmModal) {
@@ -520,8 +527,10 @@ function init() {
       if (game.pointerLocked) {
         const feedbackModal = document.getElementById('feedback-modal');
         const inventoryOverlay = document.getElementById('inventory-overlay');
+        const mapOverlay = document.getElementById('map-overlay');
         const isPeacefulUnlock = (feedbackModal && feedbackModal.style.display === 'flex') ||
-                                 (inventoryOverlay && inventoryOverlay.style.display === 'flex');
+                                 (inventoryOverlay && inventoryOverlay.style.display === 'flex') ||
+                                 (mapOverlay && mapOverlay.style.display === 'flex');
         
         if (isPeacefulUnlock) {
           // Peacefully lost lock because a modal was opened
@@ -770,6 +779,60 @@ function initUnderwaterParticles() {
   underwaterParticles.userData = { velocities: velocities };
   
   game.scene.add(underwaterParticles);
+}
+
+let rainParticles = null;
+
+function initRainParticles() {
+  const particleCount = 800;
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(particleCount * 3);
+  const velocities = new Float32Array(particleCount);
+
+  for (let i = 0; i < particleCount; i++) {
+    positions[i * 3 + 0] = (Math.random() - 0.5) * 35;
+    positions[i * 3 + 1] = Math.random() * 20;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 35;
+    velocities[i] = 12.0 + Math.random() * 8.0;
+  }
+
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+  const material = new THREE.PointsMaterial({
+    color: 0x99ccff,
+    size: 0.08,
+    transparent: true,
+    opacity: 0.4,
+    depthWrite: false
+  });
+
+  rainParticles = new THREE.Points(geometry, material);
+  rainParticles.visible = false;
+  rainParticles.userData = { velocities: velocities };
+  
+  game.scene.add(rainParticles);
+}
+
+function updateRainParticles(delta) {
+  if (!rainParticles || !rainParticles.visible || !game.camera) return;
+
+  const positions = rainParticles.geometry.attributes.position.array;
+  const velocities = rainParticles.userData.velocities;
+  const camPos = game.camera.position;
+
+  rainParticles.position.copy(camPos);
+
+  for (let i = 0; i < velocities.length; i++) {
+    positions[i * 3 + 1] -= velocities[i] * delta;
+
+    if (positions[i * 3 + 1] < -5.0) {
+      positions[i * 3 + 1] = 15.0 + Math.random() * 5.0;
+      positions[i * 3 + 0] = (Math.random() - 0.5) * 35;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 35;
+    }
+  }
+
+  rainParticles.geometry.attributes.position.needsUpdate = true;
 }
 
 // Apply Atmospheric Preset & Particle parameters
@@ -1190,6 +1253,106 @@ function animate() {
       game.scene.fog.density = baseState.fogDensity + (targetState.fogDensity - baseState.fogDensity) * t;
       colorTempFog.copy(new THREE.Color(baseState.bg)).lerp(new THREE.Color(targetState.bg), t);
       game.scene.fog.color.copy(colorTempFog);
+    }
+
+    // Weather System State Progression & Effects
+    if (!game.paused) {
+      if (!game.weather) {
+        game.weather = 'clear';
+        game.weatherTimer = 90.0;
+      }
+      game.weatherTimer -= delta;
+      if (game.weatherTimer <= 0) {
+        const weatherStates = ['clear', 'rain', 'storm'];
+        const filtered = weatherStates.filter(s => s !== game.weather);
+        game.weather = filtered[Math.floor(Math.random() * filtered.length)];
+        game.weatherTimer = 80.0 + Math.random() * 60.0;
+
+        const localizedMsg = game.weather === 'clear' ? 
+          (player.currentLang === 'it' ? "Il cielo si sta schiarendo." : "The weather is clearing up.") :
+          game.weather === 'rain' ?
+          (player.currentLang === 'it' ? "Inizia a piovere." : "It is starting to rain.") :
+          (player.currentLang === 'it' ? "⚠️ Una tempesta tropicale si sta avvicinando! Trova un rifugio!" : "⚠️ A tropical storm is brewing! Seek shelter!");
+        
+        showHudMessage(localizedMsg);
+      }
+    }
+
+    // Apply Weather Overlays to Ambient/Directional lights & Fog
+    if (game.weather === 'rain' || game.weather === 'storm') {
+      if (game.scene.fog) {
+        const mult = game.weather === 'storm' ? 0.35 : 0.65;
+        game.scene.fog.color.multiplyScalar(mult);
+        game.scene.fog.density = Math.max(game.scene.fog.density, game.weather === 'storm' ? 0.045 : 0.025);
+      }
+      
+      if (game.lights.sun) {
+        game.lights.sun.intensity *= (game.weather === 'storm' ? 0.3 : 0.6);
+      }
+
+      if (rainParticles) {
+        rainParticles.visible = !wasSubmerged;
+        updateRainParticles(delta);
+      }
+    } else {
+      if (rainParticles) rainParticles.visible = false;
+    }
+
+    // Lightning strike simulation during storms
+    if (game.weather === 'storm' && !game.paused && Math.random() < 0.005) {
+      if (game.scene.fog) {
+        game.scene.fog.color.setHex(0xffffff);
+        game.scene.fog.density = 0.01;
+      }
+      if (game.lights.sun) {
+        game.lights.sun.intensity = 3.5;
+      }
+      cameraShake = Math.max(cameraShake, 1.2);
+      
+      setTimeout(() => {
+        if (game.weather === 'storm' && game.scene.fog) {
+          const freshFogColor = new THREE.Color(baseState.bg).lerp(new THREE.Color(targetState.bg), t);
+          game.scene.fog.color.copy(freshFogColor).multiplyScalar(0.35);
+          game.scene.fog.density = 0.045;
+          if (game.lights.sun) {
+            game.lights.sun.intensity = (baseState.sunIntensity + (targetState.sunIntensity - baseState.sunIntensity) * t) * 0.3;
+          }
+        }
+      }, 80);
+    }
+
+    // Wind sway scenery meshes (trees)
+    if (world.trees && !game.paused) {
+      const windSpeed = game.weather === 'storm' ? 8.0 : game.weather === 'rain' ? 4.0 : 1.5;
+      const windForce = game.weather === 'storm' ? 0.08 : game.weather === 'rain' ? 0.03 : 0.008;
+      world.trees.forEach(tree => {
+        if (tree.userData && tree.userData.falling) return;
+        const sway = Math.sin(game.time * windSpeed + tree.position.x * 0.5) * windForce;
+        tree.rotation.z = sway;
+        tree.rotation.x = sway * 0.5;
+      });
+    }
+
+    // Progressive structure decay during storms
+    if (game.weather === 'storm' && !game.paused) {
+      if (!game.lastDecayTime) game.lastDecayTime = game.time;
+      if (game.time - game.lastDecayTime >= 1.0) {
+        game.lastDecayTime = game.time;
+        if (world.placedStructures) {
+          for (let i = world.placedStructures.length - 1; i >= 0; i--) {
+            const struct = world.placedStructures[i];
+            if (struct.userData && struct.userData.type === 'primitive_roof') {
+              struct.userData.durability = (struct.userData.durability || 100) - 2;
+              if (struct.userData.durability <= 0) {
+                game.scene.remove(struct);
+                world.placedStructures.splice(i, 1);
+                playWoodChop();
+                showHudMessage(player.currentLang === 'it' ? "UN TETTO DI FOGLIE È CROLLATO PER LA TEMPESTA!" : "A LEAF ROOF COLLAPSED IN THE STORM!");
+              }
+            }
+          }
+        }
+      }
     }
 
     // Dynamic water color adjustment to eliminate brownish horizon blending
