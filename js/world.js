@@ -1564,17 +1564,36 @@ function spawnClouds() {
     // Choose base radius for this cloud cluster
     const baseR = Math.random() * 3 + 5; // 5 to 8 meters
     
-    // Define relative offsets and scale multipliers for the spheres in a cluster
-    // This creates a natural elongated puffy cloud shape tapering at both ends
-    const spheres = [
-      { x: 0, y: 0, z: 0, r: 1.0 },                           // Center puff
-      { x: -baseR * 0.7, y: -baseR * 0.1, z: 0, r: 0.75 },     // Left puff
-      { x: baseR * 0.7, y: -baseR * 0.1, z: 0, r: 0.75 },      // Right puff
-      { x: -baseR * 1.3, y: -baseR * 0.25, z: 0, r: 0.5 },     // Outer left puff
-      { x: baseR * 1.3, y: -baseR * 0.25, z: 0, r: 0.5 },      // Outer right puff
-      { x: -baseR * 0.35, y: 0, z: baseR * 0.35, r: 0.7 },     // Front-left puff
-      { x: baseR * 0.35, y: 0, z: -baseR * 0.35, r: 0.7 }      // Back-right puff
-    ];
+    // Procedurally generate a variable number of cloud puffs (6 to 11) for unique shapes
+    const puffsCount = Math.floor(Math.random() * 6) + 6;
+    const spheres = [];
+    
+    // Core center puff
+    spheres.push({ x: 0, y: 0, z: 0, r: 1.0 });
+    
+    // Elongation parameters
+    const lengthX = baseR * (Math.random() * 1.4 + 0.7);
+    const stretchZ = (Math.random() - 0.5) * baseR * 0.6;
+    
+    for (let j = 1; j < puffsCount; j++) {
+      const t = (j / (puffsCount - 1)) * 2.0 - 1.0; // t in [-1, 1]
+      
+      // Taper the puffs towards the ends of the cloud
+      const scale = 1.0 - Math.pow(Math.abs(t), 1.6) * 0.55;
+      
+      // Add random displacement for organic fluffiness
+      const offsetX = t * lengthX + (Math.random() - 0.5) * baseR * 0.35;
+      const offsetY = (Math.random() - 0.7) * baseR * 0.18; // slightly flatter bottom
+      const offsetZ = t * stretchZ + (Math.random() - 0.5) * baseR * 0.5;
+      const radiusMult = scale * (Math.random() * 0.3 + 0.75);
+      
+      spheres.push({
+        x: offsetX,
+        y: offsetY,
+        z: offsetZ,
+        r: radiusMult
+      });
+    }
     
     spheres.forEach(s => {
       const r = baseR * s.r;
