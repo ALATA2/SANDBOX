@@ -830,41 +830,10 @@ export function setLanguage(langCode) {
     prompt.innerHTML = getTranslation('interact_harvest');
   }
 
-  // 3. Update active Hotbar Labels
-  const slotLabels = {
-    0: 'spear',
-    1: 'axe',
-    2: 'water',
-    3: 'leaves',
-    4: 'rope',
-    5: 'wood',
-    6: 'pickaxe',
-    7: 'stone'
-  };
-
-  // If gold ore is harvested, slot 7 might change name
-  const slot8 = document.querySelector('.hotbar-slot[data-slot="7"]');
-  let hasOre = false;
-  if (slot8) {
-    const icon = slot8.querySelector('.slot-icon');
-    if (icon && icon.textContent === "🪙") {
-      hasOre = true;
-    }
-  }
-
-  document.querySelectorAll('.hotbar-slot').forEach(slot => {
-    const idx = parseInt(slot.getAttribute('data-slot'));
-    const labelSpan = slot.querySelector('.slot-label');
-    if (labelSpan) {
-      if (idx === 7 && hasOre) {
-        labelSpan.textContent = getTranslation('hotbar.ore');
-      } else {
-        const langKey = slotLabels[idx];
-        if (langKey) {
-          labelSpan.textContent = getTranslation(`hotbar.${langKey}`);
-        }
-      }
-    }
+  // 3. Update active Hotbar Labels dynamically using the player state
+  import('./player.js').then(module => {
+    module.player.currentLang = langCode;
+    module.syncHotbarCounts();
   });
 
   // 4. Update dynamic Objective Text

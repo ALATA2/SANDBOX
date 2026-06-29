@@ -4,7 +4,7 @@ import { moveForward, moveBackward, moveLeft, moveRight, shiftPressed } from './
 import { getTranslation } from './lang.js';
 import { playSelect } from './audio.js';
 import { startCampfirePlacement } from './interact.js';
-import { getVertexVirtualDepth, getOriginalHeight, world, checkIsSheltered, getSurfaceHeightNear } from './world.js';
+import { getVertexVirtualDepth, getOriginalHeight, world, checkIsSheltered, getSurfaceHeightNear, getWaterHeightAt } from './world.js';
 
 export const player = {
   health: 100,
@@ -738,6 +738,13 @@ export function triggerToolSwing() {
 // Update player metrics, hand bobbing, animations, and HUD panels
 export function updatePlayer(delta) {
   const time = game.time;
+
+  // Throttle hotbar sync to run every 15 frames (approx. 4 times per second) during gameplay
+  player.hotbarSyncTick = (player.hotbarSyncTick || 0) + 1;
+  if (player.hotbarSyncTick >= 15) {
+    player.hotbarSyncTick = 0;
+    syncHotbarCounts();
+  }
 
   // Update Fog of War explored grid based on player position
   if (game.controls && game.controls.getObject) {
@@ -1632,6 +1639,31 @@ export function syncHotbarCounts() {
       icon.innerText = "";
       label.innerText = "";
       count.innerText = "";
+    }
+  }
+
+  // Slot 3 (Water - data-slot="2")
+  const slot3 = document.querySelector('.hotbar-slot[data-slot="2"]');
+  if (slot3) {
+    const icon = slot3.querySelector('.slot-icon');
+    const label = slot3.querySelector('.slot-label');
+    
+    // Check if player is near water source
+    let isNearWater = false;
+    if (game.controls && game.controls.getObject) {
+      const playerPos = game.controls.getObject().position;
+      const waterHeight = getWaterHeightAt(playerPos.x, playerPos.z);
+      const isNearOcean = playerPos.y <= 5.5 && waterHeight === 4.0;
+      const isNearLake = playerPos.y <= 15.5 && waterHeight === 14.4;
+      isNearWater = isNearOcean || isNearLake;
+    }
+    
+    if (isNearWater) {
+      if (icon) icon.innerText = "💧";
+      if (label) label.innerText = getTranslation('hotbar.water') || 'Water';
+    } else {
+      if (icon) icon.innerText = "";
+      if (label) label.innerText = "";
     }
   }
 
