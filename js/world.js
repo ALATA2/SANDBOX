@@ -24,6 +24,7 @@ export const world = {
   trees: [], // Array of active tree groups for Axe chopping
   lighthouseBeam: null, // Rotating lighthouse beam
   feedbackBoard: null, // Feedback Board Mesh
+  geologicalTotem: null, // Geological Totem Mesh
   clouds: [], // Array of cloud meshes
   campfires: [], // Array of placed campfire groups
   placedWorkstations: [], // Array of placed workstations
@@ -2403,6 +2404,97 @@ function spawnFeedbackBoard() {
 
   game.scene.add(boardGroup);
   world.feedbackBoard = boardGroup;
+
+  spawnGeologicalTotem(wx, wy, wz);
+}
+
+// Spawns a scaled low-poly geological Totem showing game depth strata layers
+function spawnGeologicalTotem(bx, by, bz) {
+  // Place totem 1.8m to the left of the board (from viewer's perspective looking at it)
+  const angle = Math.PI / 4;
+  const offsetDistance = -1.8;
+  const tx = bx + offsetDistance * Math.cos(angle);
+  const tz = bz - offsetDistance * Math.sin(angle);
+  const ty = by;
+
+  const totemGroup = new THREE.Group();
+  totemGroup.name = "geological_totem";
+
+  // Base platform (Nucleo / Layer 8 color)
+  const baseGeom = new THREE.CylinderGeometry(0.45, 0.55, 0.4, 8);
+  const baseMat = new THREE.MeshStandardMaterial({ color: 0x4d5459, metalness: 0.8, roughness: 0.2, flatShading: true });
+  const baseMesh = new THREE.Mesh(baseGeom, baseMat);
+  baseMesh.position.y = 0.2;
+  baseMesh.castShadow = true;
+  baseMesh.receiveShadow = true;
+  totemGroup.add(baseMesh);
+
+  // Define segments from bottom to top (Layer 8 to 1) representing the scaled geological strata
+  const segments = [
+    { name: 'Nucleo', color: 0x4d5459, height: 0.36, metalness: 0.9, roughness: 0.1, emissive: 0x000000 },
+    { name: 'Geomagnetic', color: 0x1a264d, height: 0.50, metalness: 0.4, roughness: 0.6, emissive: 0x071b29, glowColor: 0x1a99f2 },
+    { name: 'Magma', color: 0x6e1b00, height: 0.50, metalness: 0.1, roughness: 0.8, emissive: 0x7a2602, glowColor: 0xff5500 },
+    { name: 'Basalt', color: 0x1f1f24, height: 0.45, metalness: 0.2, roughness: 0.9, emissive: 0x3d0501, glowColor: 0xf2260d },
+    { name: 'Caves', color: 0x59402e, height: 0.45, metalness: 0.0, roughness: 0.95, emissive: 0x000000 },
+    { name: 'Stone', color: 0x7a8585, height: 0.30, metalness: 0.0, roughness: 0.9, emissive: 0x000000 },
+    { name: 'Clay', color: 0xa68559, height: 0.12, metalness: 0.0, roughness: 0.95, emissive: 0x000000 },
+    { name: 'Soil', color: 0x8a6140, height: 0.12, metalness: 0.0, roughness: 0.98, emissive: 0x000000 }
+  ];
+
+  let currentY = 0.4; // Start right above the base platform
+
+  segments.forEach(seg => {
+    // Totem segment cylinder
+    const segGeom = new THREE.CylinderGeometry(0.30, 0.30, seg.height, 8);
+    const segMat = new THREE.MeshStandardMaterial({
+      color: seg.color,
+      metalness: seg.metalness,
+      roughness: seg.roughness,
+      emissive: seg.emissive,
+      emissiveIntensity: seg.emissive !== 0 ? 1.5 : 0,
+      flatShading: true
+    });
+    const segMesh = new THREE.Mesh(segGeom, segMat);
+    segMesh.position.y = currentY + seg.height / 2;
+    segMesh.castShadow = true;
+    segMesh.receiveShadow = true;
+    totemGroup.add(segMesh);
+
+    // Decorative copper/bronze separation band between layers
+    const bandGeom = new THREE.CylinderGeometry(0.32, 0.32, 0.04, 8);
+    const bandMat = new THREE.MeshStandardMaterial({ color: 0xa67035, metalness: 0.9, roughness: 0.1, flatShading: true });
+    const bandMesh = new THREE.Mesh(bandGeom, bandMat);
+    bandMesh.position.y = currentY + seg.height;
+    totemGroup.add(bandMesh);
+
+    // Glow bands for the core magical/deep elements
+    if (seg.glowColor) {
+      const glowGeom = new THREE.CylinderGeometry(0.305, 0.305, 0.08, 8);
+      const glowMat = new THREE.MeshBasicMaterial({ color: seg.glowColor });
+      const glowMesh = new THREE.Mesh(glowGeom, glowMat);
+      glowMesh.position.y = currentY + seg.height / 2;
+      totemGroup.add(glowMesh);
+    }
+
+    currentY += seg.height + 0.02;
+  });
+
+  // Top decorative capstone (Golden low-poly sphere diamond shape)
+  const capGeom = new THREE.IcosahedronGeometry(0.22, 1);
+  const capMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.1, flatShading: true });
+  const capMesh = new THREE.Mesh(capGeom, capMat);
+  capMesh.position.y = currentY + 0.1;
+  capMesh.castShadow = true;
+  totemGroup.add(capMesh);
+
+  totemGroup.position.set(tx, ty, tz);
+  totemGroup.rotation.y = angle;
+
+  game.scene.add(totemGroup);
+  world.geologicalTotem = totemGroup;
+  
+  // Register to scenery so it stays snapped to terrain deformation
+  world.sceneryMeshes.push({ mesh: totemGroup, type: 'totem' });
 }
 // Initialize World
 export function initWorld() {
@@ -2433,6 +2525,8 @@ export function snapSceneryNear(hitPoint, radius) {
       } else if (item.type === 'starfish') {
         item.mesh.position.y = groundY + 0.01;
       } else if (item.type === 'cane') {
+        item.mesh.position.y = groundY;
+      } else if (item.type === 'totem') {
         item.mesh.position.y = groundY;
       }
     }
