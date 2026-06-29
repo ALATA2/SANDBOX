@@ -3,7 +3,7 @@ import { game } from './game.js';
 import { moveForward, moveBackward, moveLeft, moveRight, shiftPressed } from './controls.js';
 import { getTranslation } from './lang.js';
 import { playSelect } from './audio.js';
-import { startCampfirePlacement, closestCampfire } from './interact.js';
+import { startCampfirePlacement } from './interact.js';
 import { getVertexVirtualDepth, getOriginalHeight, world, checkIsSheltered, getSurfaceHeightNear } from './world.js';
 
 export const player = {
@@ -932,7 +932,17 @@ export function updatePlayer(delta) {
         temp = 5; // Cold night
         
         // Check heat sources
-        const isNearFire = closestCampfire && closestCampfire.userData && closestCampfire.userData.burnTime > 0;
+        let isNearFire = false;
+        if (world.campfires) {
+          for (let i = 0; i < world.campfires.length; i++) {
+            const fire = world.campfires[i];
+            const dist = playerPos.distanceTo(fire.position);
+            if (dist < 4.0 && fire.userData && fire.userData.burnTime > 0) {
+              isNearFire = true;
+              break;
+            }
+          }
+        }
         const isSheltered = checkIsSheltered(playerPos);
         
         if (isNearFire) {
