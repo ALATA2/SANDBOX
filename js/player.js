@@ -1654,18 +1654,51 @@ export function syncHotbarCounts() {
 
   const slot4 = document.querySelector('.hotbar-slot[data-slot="3"]');
   if (slot4) {
+    const icon = slot4.querySelector('.slot-icon');
+    const label = slot4.querySelector('.slot-label');
     const count = slot4.querySelector('.slot-count');
-    if (count) count.innerText = `x${player.inventory.leaves || 0}`;
+    const val = player.inventory.leaves || 0;
+    if (val > 0) {
+      if (icon) icon.innerText = "🍃";
+      if (label) label.innerText = getTranslation('hotbar.leaves') || 'Leaves';
+      if (count) count.innerText = `x${val}`;
+    } else {
+      if (icon) icon.innerText = "";
+      if (label) label.innerText = "";
+      if (count) count.innerText = "";
+    }
   }
   const slot5 = document.querySelector('.hotbar-slot[data-slot="4"]');
   if (slot5) {
+    const icon = slot5.querySelector('.slot-icon');
+    const label = slot5.querySelector('.slot-label');
     const count = slot5.querySelector('.slot-count');
-    if (count) count.innerText = `x${player.inventory.rope || 0}`;
+    const val = player.inventory.rope || 0;
+    if (val > 0) {
+      if (icon) icon.innerText = "🧵";
+      if (label) label.innerText = getTranslation('hotbar.rope') || 'Rope';
+      if (count) count.innerText = `x${val}`;
+    } else {
+      if (icon) icon.innerText = "";
+      if (label) label.innerText = "";
+      if (count) count.innerText = "";
+    }
   }
   const slot6 = document.querySelector('.hotbar-slot[data-slot="5"]');
   if (slot6) {
+    const icon = slot6.querySelector('.slot-icon');
+    const label = slot6.querySelector('.slot-label');
     const count = slot6.querySelector('.slot-count');
-    if (count) count.innerText = `x${player.inventory.wood || 0}`;
+    const val = player.inventory.wood || 0;
+    if (val > 0) {
+      if (icon) icon.innerText = "🪵";
+      if (label) label.innerText = getTranslation('hotbar.wood') || 'Wood';
+      if (count) count.innerText = `x${val}`;
+    } else {
+      if (icon) icon.innerText = "";
+      if (label) label.innerText = "";
+      if (count) count.innerText = "";
+    }
   }
   const slot8 = document.querySelector('.hotbar-slot[data-slot="7"]');
   if (slot8) {
@@ -1677,10 +1710,14 @@ export function syncHotbarCounts() {
       if (label) label.innerText = getTranslation('hotbar.ore') || 'Ore';
       if (icon) icon.innerText = "🪙";
       if (count) count.innerText = `x${player.inventory.ore}`;
-    } else {
+    } else if ((player.inventory.stone || 0) > 0) {
       if (label) label.innerText = getTranslation('hotbar.stone') || 'Stone';
       if (icon) icon.innerText = "🪨";
-      if (count) count.innerText = `x${player.inventory.stone || 0}`;
+      if (count) count.innerText = `x${player.inventory.stone}`;
+    } else {
+      if (label) label.innerText = "";
+      if (icon) icon.innerText = "";
+      if (count) count.innerText = "";
     }
   }
 }
