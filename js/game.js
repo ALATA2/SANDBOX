@@ -228,6 +228,19 @@ const colorTempAmbient = new THREE.Color();
 const colorTempSun = new THREE.Color();
 const colorTempFog = new THREE.Color();
 
+// Additional pre-allocated helper instances for zero-allocations render loops
+const cTemp1 = new THREE.Color();
+const cTemp2 = new THREE.Color();
+const cTemp3 = new THREE.Color();
+const cTemp4 = new THREE.Color();
+const cTemp5 = new THREE.Color();
+const cTemp6 = new THREE.Color();
+const cTemp7 = new THREE.Color();
+const cTemp8 = new THREE.Color();
+const sunDir = new THREE.Vector3();
+const moonDir = new THREE.Vector3();
+const cameraPosFallback = new THREE.Vector3();
+
 let currentPreset = 'sunset';
 let cameraShake = 0;
 
@@ -301,12 +314,12 @@ function init() {
   game.lights.sun.castShadow = true;
   
   // Shadow camera config
-  game.lights.sun.shadow.mapSize.width = 2048;
-  game.lights.sun.shadow.mapSize.height = 2048;
+  game.lights.sun.shadow.mapSize.width = 1024;
+  game.lights.sun.shadow.mapSize.height = 1024;
   game.lights.sun.shadow.camera.near = 0.5;
-  game.lights.sun.shadow.camera.far = 200;
+  game.lights.sun.shadow.camera.far = 120;
   
-  const shadowRange = 50;
+  const shadowRange = 30;
   game.lights.sun.shadow.camera.left = -shadowRange;
   game.lights.sun.shadow.camera.right = shadowRange;
   game.lights.sun.shadow.camera.top = shadowRange;
@@ -1190,13 +1203,11 @@ function animate() {
   const progress = (cycleTime / cycleDuration) % 1.0;
   const angle = progress * Math.PI * 2;
 
-  // Orbit math: Sun and Moon rotate opposite to each other
-  // We tilt the orbit by -0.3 on the Z-axis (north-south offset)
-  // so the specular highlights and position align correctly with the player's view
-  const sunDir = new THREE.Vector3(-Math.cos(angle), Math.sin(angle), -0.3).normalize();
-  const moonDir = new THREE.Vector3(Math.cos(angle), -Math.sin(angle), 0.3).normalize();
+  // Orbit math: Sun and Moon rotate opposite to each other (Zero-alloc)
+  sunDir.set(-Math.cos(angle), Math.sin(angle), -0.3).normalize();
+  moonDir.set(Math.cos(angle), -Math.sin(angle), 0.3).normalize();
 
-  const cameraPos = game.camera ? game.camera.position : new THREE.Vector3(0, 0, 0);
+  const cameraPos = game.camera ? game.camera.position : cameraPosFallback.set(0, 0, 0);
 
   // Position Sun and Moon relative to camera to eliminate perspective parallax
   if (game.sunMesh) {
@@ -1207,11 +1218,18 @@ function animate() {
     game.moonMesh.lookAt(cameraPos);
   }
 
-  // Reuse directional light pointing from the active celestial body (Sun by day, Moon by night)
-  // to calculate shadows efficiently using a single light source
+  // Reuse directional light pointing from active celestial body
   const isDayTime = sunDir.y >= 0;
   const lightSourceDir = isDayTime ? sunDir : moonDir;
-  game.lights.sun.position.copy(lightSourceDir);
+  
+  // Slide the shadow frustum dynamically by centering the light's target on the camera position
+  if (game.lights.sun) {
+    if (game.lights.sun.target) {
+      game.lights.sun.target.position.copy(cameraPos);
+      game.lights.sun.target.updateMatrixWorld();
+    }
+    game.lights.sun.position.copy(cameraPos).addScaledVector(lightSourceDir, 60.0);
+  }
 
   // Set shadows dynamic: cast shadows during daytime, or at night only if the preset represents clear sky
   const isClearSky = (currentPreset === 'sunset' || currentPreset === 'nebula');
@@ -1222,15 +1240,10 @@ function animate() {
   if (cycle) {
     let t = Math.abs(Math.sin(angle)); // 0.0 at horizon, 1.0 at Zenith
     if (!isDayTime) {
-      // Check if it is evening (sunset to midnight) or morning (midnight to dawn)
-      // angle is in [Math.PI, 2 * Math.PI] during the night
       const isEvening = angle >= Math.PI && angle < 1.5 * Math.PI;
       if (isEvening) {
-        // Sunset to midnight: get dark almost immediately
         t = Math.pow(t, 0.08);
       } else {
-        // Midnight to dawn: remain dark for most of the night (until 5 AM),
-        // then start slowly and smoothly dawning in the last phase.
         t = Math.pow(t, 0.3);
       }
     }
@@ -1238,20 +1251,20 @@ function animate() {
     let targetState = isDayTime ? cycle.day : cycle.night;
     let baseState = cycle.twilight;
 
-    // 1. Lerp ambient light intensity and color
+    // 1. Lerp ambient light intensity and color (Zero-alloc)
     game.lights.ambient.intensity = baseState.ambientIntensity + (targetState.ambientIntensity - baseState.ambientIntensity) * t;
-    colorTempAmbient.copy(new THREE.Color(baseState.ambient)).lerp(new THREE.Color(targetState.ambient), t);
+    colorTempAmbient.copy(cTemp1.set(baseState.ambient)).lerp(cTemp2.set(targetState.ambient), t);
     game.lights.ambient.color.copy(colorTempAmbient);
 
-    // 2. Lerp directional light intensity and color
+    // 2. Lerp directional light intensity and color (Zero-alloc)
     game.lights.sun.intensity = baseState.sunIntensity + (targetState.sunIntensity - baseState.sunIntensity) * t;
-    colorTempSun.copy(new THREE.Color(baseState.sun)).lerp(new THREE.Color(targetState.sun), t);
+    colorTempSun.copy(cTemp1.set(baseState.sun)).lerp(cTemp2.set(targetState.sun), t);
     game.lights.sun.color.copy(colorTempSun);
 
-    // 3. Lerp fog color and density
+    // 3. Lerp fog color and density (Zero-alloc)
     if (game.scene.fog) {
       game.scene.fog.density = baseState.fogDensity + (targetState.fogDensity - baseState.fogDensity) * t;
-      colorTempFog.copy(new THREE.Color(baseState.bg)).lerp(new THREE.Color(targetState.bg), t);
+      colorTempFog.copy(cTemp1.set(baseState.bg)).lerp(cTemp2.set(targetState.bg), t);
       game.scene.fog.color.copy(colorTempFog);
     }
 
@@ -1298,7 +1311,7 @@ function animate() {
       if (rainParticles) rainParticles.visible = false;
     }
 
-    // Lightning strike simulation during storms
+    // Lightning strike simulation during storms (Zero-alloc)
     if (game.weather === 'storm' && !game.paused && Math.random() < 0.005) {
       if (game.scene.fog) {
         game.scene.fog.color.setHex(0xffffff);
@@ -1311,7 +1324,9 @@ function animate() {
       
       setTimeout(() => {
         if (game.weather === 'storm' && game.scene.fog) {
-          const freshFogColor = new THREE.Color(baseState.bg).lerp(new THREE.Color(targetState.bg), t);
+          cTemp3.set(baseState.bg);
+          cTemp4.set(targetState.bg);
+          const freshFogColor = cTemp3.lerp(cTemp4, t);
           game.scene.fog.color.copy(freshFogColor).multiplyScalar(0.35);
           game.scene.fog.density = 0.045;
           if (game.lights.sun) {
@@ -1355,23 +1370,23 @@ function animate() {
       }
     }
 
-    // Dynamic water color adjustment to eliminate brownish horizon blending
+    // Dynamic water color adjustment to eliminate brownish horizon blending (Zero-alloc)
     if (world.waterMesh && world.waterMesh.material && !wasSubmerged) {
-      const twilightColor = new THREE.Color(cycle.twilight.bg);
-      const twilightTint = twilightColor.clone().lerp(new THREE.Color(0xffffff), 0.5);
-      const twilightEmissive = twilightColor.clone().multiplyScalar(0.22);
+      const twilightColor = cTemp1.set(cycle.twilight.bg);
+      const twilightTint = cTemp2.copy(twilightColor).lerp(cTemp3.set(0xffffff), 0.5);
+      const twilightEmissive = cTemp4.copy(twilightColor).multiplyScalar(0.22);
       
-      const dayEmissive = new THREE.Color(cycle.day.bg).multiplyScalar(0.12);
-      const nightEmissive = new THREE.Color(cycle.night.bg).multiplyScalar(0.08);
+      const dayEmissive = cTemp5.set(cycle.day.bg).multiplyScalar(0.12);
+      const nightEmissive = cTemp6.set(cycle.night.bg).multiplyScalar(0.08);
       
-      const waterColor = new THREE.Color();
-      const waterEmissive = new THREE.Color();
+      const waterColor = cTemp7;
+      const waterEmissive = cTemp8;
       
       if (isDayTime) {
-        waterColor.copy(twilightTint).lerp(new THREE.Color(0xffffff), t);
+        waterColor.copy(twilightTint).lerp(cTemp3.set(0xffffff), t);
         waterEmissive.copy(twilightEmissive).lerp(dayEmissive, t);
       } else {
-        waterColor.copy(twilightTint).lerp(new THREE.Color(cycle.night.bg), t);
+        waterColor.copy(twilightTint).lerp(cTemp3.set(cycle.night.bg), t);
         waterEmissive.copy(twilightEmissive).lerp(nightEmissive, t);
       }
       
@@ -1379,12 +1394,11 @@ function animate() {
       world.waterMesh.material.emissive.copy(waterEmissive);
     }
 
-
-    // 4. Lerp CSS canvas-container linear-gradient (only when not submerged)
+    // 4. Lerp CSS canvas-container linear-gradient (only when not submerged) (Zero-alloc)
     const container = document.getElementById('canvas-container');
     if (container && !wasSubmerged) {
-      colorTempTop.copy(new THREE.Color(baseState.gradTop)).lerp(new THREE.Color(targetState.gradTop), t);
-      colorTempBottom.copy(new THREE.Color(baseState.gradBottom)).lerp(new THREE.Color(targetState.gradBottom), t);
+      colorTempTop.copy(cTemp1.set(baseState.gradTop)).lerp(cTemp2.set(targetState.gradTop), t);
+      colorTempBottom.copy(cTemp1.set(baseState.gradBottom)).lerp(cTemp2.set(targetState.gradBottom), t);
       
       const topCSS = '#' + colorTempTop.getHexString();
       const bottomCSS = '#' + colorTempBottom.getHexString();

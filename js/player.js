@@ -161,6 +161,9 @@ export function setToolMeshMaterial(group, toolType) {
 // Target location (Lighthouse on distant island)
 const targetLoc = new THREE.Vector3(80, -5, -120);
 
+// Pre-allocated Vector3 helper for dynamic compass/map yaw
+const directionVec = new THREE.Vector3();
+
 // Initialize player hand tools and HUD bindings
 export function initPlayer() {
   // 1. Create a hand-held group and attach it to the camera
@@ -1024,8 +1027,7 @@ export function updatePlayer(delta) {
   // 5. Update Dynamic Compass
   if (game.controls && game.controls.getObject) {
     const cameraObj = game.camera;
-    // Get camera yaw rotation (angle around Y)
-    const directionVec = new THREE.Vector3();
+    // Get camera yaw rotation (angle around Y) (Zero-alloc)
     cameraObj.getWorldDirection(directionVec);
     
     // Angle in radians (-PI to PI)
@@ -1823,9 +1825,9 @@ export function drawExploredMap() {
     const pGridX = (playerPos.x / (120 * 1.6)) * w;
     const pGridZ = (playerPos.z / (120 * 1.6)) * h;
 
-    const dir = new THREE.Vector3();
-    game.camera.getWorldDirection(dir);
-    const yaw = Math.atan2(dir.x, dir.z);
+    // Zero-alloc yaw check
+    game.camera.getWorldDirection(directionVec);
+    const yaw = Math.atan2(directionVec.x, directionVec.z);
 
     ctx.save();
     ctx.translate(pGridX, pGridZ);
