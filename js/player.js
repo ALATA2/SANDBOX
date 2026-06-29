@@ -195,6 +195,7 @@ export function initPlayer() {
 
   // 4. Set starting slot selection
   selectSlot(-1); // Start with empty hands (free hands)
+  syncHotbarCounts();
 
   // 5. Setup Keyboard listener for slot swapping (1-8 keys) and inventory toggle
   document.addEventListener('keydown', (e) => {
@@ -1451,6 +1452,73 @@ function unequipItem(slotType) {
 
 // Sync HUD Hotbar counts
 export function syncHotbarCounts() {
+  // Slot 1 (Spear - data-slot="0")
+  const slot1 = document.querySelector('.hotbar-slot[data-slot="0"]');
+  if (slot1) {
+    const icon = slot1.querySelector('.slot-icon');
+    const label = slot1.querySelector('.slot-label');
+    let count = slot1.querySelector('.slot-count');
+    if (!count) {
+      count = document.createElement('span');
+      count.className = 'slot-count';
+      slot1.appendChild(count);
+    }
+    
+    const activeSpear = getActiveSpear();
+    if (activeSpear) {
+      icon.innerText = "⚔️";
+      label.innerText = getTranslation(`inv.${activeSpear}`) || activeSpear;
+      count.innerText = "x1";
+    } else {
+      icon.innerText = "";
+      label.innerText = "";
+      count.innerText = "";
+    }
+  }
+
+  // Slot 2 (Axe - data-slot="1")
+  const slot2 = document.querySelector('.hotbar-slot[data-slot="1"]');
+  if (slot2) {
+    const icon = slot2.querySelector('.slot-icon');
+    const label = slot2.querySelector('.slot-label');
+    let count = slot2.querySelector('.slot-count');
+    if (!count) {
+      count = document.createElement('span');
+      count.className = 'slot-count';
+      slot2.appendChild(count);
+    }
+    
+    const activeAxe = getActiveAxe();
+    if (activeAxe) {
+      icon.innerText = "🪓";
+      label.innerText = getTranslation(`inv.${activeAxe}`) || activeAxe;
+      count.innerText = "x1";
+    } else {
+      icon.innerText = "";
+      label.innerText = "";
+      count.innerText = "";
+    }
+  }
+
+  // Slot 7 (Pickaxe - data-slot="6")
+  const slot7 = document.querySelector('.hotbar-slot[data-slot="6"]');
+  if (slot7) {
+    const icon = slot7.querySelector('.slot-icon');
+    const label = slot7.querySelector('.slot-label');
+    const count = slot7.querySelector('.slot-count');
+    
+    const activePickaxe = getActivePickaxe();
+    if (activePickaxe) {
+      icon.innerText = "⛏️";
+      label.innerText = getTranslation(`inv.${activePickaxe}`) || activePickaxe;
+      if (count) count.innerText = "x1";
+    } else {
+      icon.innerText = "";
+      label.innerText = "";
+      if (count) count.innerText = "";
+    }
+  }
+
   const slot4 = document.querySelector('.hotbar-slot[data-slot="3"]');
   if (slot4) {
     const count = slot4.querySelector('.slot-count');
