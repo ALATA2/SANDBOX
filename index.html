@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ARCHIPELAGO - Low-Poly Survival Prototype</title>
-  <link rel="stylesheet" href="style.css?v=0.069l">
+  <link rel="stylesheet" href="style.css?v=0.069m">
   
   <!-- Import maps polyfill if needed -->
   <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
@@ -15,14 +15,14 @@
       "imports": {
         "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
         "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/",
-        "./js/controls.js": "./js/controls.js?v=0.069l",
-        "./js/world.js": "./js/world.js?v=0.069l",
-        "./js/player.js": "./js/player.js?v=0.069l",
-        "./js/interact.js": "./js/interact.js?v=0.069l",
-        "./js/audio.js": "./js/audio.js?v=0.069l",
-        "./js/lang.js": "./js/lang.js?v=0.069l",
-        "./js/chemistry.js": "./js/chemistry.js?v=0.069l",
-        "./js/game.js": "./js/game.js?v=0.069l"
+        "./js/controls.js": "./js/controls.js?v=0.069m",
+        "./js/world.js": "./js/world.js?v=0.069m",
+        "./js/player.js": "./js/player.js?v=0.069m",
+        "./js/interact.js": "./js/interact.js?v=0.069m",
+        "./js/audio.js": "./js/audio.js?v=0.069m",
+        "./js/lang.js": "./js/lang.js?v=0.069m",
+        "./js/chemistry.js": "./js/chemistry.js?v=0.069m",
+        "./js/game.js": "./js/game.js?v=0.069m"
       }
     }
   </script>
@@ -359,20 +359,21 @@
         <button id="inventory-close-btn" class="inv-close-btn">✖</button>
       </div>
       
-      <!-- Body Grid (Two columns) -->
+      <!-- Body Grid (Three columns) -->
       <div class="inventory-body">
-        <!-- Left Side: Bag & Crafting -->
+        <!-- Column 1: Bag -->
         <div class="inv-left-column">
-          <!-- Bag -->
           <div class="inv-section">
             <h2 data-translate="inv_my_bag" class="inv-section-title">MY BAG</h2>
             <div id="inv-bag-grid" class="inv-grid">
               <!-- Dynamically populated slots -->
             </div>
           </div>
-          
-          <!-- Crafting -->
-          <div class="inv-section" style="margin-top: 15px; flex: 1;">
+        </div>
+        
+        <!-- Column 2: Crafting -->
+        <div class="inv-middle-column">
+          <div class="inv-section">
             <h2 data-translate="inv_crafting" class="inv-section-title">CRAFTING STATION</h2>
             <div id="inv-crafting-list" class="inv-crafting-list">
               <!-- Dynamically populated recipes -->
@@ -499,9 +500,9 @@
   </div>
 
   <!-- Version Tag for Deployment Tracking -->
-  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.069l</div>
+  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.069m</div>
 
   <!-- Main JS entry point as an ES Module -->
-  <script type="module" src="js/game.js?v=0.069l"></script>
+  <script type="module" src="js/game.js?v=0.069m"></script>
 </body>
 </html>

@@ -1177,8 +1177,8 @@ export function renderInventoryUI() {
     }
   });
 
-  // Fill up to 15 slots with empty slots for clean grid aesthetics
-  for (let i = slotsCreated; i < 15; i++) {
+  // Fill up to 20 slots with empty slots for clean grid aesthetics
+  for (let i = slotsCreated; i < 20; i++) {
     const emptySlot = document.createElement('div');
     emptySlot.className = 'inv-slot empty';
     emptySlot.innerHTML = ''; // Keep it purely clean and empty
