@@ -1209,7 +1209,8 @@ function animate() {
   const cycleDuration = 240; // 4 minutes for a full day
   const cycleTime = game.time;
   const progress = (cycleTime / cycleDuration) % 1.0;
-  const angle = progress * Math.PI * 2;
+  // Temporarily locked at 30 degrees elevation as requested
+  const angle = 30 * Math.PI / 180;
 
   // Orbit math: Sun and Moon rotate opposite to each other (Zero-alloc)
   sunDir.set(-Math.cos(angle), Math.sin(angle), -0.3).normalize();
