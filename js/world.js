@@ -1552,10 +1552,8 @@ function createTorch() {
 
 // Helper to spawn 3D drifting clouds in the sky
 function spawnClouds() {
-  const cloudMaterial = new THREE.MeshStandardMaterial({
+  const cloudMaterial = new THREE.MeshLambertMaterial({
     vertexColors: true,
-    roughness: 0.95,
-    metalness: 0.0,
     flatShading: true
   });
   
@@ -3039,10 +3037,8 @@ function spawnSeabed() {
   geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geom.computeVertexNormals();
 
-  const seabedMaterial = new THREE.MeshStandardMaterial({
+  const seabedMaterial = new THREE.MeshLambertMaterial({
     color: 0xffffff,
-    roughness: 0.9,
-    metalness: 0.02,
     flatShading: true,
     vertexColors: true,
     side: THREE.FrontSide

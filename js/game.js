@@ -241,6 +241,10 @@ const sunDir = new THREE.Vector3();
 const moonDir = new THREE.Vector3();
 const cameraPosFallback = new THREE.Vector3();
 
+// Pre-allocated vectors for fish updates to avoid garbage collection inside loop
+const tempFishVec1 = new THREE.Vector3();
+const tempSwimDir = new THREE.Vector3();
+
 let currentPreset = 'sunset';
 let cameraShake = 0;
 
@@ -2889,7 +2893,7 @@ function updateFauna(delta) {
       const dz = fish.position.z - 41.6;
       const dist = Math.sqrt(dx*dx + dz*dz);
       if (dist > 20.0) {
-        const toLakeCenter = new THREE.Vector3(41.6, fish.position.y, 41.6).sub(fish.position);
+        const toLakeCenter = tempFishVec1.set(41.6, fish.position.y, 41.6).sub(fish.position);
         toLakeCenter.y = 0;
         toLakeCenter.normalize();
         fish.velocity.copy(toLakeCenter).multiplyScalar(1.2);
@@ -2898,7 +2902,7 @@ function updateFauna(delta) {
     } else {
       const terrainY = getSurfaceHeightNear(fish.position.x, 15, fish.position.z);
       if (terrainY > 3.8 || fish.position.x < 2 || fish.position.x > mapWidth - 2 || fish.position.z < 2 || fish.position.z > mapLength - 2) {
-        const toCenter = new THREE.Vector3(mapWidth / 2, fish.position.y, mapLength / 2).sub(fish.position);
+        const toCenter = tempFishVec1.set(mapWidth / 2, fish.position.y, mapLength / 2).sub(fish.position);
         toCenter.y = 0;
         toCenter.normalize();
         
@@ -2911,7 +2915,7 @@ function updateFauna(delta) {
       }
     }
     
-    const swimDir = fish.velocity.clone();
+    const swimDir = tempSwimDir.copy(fish.velocity);
     swimDir.y = 0;
     if (swimDir.lengthSq() > 0.001) {
       swimDir.normalize();
