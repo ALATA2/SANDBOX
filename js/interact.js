@@ -210,8 +210,16 @@ export function initInteraction() {
         }
       } else if (closestCampfire) {
         const isBurning = closestCampfire.userData && closestCampfire.userData.burnTime > 0;
+        const hasCharcoal = closestCampfire.userData && closestCampfire.userData.hasCharcoal;
         if (isBurning) {
           cookRawMeat();
+        } else if (hasCharcoal) {
+          closestCampfire.userData.hasCharcoal = false;
+          player.inventory.charcoal = (player.inventory.charcoal || 0) + 1;
+          playSelect();
+          showHudMessage(player.currentLang === 'it' ? "+1 Carbonella" : "+1 Charcoal");
+          syncHotbarCounts();
+          renderInventoryUI();
         } else {
           showHudMessage(getTranslation('msg_fire_is_out') || "The fire is out! Add fuel to light it.");
         }
@@ -1250,7 +1258,9 @@ function checkHarvestablePrompt() {
         rawPrompt = getTranslation('interact_fuel_only', { fuel: fuelVal }) || `PRESS F TO ADD FUEL (Fuel: ${fuelVal}s)`;
       }
     } else {
-      if (hasIgnition) {
+      if (closestCampfire.userData && closestCampfire.userData.hasCharcoal) {
+        rawPrompt = player.currentLang === 'it' ? `PREMI E PER RACCOGLIERE CARBONELLA` : `PRESS E TO COLLECT CHARCOAL`;
+      } else if (hasIgnition) {
         rawPrompt = getTranslation('interact_relight') || `PRESS F TO LIGHT FIRE (2 Stones & 1 Leaf)`;
       } else {
         rawPrompt = getTranslation('msg_fire_out') || `FIRE IS OUT (Needs 2 Stones & 1 Leaf)`;

@@ -2410,9 +2410,9 @@ function spawnFeedbackBoard() {
 
 // Spawns a scaled low-poly geological Totem showing game depth strata layers
 function spawnGeologicalTotem(bx, by, bz) {
-  // Place totem 1.8m to the left of the board (from viewer's perspective looking at it)
+  // Place totem 2.5m to the left of the board (from viewer's perspective looking at it)
   const angle = Math.PI / 4;
-  const offsetDistance = -1.8;
+  const offsetDistance = -2.5;
   const tx = bx + offsetDistance * Math.cos(angle);
   const tz = bz - offsetDistance * Math.sin(angle);
   const ty = by;
@@ -2591,7 +2591,12 @@ export function updateWorld(delta) {
           const isRaining = game.weather === 'rain' || game.weather === 'storm';
           const sheltered = checkIsSheltered(campfire.position);
           const decayMult = (isRaining && !sheltered) ? 3.0 : 1.0;
+          const oldBurnTime = campfire.userData.burnTime;
           campfire.userData.burnTime = Math.max(0, campfire.userData.burnTime - delta * decayMult);
+          
+          if (oldBurnTime > 0 && campfire.userData.burnTime === 0) {
+            campfire.userData.hasCharcoal = true;
+          }
         }
 
         const isBurning = campfire.userData.burnTime > 0;
