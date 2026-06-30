@@ -245,6 +245,15 @@ const cameraPosFallback = new THREE.Vector3();
 const tempFishVec1 = new THREE.Vector3();
 const tempSwimDir = new THREE.Vector3();
 
+// Local cache for DOM elements to avoid document lookups in animate/render loops
+const domCache = {};
+function getDom(id) {
+  if (!domCache[id]) {
+    domCache[id] = document.getElementById(id);
+  }
+  return domCache[id];
+}
+
 let currentPreset = 'sunset';
 let cameraShake = 0;
 
@@ -1479,7 +1488,7 @@ function animate() {
     updateArturoLabel();
     updateRositaLabel();
   } else {
-    const blocker = document.getElementById('blocker');
+    const blocker = getDom('blocker');
     const isMainMenu = blocker && blocker.style.display !== 'none';
     if (menuParticles) menuParticles.visible = isMainMenu;
 
@@ -1510,9 +1519,9 @@ function animate() {
       }
       
       // Update real-time Telemetry Coordinates Display
-      const latEl = document.getElementById('telemetry-lat');
-      const lngEl = document.getElementById('telemetry-lng');
-      const altEl = document.getElementById('telemetry-alt');
+      const latEl = getDom('telemetry-lat');
+      const lngEl = getDom('telemetry-lng');
+      const altEl = getDom('telemetry-alt');
       
       if (latEl) latEl.textContent = pObj.position.x.toFixed(2);
       if (lngEl) lngEl.textContent = pObj.position.z.toFixed(2);

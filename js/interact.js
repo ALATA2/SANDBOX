@@ -16,6 +16,15 @@ let structureHologram = null;
 let closestWorkstation = null;
 let closestDoor = null;
 
+// Local cache for DOM elements to prevent expensive document lookup in render/update loops
+const domCache = {};
+function getDom(id) {
+  if (!domCache[id]) {
+    domCache[id] = document.getElementById(id);
+  }
+  return domCache[id];
+}
+
 // Initialize Raycasting and keyboard listeners for interaction
 export function initInteraction() {
   raycaster = new THREE.Raycaster();
@@ -1040,7 +1049,7 @@ function checkHarvestablePrompt() {
 
   const playerPos = game.controls.getObject().position;
   
-  const prompt = document.getElementById('interaction-prompt');
+  const prompt = getDom('interaction-prompt');
   // 0. Spectrometer scanning prompt
   const holdingSpectrometer = player.equipped && player.equipped.right_hand === 'spectrometer';
   if (holdingSpectrometer && world.terrainMesh) {

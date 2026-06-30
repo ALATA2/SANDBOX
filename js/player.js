@@ -6,6 +6,15 @@ import { playSelect } from './audio.js';
 import { startCampfirePlacement } from './interact.js';
 import { getVertexVirtualDepth, getOriginalHeight, world, checkIsSheltered, getSurfaceHeightNear, getWaterHeightAt } from './world.js';
 
+// Local cache for DOM elements to avoid expensive document lookup in render/update loops
+const domCache = {};
+function getDom(id) {
+  if (!domCache[id]) {
+    domCache[id] = document.getElementById(id);
+  }
+  return domCache[id];
+}
+
 export const player = {
   health: 100,
   energy: 100,
@@ -799,7 +808,7 @@ export function updatePlayer(delta) {
     if (player.leftHandGroup) {
       let isMoving = false;
       if (game.controls && game.controls.getObject) {
-        const keysPressed = document.querySelectorAll('#blocker[style*="display: none"]').length > 0 &&
+        const keysPressed = game.pointerLocked &&
           (moveForward || moveBackward || moveLeft || moveRight);
         isMoving = keysPressed;
       }
@@ -816,7 +825,7 @@ export function updatePlayer(delta) {
     // 2. Idle / Walking Bobbing (breathing animation)
     let isMoving = false;
     if (game.controls && game.controls.getObject) {
-      const keysPressed = document.querySelectorAll('#blocker[style*="display: none"]').length > 0 &&
+      const keysPressed = game.pointerLocked &&
         (moveForward || moveBackward || moveLeft || moveRight);
       isMoving = keysPressed;
     }
@@ -1001,9 +1010,9 @@ export function updatePlayer(delta) {
   }
 
   // Update HUD values
-  const depthVal = document.getElementById('hud-depth-val');
+  const depthVal = getDom('hud-depth-val');
   if (depthVal) depthVal.innerText = `-${depth} m`;
-  const tempVal = document.getElementById('hud-temp-val');
+  const tempVal = getDom('hud-temp-val');
   if (tempVal) {
     const isSheltered = playerPos && checkIsSheltered(playerPos);
     const shelterSuffix = isSheltered ? (player.currentLang === 'it' ? " (AL RIPARO)" : " (SHELTERED)") : "";
@@ -1022,14 +1031,20 @@ export function updatePlayer(delta) {
 
   // 4. Update HUD UI elements
   // Sync bar fills
-  document.getElementById('health-fill').style.width = `${player.health}%`;
-  document.getElementById('energy-fill').style.width = `${player.energy}%`;
-  document.getElementById('hydration-fill').style.width = `${player.hydration}%`;
+  const healthFill = getDom('health-fill');
+  const energyFill = getDom('energy-fill');
+  const hydrationFill = getDom('hydration-fill');
+  if (healthFill) healthFill.style.width = `${player.health}%`;
+  if (energyFill) energyFill.style.width = `${player.energy}%`;
+  if (hydrationFill) hydrationFill.style.width = `${player.hydration}%`;
 
   // Sync bar text values
-  document.getElementById('health-value').innerText = `${Math.ceil(player.health)}%`;
-  document.getElementById('energy-value').innerText = `${Math.ceil(player.energy)}%`;
-  document.getElementById('hydration-value').innerText = `${Math.ceil(player.hydration)}%`;
+  const healthVal = getDom('health-value');
+  const energyVal = getDom('energy-value');
+  const hydrationVal = getDom('hydration-value');
+  if (healthVal) healthVal.innerText = `${Math.ceil(player.health)}%`;
+  if (energyVal) energyVal.innerText = `${Math.ceil(player.energy)}%`;
+  if (hydrationVal) hydrationVal.innerText = `${Math.ceil(player.hydration)}%`;
 
   // 5. Update Dynamic Compass
   if (game.controls && game.controls.getObject) {
@@ -1040,7 +1055,7 @@ export function updatePlayer(delta) {
     // Angle in radians (-PI to PI)
     const angle = Math.atan2(directionVec.x, directionVec.z);
     
-    const tape = document.getElementById('compass-tape');
+    const tape = getDom('compass-tape');
     if (tape) {
       const oneCycleWidth = tape.offsetWidth / 3;
       // When looking North (angle = PI / -PI), offset is 0.
