@@ -31,7 +31,8 @@ export const world = {
   canes: [], // Array of active cane plant groups
   placedStructures: [], // Array of placed modular structures (foundations, walls, etc.)
   berryBushes: [], // Array of active berry bushes
-  seabedMesh: null // 3D Seabed Mesh
+  seabedMesh: null, // 3D Seabed Mesh
+  windTime: 0.0
 };
 
 // Water grid limits and cell counts
@@ -952,6 +953,13 @@ export function buildWaterGeometry() {
         // Inner ocean: smoothly blend from colorShallow (beach teal) near shores to noiseColor in deep water
         const t = Math.min(1.0, depth / 4.0); // 0.0 at shore, 1.0 in deep water
         tempColor.copy(colorShallow).lerp(noiseColor, t);
+
+        // Shoreline foam effect: if very shallow, blend to white foam!
+        if (t < 0.28) {
+          const foamFactor = 1.0 - (t / 0.28); // 1.0 at shore edge, 0.0 at t=0.28
+          const colorFoam = new THREE.Color(0xf5ffff); // Clean low-poly foam white-blue
+          tempColor.lerp(colorFoam, foamFactor * 0.95);
+        }
       } else {
         // Outer ocean: use pure procedural noise color directly
         tempColor.copy(noiseColor);
@@ -2641,6 +2649,46 @@ export function updateWorld(delta) {
             });
           }
         }
+      }
+    });
+  }
+
+  // Update wind swaying on foliage (trees, canes, berry bushes, crops)
+  if (world.sceneryMeshes) {
+    world.windTime = (world.windTime || 0.0) + delta * 1.5;
+    
+    world.sceneryMeshes.forEach(item => {
+      if (item.type === 'tree' || item.type === 'cane' || item.type === 'berry_bush' || item.type === 'crop') {
+        const mesh = item.mesh;
+        if (!mesh) return;
+        
+        // Skip falling trees
+        if (item.type === 'tree' && mesh.userData && mesh.userData.falling) {
+          return;
+        }
+        
+        // Calculate coordinate-based phase offset to randomize sway patterns
+        const phase = (mesh.position.x * 0.15) + (mesh.position.z * 0.25);
+        const t = world.windTime + phase;
+        
+        // Wind calculations
+        const baseSway = Math.sin(t) * 0.022;
+        const gustSway = Math.cos(t * 0.4) * Math.sin(t * 1.6) * 0.012;
+        let totalSway = baseSway + gustSway;
+        
+        if (item.type === 'cane') {
+          totalSway *= 2.4; // Canes are very flexible
+        } else if (item.type === 'berry_bush' || item.type === 'crop') {
+          totalSway *= 0.6; // Stiff/short plants
+        }
+        
+        if (mesh.userData.initRotX === undefined) {
+          mesh.userData.initRotX = mesh.rotation.x;
+          mesh.userData.initRotZ = mesh.rotation.z;
+        }
+        
+        mesh.rotation.x = mesh.userData.initRotX + totalSway;
+        mesh.rotation.z = mesh.userData.initRotZ + totalSway * 0.65;
       }
     });
   }
