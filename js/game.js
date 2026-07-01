@@ -93,24 +93,24 @@ const presets = {
 const presetCycles = {
   sunset: {
     day: {
-      bg: 0x93c5fd,
-      gradTop: 0x3b82f6,
-      gradBottom: 0x93c5fd,
-      ambient: 0x8ab4f8,
-      ambientIntensity: 1.3,
-      sun: 0xffffff,
-      sunIntensity: 2.8,
-      fogDensity: 0.0008
+      bg: 0xfba190,
+      gradTop: 0x2b1b54,
+      gradBottom: 0xff8560,
+      ambient: 0x442854,
+      ambientIntensity: 0.9,
+      sun: 0xffaa66,
+      sunIntensity: 3.2,
+      fogDensity: 0.0022
     },
     twilight: {
-      bg: 0xfc8c82,
-      gradTop: 0x4ba3e3,
-      gradBottom: 0xfc8c82,
-      ambient: 0x4a2e5c,
-      ambientIntensity: 1.2,
-      sun: 0xffaa44,
-      sunIntensity: 2.5,
-      fogDensity: 0.0015
+      bg: 0xe05650,
+      gradTop: 0x190c30,
+      gradBottom: 0xd4504a,
+      ambient: 0x2c1435,
+      ambientIntensity: 0.6,
+      sun: 0xff4f1f,
+      sunIntensity: 1.8,
+      fogDensity: 0.0028
     },
     night: {
       bg: 0x070312,
@@ -1222,8 +1222,8 @@ function animate() {
   const cycleDuration = 240; // 4 minutes for a full day
   const cycleTime = game.time;
   const progress = (cycleTime / cycleDuration) % 1.0;
-  // Temporarily locked at 30 degrees elevation as requested
-  const angle = 30 * Math.PI / 180;
+  // Locked at 12 degrees elevation to match the sunset concept art
+  const angle = 12 * Math.PI / 180;
 
   // Orbit math: Sun and Moon rotate opposite to each other (Zero-alloc)
   sunDir.set(-Math.cos(angle), Math.sin(angle), -0.3).normalize();

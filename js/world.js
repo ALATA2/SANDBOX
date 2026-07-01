@@ -1667,8 +1667,8 @@ function spawnScenery() {
   
   const waterMaterial = new THREE.MeshStandardMaterial({
     vertexColors: true, // Enable vertex colors!
-    roughness: 0.25,
-    metalness: 0.05,
+    roughness: 0.06,
+    metalness: 0.15,
     transparent: true,
     opacity: 0.90,
     flatShading: true,
@@ -2290,6 +2290,35 @@ function spawnScenery() {
       world.sceneryMeshes.push({ mesh: bushGroup, type: 'berry_bush' });
       world.berryBushes.push(bushGroup);
       spawnedBushes++;
+    }
+  }
+
+  // 13. Spawn exactly 120 Wildflowers across the grassy areas of the island
+  let spawnedFlowers = 0;
+  let flowerAttempts = 0;
+  while (spawnedFlowers < 120 && flowerAttempts < 500) {
+    flowerAttempts++;
+    const rx = Math.random() * (world.sizeX - 10) + 5;
+    const rz = Math.random() * (world.sizeZ - 10) + 5;
+    const wx = rx * spacing;
+    const wz = rz * spacing;
+    const wy = getSurfaceHeightNear(wx, 15, wz);
+    
+    // Position on grass (Layer 1, above beach height Y=4.4, not in the mountain lake)
+    const lakeDist = Math.sqrt((wx - 41.6)*(wx - 41.6) + (wz - 41.6)*(wz - 41.6));
+    if (wy > 4.4 && lakeDist > 25.0) {
+      const flower = createFlowerMesh();
+      flower.position.set(wx, wy, wz);
+      
+      // Random rotation and scale
+      flower.rotation.y = Math.random() * Math.PI * 2;
+      const scale = 0.85 + Math.random() * 0.3;
+      flower.scale.set(scale, scale, scale);
+      
+      game.scene.add(flower);
+      // Register in sceneryMeshes so they sway in the wind!
+      world.sceneryMeshes.push({ mesh: flower, type: 'crop' });
+      spawnedFlowers++;
     }
   }
 }
@@ -3006,6 +3035,47 @@ export function createCanePlant() {
   
   return caneGroup;
 }
+
+// Builds a stylized low-poly wildflower mesh (stem, colored petals, yellow center)
+export function createFlowerMesh() {
+  const flowerGroup = new THREE.Group();
+  flowerGroup.name = "flower";
+  
+  // Stem (thin green box or cylinder)
+  const stemGeom = new THREE.CylinderGeometry(0.015, 0.015, 0.35, 4);
+  stemGeom.translate(0, 0.175, 0); // pivot at base
+  const stemMat = new THREE.MeshLambertMaterial({ color: 0x3d702d, flatShading: true });
+  const stem = new THREE.Mesh(stemGeom, stemMat);
+  flowerGroup.add(stem);
+  
+  // Petals (low-poly box/sphere shapes)
+  const petalGeom = new THREE.BoxGeometry(0.06, 0.06, 0.06);
+  const petalMat = new THREE.MeshLambertMaterial({
+    color: Math.random() < 0.5 ? 0xd13224 : 0xee7226, // Red or Orange
+    flatShading: true
+  });
+  
+  for (let i = 0; i < 5; i++) {
+    const petal = new THREE.Mesh(petalGeom, petalMat);
+    petal.position.set(0, 0.35, 0);
+    const angle = (i / 5) * Math.PI * 2;
+    petal.position.x += Math.sin(angle) * 0.055;
+    petal.position.z += Math.cos(angle) * 0.055;
+    petal.rotation.y = angle;
+    petal.rotation.x = 0.2;
+    flowerGroup.add(petal);
+  }
+  
+  // Center (yellow cube)
+  const centerGeom = new THREE.BoxGeometry(0.05, 0.05, 0.05);
+  const centerMat = new THREE.MeshLambertMaterial({ color: 0xffd700, flatShading: true });
+  const center = new THREE.Mesh(centerGeom, centerMat);
+  center.position.set(0, 0.35, 0);
+  flowerGroup.add(center);
+  
+  return flowerGroup;
+}
+
 
 // Calculate the depth/height of the seabed mathematically (deeper far from islands)
 export function getSeabedHeight(x, z) {
