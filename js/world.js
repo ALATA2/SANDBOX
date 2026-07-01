@@ -955,8 +955,8 @@ export function buildWaterGeometry() {
         tempColor.copy(colorShallow).lerp(noiseColor, t);
 
         // Shoreline foam effect: if very shallow, blend to white foam!
-        if (t < 0.28) {
-          const foamFactor = 1.0 - (t / 0.28); // 1.0 at shore edge, 0.0 at t=0.28
+        if (t < 0.10) {
+          const foamFactor = 1.0 - (t / 0.10); // 1.0 at shore edge, 0.0 at t=0.10
           const colorFoam = new THREE.Color(0xf5ffff); // Clean low-poly foam white-blue
           tempColor.lerp(colorFoam, foamFactor * 0.95);
         }
