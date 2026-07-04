@@ -320,6 +320,20 @@ function init() {
   const container = document.getElementById('canvas-container');
   container.appendChild(game.renderer.domElement);
 
+  // Query WebGL GPU information
+  let gpuName = 'Unknown';
+  try {
+    const gl = game.renderer.getContext();
+    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+    if (debugInfo) {
+      gpuName = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+    }
+  } catch (e) {
+    console.warn("Could not query WebGL GPU info:", e);
+  }
+  console.log("WebGL GPU Renderer:", gpuName);
+  game.gpuName = gpuName;
+
   // 4. Create Lights
   game.lights.ambient = new THREE.AmbientLight(presets.sunset.ambient, presets.sunset.ambientIntensity); 
   game.scene.add(game.lights.ambient);
@@ -1136,8 +1150,13 @@ function animate() {
       const fps = Math.round((fpsFrameCount * 1000) / (now - fpsLastTime));
       const fpsEl = getDom('fps-counter');
       if (fpsEl) {
-        fpsEl.textContent = `FPS: ${fps}`;
-        fpsEl.style.color = 'rgba(0, 255, 128, 0.75)';
+        const isSoftware = game.gpuName && (
+          game.gpuName.includes('SwiftShader') || 
+          game.gpuName.includes('Software') || 
+          game.gpuName.includes('Basic Render')
+        );
+        fpsEl.textContent = `FPS: ${fps} | GPU: ${isSoftware ? '⚠️ Software (Emulated)' : 'Hardware'}`;
+        fpsEl.style.color = isSoftware ? '#ff5555' : 'rgba(0, 255, 128, 0.75)';
       }
       fpsFrameCount = 0;
       fpsLastTime = now;
