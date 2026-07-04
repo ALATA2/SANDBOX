@@ -1751,7 +1751,14 @@ function spawnScenery() {
     }
   }
 
-  // 3. Low-Poly Rock formations - Increased count for 120x120
+  // 3. Low-Poly Rock formations - Optimized with InstancedMesh (80 count)
+  const landRockMatrices = [];
+  const tempPosition = new THREE.Vector3();
+  const tempRotation = new THREE.Euler();
+  const tempQuaternion = new THREE.Quaternion();
+  const tempScale = new THREE.Vector3();
+  const tempMatrix = new THREE.Matrix4();
+  
   for (let i = 0; i < 80; i++) {
     const rx = Math.random() * (world.sizeX - 6) + 3;
     const rz = Math.random() * (world.sizeZ - 6) + 3;
@@ -1762,24 +1769,39 @@ function spawnScenery() {
 
     const lakeDist = Math.sqrt((wx - 41.6)*(wx - 41.6) + (wz - 41.6)*(wz - 41.6));
     if (wy > 3.0 && lakeDist > 25.0) {
-      const rockGeom = new THREE.DodecahedronGeometry(1.0 + Math.random() * 1.5, 0);
-      const rock = new THREE.Mesh(rockGeom, rockMaterial);
-      rock.position.set(wx, wy - 0.5, wz);
-      rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
-      rock.castShadow = true;
-      rock.receiveShadow = true;
-      game.scene.add(rock);
-      world.sceneryMeshes.push({ mesh: rock, type: 'rock' });
+      tempPosition.set(wx, wy - 0.5, wz);
+      tempRotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+      tempQuaternion.setFromEuler(tempRotation);
+      const scaleVal = 1.0 + Math.random() * 1.5;
+      tempScale.set(scaleVal, scaleVal, scaleVal);
+      
+      tempMatrix.compose(tempPosition, tempQuaternion, tempScale);
+      landRockMatrices.push(tempMatrix.clone());
     }
   }
 
-  // 3b. Marine Rocks (rocks emerging from the sea) - Increased count for 120x120
+  if (landRockMatrices.length > 0) {
+    const rockGeom = new THREE.DodecahedronGeometry(1.0, 0);
+    const landRocksInstanced = new THREE.InstancedMesh(rockGeom, rockMaterial, landRockMatrices.length);
+    landRocksInstanced.castShadow = game.shadowsEnabled;
+    landRocksInstanced.receiveShadow = game.shadowsEnabled;
+    
+    landRockMatrices.forEach((matrix, idx) => {
+      landRocksInstanced.setMatrixAt(idx, matrix);
+    });
+    
+    game.scene.add(landRocksInstanced);
+    world.sceneryMeshes.push({ mesh: landRocksInstanced, type: 'instanced_rock' });
+  }
+
+  // 3b. Marine Rocks (rocks emerging from the sea) - Optimized with InstancedMesh (40 count)
   const marineRockMaterial = new THREE.MeshStandardMaterial({ 
     color: 0x5a6363, // Darker wet rock
     roughness: 0.6,  // Slightly glossy/wet appearance
     flatShading: true 
   });
   
+  const marineRockMatrices = [];
   for (let i = 0; i < 40; i++) {
     const rx = Math.random() * (world.sizeX - 10) + 5;
     const rz = Math.random() * (world.sizeZ - 10) + 5;
@@ -1790,18 +1812,29 @@ function spawnScenery() {
 
     // Only spawn in shallow water (between Y=1.2 and 3.9)
     if (wy >= 1.2 && wy < 3.9) {
-      // Large rocks (radius 1.5 to 3.0) to ensure they emerge from the 4.0 water level
-      const rockRadius = 1.5 + Math.random() * 1.5;
-      const rockGeom = new THREE.DodecahedronGeometry(rockRadius, 0);
-      const rock = new THREE.Mesh(rockGeom, marineRockMaterial);
+      tempPosition.set(wx, wy - 0.5, wz);
+      tempRotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+      tempQuaternion.setFromEuler(tempRotation);
+      const scaleVal = 1.5 + Math.random() * 1.5;
+      tempScale.set(scaleVal, scaleVal, scaleVal);
       
-      rock.position.set(wx, wy - 0.5, wz);
-      rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
-      rock.castShadow = true;
-      rock.receiveShadow = true;
-      game.scene.add(rock);
-      world.sceneryMeshes.push({ mesh: rock, type: 'rock' });
+      tempMatrix.compose(tempPosition, tempQuaternion, tempScale);
+      marineRockMatrices.push(tempMatrix.clone());
     }
+  }
+
+  if (marineRockMatrices.length > 0) {
+    const rockGeom = new THREE.DodecahedronGeometry(1.0, 0);
+    const marineRocksInstanced = new THREE.InstancedMesh(rockGeom, marineRockMaterial, marineRockMatrices.length);
+    marineRocksInstanced.castShadow = game.shadowsEnabled;
+    marineRocksInstanced.receiveShadow = game.shadowsEnabled;
+    
+    marineRockMatrices.forEach((matrix, idx) => {
+      marineRocksInstanced.setMatrixAt(idx, matrix);
+    });
+    
+    game.scene.add(marineRocksInstanced);
+    world.sceneryMeshes.push({ mesh: marineRocksInstanced, type: 'instanced_rock' });
   }
 
   // 3c. 3D Low-Poly Starfish on the shoreline - Increased count for 120x120
