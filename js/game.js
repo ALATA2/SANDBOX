@@ -44,6 +44,7 @@ export const game = {
 };
 
 let underwaterParticles = null;
+let shadowUpdateCounter = 0;
 
 const blocker = document.getElementById('blocker');
 const startButton = document.getElementById('start-button');
@@ -317,6 +318,7 @@ function init() {
   game.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   game.renderer.shadowMap.enabled = !game.isMobile;
   game.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  game.renderer.shadowMap.autoUpdate = false; // Disable continuous shadow rendering
   game.renderer.toneMapping = THREE.ACESFilmicToneMapping;
   game.renderer.toneMappingExposure = 1.0;
   
@@ -742,6 +744,9 @@ function init() {
       
       if (game.renderer) {
         game.renderer.shadowMap.enabled = game.shadowsEnabled;
+        if (game.shadowsEnabled) {
+          game.renderer.shadowMap.needsUpdate = true;
+        }
       }
       if (game.lights && game.lights.sun) {
         game.lights.sun.castShadow = game.shadowsEnabled;
@@ -1216,6 +1221,14 @@ function animate() {
   requestAnimationFrame(animate);
 
   try {
+    // Throttled shadow updates: trigger shadow map render once every 4 frames
+    if (game.renderer && game.renderer.shadowMap.enabled) {
+      shadowUpdateCounter = (shadowUpdateCounter + 1) % 4;
+      if (shadowUpdateCounter === 0) {
+        game.renderer.shadowMap.needsUpdate = true;
+      }
+    }
+
     // Temporary FPS calculation
     fpsFrameCount++;
     const now = performance.now();
