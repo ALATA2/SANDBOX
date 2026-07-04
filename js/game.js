@@ -1128,18 +1128,20 @@ function updateUnderwaterParticles(delta) {
 function animate() {
   requestAnimationFrame(animate);
 
-  // Temporary FPS calculation
-  fpsFrameCount++;
-  const now = performance.now();
-  if (now - fpsLastTime >= 1000) {
-    const fps = Math.round((fpsFrameCount * 1000) / (now - fpsLastTime));
-    const fpsEl = getDom('fps-counter');
-    if (fpsEl) {
-      fpsEl.textContent = `FPS: ${fps}`;
+  try {
+    // Temporary FPS calculation
+    fpsFrameCount++;
+    const now = performance.now();
+    if (now - fpsLastTime >= 1000) {
+      const fps = Math.round((fpsFrameCount * 1000) / (now - fpsLastTime));
+      const fpsEl = getDom('fps-counter');
+      if (fpsEl) {
+        fpsEl.textContent = `FPS: ${fps}`;
+        fpsEl.style.color = 'rgba(0, 255, 128, 0.75)';
+      }
+      fpsFrameCount = 0;
+      fpsLastTime = now;
     }
-    fpsFrameCount = 0;
-    fpsLastTime = now;
-  }
 
   const delta = (game.pointerLocked && game.paused) ? 0 : Math.min(game.clock.getDelta(), 0.1);
   if (!game.paused) {
@@ -1546,6 +1548,14 @@ function animate() {
 
   // Render scene
   game.renderer.render(game.scene, game.camera);
+  } catch (err) {
+    console.error(err);
+    const fpsEl = getDom('fps-counter');
+    if (fpsEl) {
+      fpsEl.textContent = `ERR: ${err.message.substring(0, 32)}`;
+      fpsEl.style.color = '#ff3333';
+    }
+  }
 }
 
 // Pre-populate feedback if empty, and bind UI buttons
