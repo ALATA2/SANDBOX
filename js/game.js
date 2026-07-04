@@ -256,6 +256,8 @@ function getDom(id) {
 
 let currentPreset = 'sunset';
 let cameraShake = 0;
+let fpsFrameCount = 0;
+let fpsLastTime = performance.now();
 
 // Particles variables
 let menuParticles = null;
@@ -1125,6 +1127,19 @@ function updateUnderwaterParticles(delta) {
 // Main Game Loop
 function animate() {
   requestAnimationFrame(animate);
+
+  // Temporary FPS calculation
+  fpsFrameCount++;
+  const now = performance.now();
+  if (now - fpsLastTime >= 1000) {
+    const fps = Math.round((fpsFrameCount * 1000) / (now - fpsLastTime));
+    const fpsEl = getDom('fps-counter');
+    if (fpsEl) {
+      fpsEl.textContent = `FPS: ${fps}`;
+    }
+    fpsFrameCount = 0;
+    fpsLastTime = now;
+  }
 
   const delta = (game.pointerLocked && game.paused) ? 0 : Math.min(game.clock.getDelta(), 0.1);
   if (!game.paused) {
