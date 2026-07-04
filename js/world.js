@@ -2684,42 +2684,55 @@ export function updateWorld(delta) {
 
   // Update wind swaying on foliage (trees, canes, berry bushes, crops)
   if (world.sceneryMeshes) {
-    world.windTime = (world.windTime || 0.0) + delta * 1.5;
-    
-    world.sceneryMeshes.forEach(item => {
-      if (item.type === 'tree' || item.type === 'cane' || item.type === 'berry_bush' || item.type === 'crop') {
-        const mesh = item.mesh;
-        if (!mesh) return;
-        
-        // Skip falling trees
-        if (item.type === 'tree' && mesh.userData && mesh.userData.falling) {
-          return;
+    if (game.windSwayEnabled) {
+      world.windTime = (world.windTime || 0.0) + delta * 1.5;
+      
+      world.sceneryMeshes.forEach(item => {
+        if (item.type === 'tree' || item.type === 'cane' || item.type === 'berry_bush' || item.type === 'crop') {
+          const mesh = item.mesh;
+          if (!mesh) return;
+          
+          // Skip falling trees
+          if (item.type === 'tree' && mesh.userData && mesh.userData.falling) {
+            return;
+          }
+          
+          // Calculate coordinate-based phase offset to randomize sway patterns
+          const phase = (mesh.position.x * 0.15) + (mesh.position.z * 0.25);
+          const t = world.windTime + phase;
+          
+          // Wind calculations
+          const baseSway = Math.sin(t) * 0.022;
+          const gustSway = Math.cos(t * 0.4) * Math.sin(t * 1.6) * 0.012;
+          let totalSway = baseSway + gustSway;
+          
+          if (item.type === 'cane') {
+            totalSway *= 2.4; // Canes are very flexible
+          } else if (item.type === 'berry_bush' || item.type === 'crop') {
+            totalSway *= 0.6; // Stiff/short plants
+          }
+          
+          if (mesh.userData.initRotX === undefined) {
+            mesh.userData.initRotX = mesh.rotation.x;
+            mesh.userData.initRotZ = mesh.rotation.z;
+          }
+          
+          mesh.rotation.x = mesh.userData.initRotX + totalSway;
+          mesh.rotation.z = mesh.userData.initRotZ + totalSway * 0.65;
         }
-        
-        // Calculate coordinate-based phase offset to randomize sway patterns
-        const phase = (mesh.position.x * 0.15) + (mesh.position.z * 0.25);
-        const t = world.windTime + phase;
-        
-        // Wind calculations
-        const baseSway = Math.sin(t) * 0.022;
-        const gustSway = Math.cos(t * 0.4) * Math.sin(t * 1.6) * 0.012;
-        let totalSway = baseSway + gustSway;
-        
-        if (item.type === 'cane') {
-          totalSway *= 2.4; // Canes are very flexible
-        } else if (item.type === 'berry_bush' || item.type === 'crop') {
-          totalSway *= 0.6; // Stiff/short plants
+      });
+    } else {
+      // If disabled, reset to initial rotation if they were modified
+      world.sceneryMeshes.forEach(item => {
+        if (item.type === 'tree' || item.type === 'cane' || item.type === 'berry_bush' || item.type === 'crop') {
+          const mesh = item.mesh;
+          if (mesh && mesh.userData && mesh.userData.initRotX !== undefined) {
+            mesh.rotation.x = mesh.userData.initRotX;
+            mesh.rotation.z = mesh.userData.initRotZ;
+          }
         }
-        
-        if (mesh.userData.initRotX === undefined) {
-          mesh.userData.initRotX = mesh.rotation.x;
-          mesh.userData.initRotZ = mesh.rotation.z;
-        }
-        
-        mesh.rotation.x = mesh.userData.initRotX + totalSway;
-        mesh.rotation.z = mesh.userData.initRotZ + totalSway * 0.65;
-      }
-    });
+      });
+    }
   }
 }
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ARCHIPELAGO - Low-Poly Survival Prototype</title>
-  <link rel="stylesheet" href="style.css?v=0.069z">
+  <link rel="stylesheet" href="style.css?v=0.070">
   
   <!-- Import maps polyfill if needed -->
   <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
@@ -15,14 +15,14 @@
       "imports": {
         "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
         "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/",
-        "./js/controls.js": "./js/controls.js?v=0.069z",
-        "./js/world.js": "./js/world.js?v=0.069z",
-        "./js/player.js": "./js/player.js?v=0.069z",
-        "./js/interact.js": "./js/interact.js?v=0.069z",
-        "./js/audio.js": "./js/audio.js?v=0.069z",
-        "./js/lang.js": "./js/lang.js?v=0.069z",
-        "./js/chemistry.js": "./js/chemistry.js?v=0.069z",
-        "./js/game.js": "./js/game.js?v=0.069z"
+        "./js/controls.js": "./js/controls.js?v=0.070",
+        "./js/world.js": "./js/world.js?v=0.070",
+        "./js/player.js": "./js/player.js?v=0.070",
+        "./js/interact.js": "./js/interact.js?v=0.070",
+        "./js/audio.js": "./js/audio.js?v=0.070",
+        "./js/lang.js": "./js/lang.js?v=0.070",
+        "./js/chemistry.js": "./js/chemistry.js?v=0.070",
+        "./js/game.js": "./js/game.js?v=0.070"
       }
     }
   </script>
@@ -114,6 +114,29 @@
                 <span class="preset-icon">❄️</span>
                 <span class="preset-name">FROST</span>
               </button>
+            </div>
+          </div>
+
+          <!-- Graphical Quality Settings -->
+          <div class="presets-section" style="margin-top: 15px;">
+            <h2 class="sub-section-title">GRAPHICAL PERF PROTOCOLS</h2>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+              <button id="toggle-shadows-btn" class="preset-btn active" style="flex: 1; min-width: 100px; padding: 6px 10px; font-size: 0.75rem;">
+                <span class="preset-icon">👤</span>
+                <span class="preset-name">SHADOWS: ON</span>
+              </button>
+              <button id="toggle-sway-btn" class="preset-btn active" style="flex: 1; min-width: 100px; padding: 6px 10px; font-size: 0.75rem;">
+                <span class="preset-icon">🌿</span>
+                <span class="preset-name">WIND SWAY: ON</span>
+              </button>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.05); padding: 6px 12px; border-radius: 8px;">
+              <span style="font-size: 0.75rem; font-weight: 600; color: rgba(255,255,255,0.7);">RENDER SCALE:</span>
+              <select id="render-scale-select" style="background: #1e1b29; color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; font-size: 0.75rem; padding: 2px 6px; font-weight: 600; cursor: pointer;">
+                <option value="1.0" selected>100% (High)</option>
+                <option value="0.75">75% (Balanced)</option>
+                <option value="0.5">50% (Performance)</option>
+              </select>
             </div>
           </div>
 
@@ -500,10 +523,10 @@
   </div>
 
   <!-- Version Tag for Deployment Tracking -->
-  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.069z</div>
+  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.070</div>
   <div id="fps-counter" style="position: absolute; bottom: 8px; left: 90px; font-size: 0.75rem; color: rgba(0, 255, 128, 0.75); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">FPS: --</div>
 
   <!-- Main JS entry point as an ES Module -->
-  <script type="module" src="js/game.js?v=0.069z"></script>
+  <script type="module" src="js/game.js?v=0.070"></script>
 </body>
 </html>

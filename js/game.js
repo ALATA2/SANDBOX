@@ -37,7 +37,10 @@ export const game = {
     rotationY: 0,
     speed: 0,
     lastSplashTime: 0
-  }
+  },
+  shadowsEnabled: true,
+  windSwayEnabled: true,
+  renderScale: 1.0
 };
 
 let underwaterParticles = null;
@@ -715,12 +718,82 @@ function init() {
   });
 
   // Hover sound for standard controls and presets
-  const hoverables = document.querySelectorAll('.lang-pill, .preset-btn, #mute-toggle');
+  const hoverables = document.querySelectorAll('.lang-pill, .preset-btn, #mute-toggle, #toggle-shadows-btn, #toggle-sway-btn');
   hoverables.forEach(el => {
     el.addEventListener('mouseenter', () => {
       playHover();
     });
   });
+
+  // Performance Settings bindings
+  const shadowsBtn = document.getElementById('toggle-shadows-btn');
+  if (shadowsBtn) {
+    shadowsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      game.shadowsEnabled = !game.shadowsEnabled;
+      
+      if (game.shadowsEnabled) {
+        shadowsBtn.classList.add('active');
+        shadowsBtn.querySelector('.preset-name').textContent = 'SHADOWS: ON';
+      } else {
+        shadowsBtn.classList.remove('active');
+        shadowsBtn.querySelector('.preset-name').textContent = 'SHADOWS: OFF';
+      }
+      
+      if (game.renderer) {
+        game.renderer.shadowMap.enabled = game.shadowsEnabled;
+      }
+      if (game.lights && game.lights.sun) {
+        game.lights.sun.castShadow = game.shadowsEnabled;
+      }
+      
+      if (game.scene) {
+        game.scene.traverse(node => {
+          if (node.isMesh) {
+            node.castShadow = game.shadowsEnabled;
+            node.receiveShadow = game.shadowsEnabled;
+            if (node.material) {
+              node.material.needsUpdate = true;
+            }
+          }
+        });
+      }
+      
+      playSelect();
+    });
+  }
+
+  const swayBtn = document.getElementById('toggle-sway-btn');
+  if (swayBtn) {
+    swayBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      game.windSwayEnabled = !game.windSwayEnabled;
+      
+      if (game.windSwayEnabled) {
+        swayBtn.classList.add('active');
+        swayBtn.querySelector('.preset-name').textContent = 'WIND SWAY: ON';
+      } else {
+        swayBtn.classList.remove('active');
+        swayBtn.querySelector('.preset-name').textContent = 'WIND SWAY: OFF';
+      }
+      
+      playSelect();
+    });
+  }
+
+  const scaleSelect = document.getElementById('render-scale-select');
+  if (scaleSelect) {
+    scaleSelect.addEventListener('change', (e) => {
+      const scale = parseFloat(e.target.value);
+      game.renderScale = scale;
+      
+      if (game.renderer) {
+        game.renderer.setPixelRatio(scale * Math.min(window.devicePixelRatio, 2));
+        game.renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+      playSelect();
+    });
+  }
 
   // Setup scrolling terminal logger
   initTerminalLogger();
