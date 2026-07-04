@@ -1155,7 +1155,15 @@ function animate() {
           game.gpuName.includes('Software') || 
           game.gpuName.includes('Basic Render')
         );
-        fpsEl.textContent = `FPS: ${fps} | GPU: ${isSoftware ? '⚠️ Software (Emulated)' : 'Hardware'}`;
+        let cleanGpu = 'Unknown';
+        if (game.gpuName) {
+          const match = game.gpuName.match(/ANGLE \((.*?), (.*?), (.*?)\)/);
+          cleanGpu = match ? match[2] : game.gpuName;
+          if (cleanGpu.length > 32) {
+            cleanGpu = cleanGpu.substring(0, 30) + '...';
+          }
+        }
+        fpsEl.textContent = `FPS: ${fps} | GPU: ${cleanGpu}`;
         fpsEl.style.color = isSoftware ? '#ff5555' : 'rgba(0, 255, 128, 0.75)';
       }
       fpsFrameCount = 0;
