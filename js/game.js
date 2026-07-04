@@ -2902,9 +2902,12 @@ function updateFauna(delta) {
 
   // 1. Shore Crabs (wander or scuttle away from player)
   game.crabs.forEach(crab => {
-    crab.timer -= delta;
-    
     const distToPlayer = crab.position.distanceTo(playerPos);
+    if (distToPlayer > 60.0) {
+      return; // Distance culling
+    }
+    
+    crab.timer -= delta;
     const isFleeing = distToPlayer < 5.0;
     
     if (isFleeing) {
@@ -3002,6 +3005,11 @@ function updateFauna(delta) {
 
   // 2. Submerged Fish (steer in water, wiggle tails)
   game.fishes.forEach(fish => {
+    const distToPlayer = fish.position.distanceTo(playerPos);
+    if (distToPlayer > 60.0) {
+      return; // Distance culling
+    }
+    
     fish.swimTimer -= delta;
     
     if (fish.swimTimer <= 0) {
@@ -3074,6 +3082,11 @@ function updateFauna(delta) {
 
   // 3. Flying Seagulls (circular orbit, flap wings)
   game.seagulls.forEach(gull => {
+    const distToPlayer = gull.position.distanceTo(playerPos);
+    if (distToPlayer > 60.0) {
+      return; // Distance culling
+    }
+    
     const orb = gull.orbit;
     
     orb.angle += orb.speed * delta;

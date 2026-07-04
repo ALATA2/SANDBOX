@@ -2686,6 +2686,7 @@ export function updateWorld(delta) {
   if (world.sceneryMeshes) {
     if (game.windSwayEnabled) {
       world.windTime = (world.windTime || 0.0) + delta * 1.5;
+      const playerPos = (game.controls && game.controls.getObject) ? game.controls.getObject().position : null;
       
       world.sceneryMeshes.forEach(item => {
         if (item.type === 'tree' || item.type === 'cane' || item.type === 'berry_bush' || item.type === 'crop') {
@@ -2695,6 +2696,18 @@ export function updateWorld(delta) {
           // Skip falling trees
           if (item.type === 'tree' && mesh.userData && mesh.userData.falling) {
             return;
+          }
+          
+          // Distance culling check (45m squared = 2025)
+          if (playerPos) {
+            const distSq = mesh.position.distanceToSquared(playerPos);
+            if (distSq > 2025) {
+              if (mesh.userData.initRotX !== undefined) {
+                mesh.rotation.x = mesh.userData.initRotX;
+                mesh.rotation.z = mesh.userData.initRotZ;
+              }
+              return;
+            }
           }
           
           // Calculate coordinate-based phase offset to randomize sway patterns
