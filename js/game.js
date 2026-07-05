@@ -1327,7 +1327,6 @@ function animate() {
       }
       
       // Stitch boundary vertices between high-resolution inner ocean and low-resolution outer ocean
-      const isInner = (vx >= -20.801 && vx <= 212.801 && vz >= -20.801 && vz <= 212.801);
       if (isInner) {
         const distToLeft = vx - (-20.8);
         const distToRight = 212.8 - vx;
