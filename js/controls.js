@@ -187,15 +187,22 @@ export function updateControls(delta) {
   if (inWater) {
     const baseWaterHeight = getWaterHeightAt(position.x, position.z);
     const waterSurfaceY = baseWaterHeight + 1.0; // Water level + eye height offset to keep head above water
+    const isMovingForward = game.isMobile ? (direction.z > 0.1) : moveForward;
+    
+    // Dive can be triggered by C, ControlLeft, or ShiftLeft/Right (sprint key maps to dive in water)
+    const activeDive = moveDown || shiftPressed;
     
     if (moveUp) {
       velocity.y += 12.0 * delta;
-    } else if (moveDown) {
+    } else if (activeDive) {
       velocity.y -= 12.0 * delta;
     } else if (position.y < waterSurfaceY) {
-      // Float up smoothly to the surface if no swim keys are pressed
-      velocity.y += 4.0 * delta;
-      if (velocity.y > 1.2) velocity.y = 1.2;
+      // Float up smoothly to the surface unless actively swimming down by looking down
+      const isSwimmingDown = isMovingForward && camDir.y < -0.15;
+      if (!isSwimmingDown) {
+        velocity.y += 4.0 * delta;
+        if (velocity.y > 1.2) velocity.y = 1.2;
+      }
     } else {
       // Above water surface: fall back down
       velocity.y -= 8.0 * delta;
