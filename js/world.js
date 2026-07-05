@@ -1235,6 +1235,15 @@ export function getDensityInterpolated(px, py, pz) {
 
 // Density check helper to detect wall collisions (using smooth trilinear density)
 export function checkCollision(px, py, pz) {
+  const spacing = world.spacing;
+  const gx = px / spacing;
+  const gz = pz / spacing;
+  
+  // Under the island grid footprint below bedrock level (Y < 0.2), treat it as solid earth!
+  if (py < 0.2 && gx >= 0 && gx < world.sizeX && gz >= 0 && gz < world.sizeZ) {
+    return true;
+  }
+  
   return getDensityInterpolated(px, py, pz) > 0.15; // Return true if solid
 }
 

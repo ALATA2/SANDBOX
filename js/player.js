@@ -1010,6 +1010,11 @@ export function updatePlayer(delta) {
   }
 
   // Update HUD values
+  const altitudeVal = getDom('hud-altitude-val');
+  if (altitudeVal && playerPos) {
+    const altitude = playerPos.y - 4.0;
+    altitudeVal.innerText = altitude >= 0 ? `+${altitude.toFixed(1)} m` : `${altitude.toFixed(1)} m`;
+  }
   const depthVal = getDom('hud-depth-val');
   if (depthVal) depthVal.innerText = `-${depth} m`;
   const tempVal = getDom('hud-temp-val');

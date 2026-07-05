@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ARCHIPELAGO - Low-Poly Survival Prototype</title>
-  <link rel="stylesheet" href="style.css?v=0.076">
+  <link rel="stylesheet" href="style.css?v=0.077">
   
   <!-- Import maps polyfill if needed -->
   <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
@@ -15,14 +15,14 @@
       "imports": {
         "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
         "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/",
-        "./js/controls.js": "./js/controls.js?v=0.076",
-        "./js/world.js": "./js/world.js?v=0.076",
-        "./js/player.js": "./js/player.js?v=0.076",
-        "./js/interact.js": "./js/interact.js?v=0.076",
-        "./js/audio.js": "./js/audio.js?v=0.076",
-        "./js/lang.js": "./js/lang.js?v=0.076",
-        "./js/chemistry.js": "./js/chemistry.js?v=0.076",
-        "./js/game.js": "./js/game.js?v=0.076"
+        "./js/controls.js": "./js/controls.js?v=0.077",
+        "./js/world.js": "./js/world.js?v=0.077",
+        "./js/player.js": "./js/player.js?v=0.077",
+        "./js/interact.js": "./js/interact.js?v=0.077",
+        "./js/audio.js": "./js/audio.js?v=0.077",
+        "./js/lang.js": "./js/lang.js?v=0.077",
+        "./js/chemistry.js": "./js/chemistry.js?v=0.077",
+        "./js/game.js": "./js/game.js?v=0.077"
       }
     }
   </script>
@@ -514,6 +514,9 @@
 
   <!-- Depth & Temperature Telemetry HUD -->
   <div id="depth-temp-hud" style="position: absolute; bottom: 28px; left: 8px; z-index: 1000; pointer-events: none; font-family: monospace; text-shadow: 0 1px 3px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 2px;">
+    <div style="font-size: 0.85rem; color: #33aaff; font-weight: bold; letter-spacing: 0.05em;">
+      ALTITUDE: <span id="hud-altitude-val">0.0 m</span>
+    </div>
     <div style="font-size: 0.85rem; color: #55ff55; font-weight: bold; letter-spacing: 0.05em;">
       DEPTH: <span id="hud-depth-val">0 m</span>
     </div>
@@ -523,10 +526,10 @@
   </div>
 
   <!-- Version Tag for Deployment Tracking -->
-  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.076</div>
+  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.077</div>
   <div id="fps-counter" style="position: absolute; bottom: 8px; left: 90px; font-size: 0.75rem; color: rgba(0, 255, 128, 0.75); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">FPS: --</div>
 
   <!-- Main JS entry point as an ES Module -->
-  <script type="module" src="js/game.js?v=0.076"></script>
+  <script type="module" src="js/game.js?v=0.077"></script>
 </body>
 </html>

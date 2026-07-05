@@ -1578,7 +1578,8 @@ function animate() {
   let isSubmerged = false;
   if (game.pointerLocked && game.controls && game.controls.getObject) {
     const camPos = game.controls.getObject().position;
-    isSubmerged = checkInWater(camPos.x, camPos.y, camPos.z);
+    const waterHeight = getWaterHeightAt(camPos.x, camPos.z);
+    isSubmerged = (camPos.y < waterHeight) && checkInWater(camPos.x, camPos.y, camPos.z);
   }
   updateUnderwaterVisuals(isSubmerged);
 
