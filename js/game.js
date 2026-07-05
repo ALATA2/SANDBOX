@@ -1274,8 +1274,22 @@ function animate() {
       
       const baseHeight = getWaterHeightAt(vx, vz);
       
-      // Distance culling check (70m limit squared = 4900)
-      if (playerPos) {
+      // Stitch boundary vertices: do NOT cull vertices near the boundary (within 12m) to prevent cracks!
+      const isInner = (vx >= -20.801 && vx <= 212.801 && vz >= -20.801 && vz <= 212.801);
+      let isBoundary = !isInner;
+      if (isInner) {
+        const distToLeft = vx - (-20.8);
+        const distToRight = 212.8 - vx;
+        const distToBottom = vz - (-20.8);
+        const distToTop = 212.8 - vz;
+        const dMin = Math.min(distToLeft, distToRight, distToBottom, distToTop);
+        if (dMin < 12.0) {
+          isBoundary = true;
+        }
+      }
+      
+      // Distance culling check (70m limit squared = 4900): only apply to interior (non-boundary) vertices
+      if (!isBoundary && playerPos) {
         const dx = vx - playerPos.x;
         const dz = vz - playerPos.z;
         if (dx * dx + dz * dz > 4900) {

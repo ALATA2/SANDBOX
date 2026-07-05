@@ -187,21 +187,23 @@ export function updateControls(delta) {
   if (inWater) {
     const baseWaterHeight = getWaterHeightAt(position.x, position.z);
     const waterSurfaceY = baseWaterHeight + 1.0; // Water level + eye height offset to keep head above water
-    const isMovingForward = game.isMobile ? (direction.z > 0.1) : moveForward;
     
     if (moveUp) {
       velocity.y += 12.0 * delta;
     } else if (moveDown) {
       velocity.y -= 12.0 * delta;
     } else if (position.y < waterSurfaceY) {
-      // If we are underwater and not pressing swim keys, buoyancy floats us up
-      // unless we are actively swimming down by looking down
-      const isSwimmingDown = isMovingForward && camDir.y < -0.15;
-      if (!isSwimmingDown) {
+      // If close to surface, buoyancy floats head above water
+      if (position.y >= waterSurfaceY - 0.25) {
         velocity.y += (waterSurfaceY - position.y) * 4.0 * delta;
         if (velocity.y < -1.0) velocity.y *= 0.8;
+      } else {
+        // Deep underwater: apply neutral buoyancy (slight upward drift + vertical drag to prevent sinking/sliding)
+        velocity.y += 0.4 * delta;
+        velocity.y -= velocity.y * 3.0 * delta;
       }
     } else {
+      // Above water surface: fall back down
       velocity.y -= 8.0 * delta;
     }
     
