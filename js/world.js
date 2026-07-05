@@ -19,6 +19,7 @@ export const world = {
   waterActive: null, // 3D Uint8Array for connected water cells
   waterHeights: null, // 2D Float32Array for dynamic height filling
   waterGroundHeights: null, // Precomputed 2D Float32Array for static height lookup
+  waterActiveVertices: null, // Precalculated Uint8Array of active vertices
   oreDeposits: [], // Array of meshes representing ore nodes
   sceneryMeshes: [], // Trees, rocks, etc.
   trees: [], // Array of active tree groups for Axe chopping
@@ -875,6 +876,17 @@ export function updateWaterGrid() {
       }
     }
   }
+
+  // Recalculate water active vertices array for runtime lookup
+  if (world.waterActiveVertices) {
+    for (let gx = 0; gx <= WATER_CELLS_X; gx++) {
+      const idxOffset = gx * (WATER_CELLS_Z + 1);
+      for (let gz = 0; gz <= WATER_CELLS_Z; gz++) {
+        const idx = idxOffset + gz;
+        world.waterActiveVertices[idx] = isVertexActive(gx, gz) ? 1 : 0;
+      }
+    }
+  }
 }
 
 // Build a dynamic BufferGeometry for water, only rendering quads in active water columns
@@ -1651,12 +1663,14 @@ function spawnScenery() {
   const size = (WATER_CELLS_X + 1) * (WATER_CELLS_Z + 1);
   world.waterHeights = new Float32Array(size);
   world.waterGroundHeights = new Float32Array(size);
+  world.waterActiveVertices = new Uint8Array(size);
   for (let gx = 0; gx <= WATER_CELLS_X; gx++) {
     const vx = WATER_START_X + gx * spacing;
     for (let gz = 0; gz <= WATER_CELLS_Z; gz++) {
       const vz = WATER_START_Z + gz * spacing;
       const idx = gx * (WATER_CELLS_Z + 1) + gz;
       const active = isVertexActive(gx, gz);
+      world.waterActiveVertices[idx] = active ? 1 : 0;
       const groundY = getSurfaceHeightNear(vx, 5.0, vz);
       world.waterGroundHeights[idx] = groundY;
       world.waterHeights[idx] = active ? 4.0 : Math.min(4.0, groundY);
@@ -3025,13 +3039,13 @@ export function createLabTableMesh(isHologram) {
 }
 
 function updateWaterHeights(delta) {
-  if (!world.waterHeights || !world.waterGroundHeights) return;
+  if (!world.waterHeights || !world.waterGroundHeights || !world.waterActiveVertices) return;
   for (let gx = 0; gx <= WATER_CELLS_X; gx++) {
     const idxOffset = gx * (WATER_CELLS_Z + 1);
     for (let gz = 0; gz <= WATER_CELLS_Z; gz++) {
       const idx = idxOffset + gz;
       
-      const active = isVertexActive(gx, gz);
+      const active = world.waterActiveVertices[idx] === 1;
       const groundY = world.waterGroundHeights[idx];
       
       const targetY = active ? 4.0 : Math.min(4.0, groundY);

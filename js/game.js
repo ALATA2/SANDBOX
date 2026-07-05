@@ -1259,6 +1259,7 @@ function animate() {
     const posArray = positionAttribute.array;
     const depthArray = depthAttribute ? depthAttribute.array : null;
     const count = positionAttribute.count;
+    const playerPos = (game.controls && game.controls.getObject) ? game.controls.getObject().position : null;
     
     // Precompute boundary wave heights outside the loop (saves N * 4 trig calls!)
     const h00 = Math.sin(-20.8 * 0.12 + time * 1.6) * 0.18 + Math.cos(-20.8 * 0.12 + time * 1.2) * 0.18;
@@ -1271,10 +1272,21 @@ function animate() {
       const vx = posArray[i3];
       const vz = posArray[i3 + 2]; // Read world Z directly (geometry is not rotated)
       
+      const baseHeight = getWaterHeightAt(vx, vz);
+      
+      // Distance culling check (70m limit squared = 4900)
+      if (playerPos) {
+        const dx = vx - playerPos.x;
+        const dz = vz - playerPos.z;
+        if (dx * dx + dz * dz > 4900) {
+          posArray[i3 + 1] = baseHeight - 4.0;
+          continue;
+        }
+      }
+      
       const maxDepth = depthArray ? depthArray[i] : 4.0;
       const groundY = 4.0 - maxDepth;
       
-      const baseHeight = getWaterHeightAt(vx, vz);
       const currentDepth = Math.max(0, baseHeight - groundY);
       const relativeBaseHeight = baseHeight - 4.0;
       
