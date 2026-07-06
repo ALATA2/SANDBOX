@@ -3,6 +3,7 @@ import { edgeTable, triTable } from './mctable.js';
 import { game } from './game.js';
 import { spawnDebris } from './interact.js';
 import { player } from './player.js';
+import { updateFoliageWind } from './wind.js';
 
 // World Configuration
 export const world = {
@@ -1082,170 +1083,9 @@ export function checkInWater(px, py, pz) {
   return world.waterActive && world.waterActive[idx] === 1;
 }
 
-// Bilinear density interpolation at a specific grid height (y)
-export function getDensity2DInterpolated(gx, y, gz) {
-  // If coordinates are out of grid bounds, treat it as air (-1.0)
-  if (gx < 0 || gx >= world.sizeX || gz < 0 || gz >= world.sizeZ) {
-    return -1.0;
-  }
-
-  const x0 = Math.floor(gx);
-  const z0 = Math.floor(gz);
-
-  const x1 = Math.min(x0 + 1, world.sizeX - 1);
-  const z1 = Math.min(z0 + 1, world.sizeZ - 1);
-
-  const tx = gx - x0;
-  const tz = gz - z0;
-
-  const d00 = world.density[x0 * world.sizeY * world.sizeZ + y * world.sizeZ + z0] || 0;
-  const d10 = world.density[x1 * world.sizeY * world.sizeZ + y * world.sizeZ + z0] || 0;
-  const d01 = world.density[x0 * world.sizeY * world.sizeZ + y * world.sizeZ + z1] || 0;
-  const d11 = world.density[x1 * world.sizeY * world.sizeZ + y * world.sizeZ + z1] || 0;
-
-  // Bilinear interpolation
-  const d0 = d00 + tx * (d10 - d00);
-  const d1 = d01 + tx * (d11 - d01);
-  return d0 + tz * (d1 - d0);
-}
-
-// Height query helper for collision detection (smoothly interpolated, tunnels supported!)
-export function getSurfaceHeightNear(px, py, pz) {
-  // Check if near Lighthouse Island
-  const ldx = px - 1500;
-  const ldz = pz - (-2000);
-  const ldist = Math.sqrt(ldx * ldx + ldz * ldz);
-  if (ldist < 140) {
-    let coneHeight = -5.0 + 40.0 * Math.max(0, 1.0 - ldist / 110.0);
-    if (ldist < 30) {
-      return 22.0; // Summit plateau
-    }
-    // Spiral path ramp winding around lighthouse cone
-    const theta = Math.atan2(ldz, ldx) + Math.PI; // [0, 2*Math.PI]
-    const r_path = 110.0 - 70.0 * (theta / (Math.PI * 2));
-    const pathHeight = 4.2 + (22.0 - 4.2) * (theta / (Math.PI * 2));
-    if (Math.abs(ldist - r_path) < 6.0) {
-      return pathHeight;
-    }
-    return Math.max(0.1, coneHeight);
-  }
-
-  // Check if near Volcanic Island
-  const vdx = px - (-1800);
-  const vdz = pz - 1500;
-  const vdist = Math.sqrt(vdx * vdx + vdz * vdz);
-  if (vdist < 180) {
-    if (vdist >= 60) {
-      // Outer slope: Shore Y=4.2 to Rim Y=22
-      const t = Math.max(0, Math.min(1, (160 - vdist) / 100));
-      return 4.2 + (22.0 - 4.2) * t;
-    } else if (vdist >= 40) {
-      // Inner slope: Rim Y=22 to Crater Floor Y=6
-      const t = Math.max(0, Math.min(1, (vdist - 40) / 20));
-      return 6.0 + (22.0 - 6.0) * t;
-    } else {
-      // Crater caldera center (flat lava surface at Y=6.2)
-      return 6.2;
-    }
-  }
-
-  const sHeight = getSeabedHeight(px, pz);
-
-  const spacing = world.spacing;
-  const gx = px / spacing;
-  let gy = py / spacing;
-  // If py is 15.0 or higher (which was the old sky level query), treat it as scanning from the sky (25.0)
-  if (py >= 15.0) {
-    gy = 25.0 / spacing;
-  }
-  const gz = pz / spacing;
-
-  if (gx < 0 || gx >= world.sizeX || gz < 0 || gz >= world.sizeZ) {
-    return sHeight; // Return procedural seabed height outside main island grid
-  }
-
-  // Start sweep slightly above player (e.g. gy + 1.5) to capture ground even if player sinks slightly
-  const startY = Math.max(0, Math.min(Math.floor(gy + 1.5), world.sizeY - 1));
-
-  // Scan downwards from the player's current y height to find solid terrain floor
-  for (let y = startY; y >= 0; y--) {
-    const dens = getDensity2DInterpolated(gx, y, gz);
-    if (dens >= 0) {
-      // Solid found! Interpolate height between y and y+1
-      const densAbove = getDensity2DInterpolated(gx, y + 1, gz);
-      let t = 0.5;
-      const diff = dens - densAbove;
-      if (Math.abs(diff) > 0.0001) {
-        t = dens / diff;
-      }
-      t = Math.max(0, Math.min(1, t));
-      return (y + t) * spacing; // Return actual terrain height if solid starting island terrain exists
-    }
-  }
-  return sHeight; // Return seabed height if no solid starting island terrain is found under coordinates
-}
-
-// Get smooth interpolated density at any world coordinate (Trilinear)
-export function getDensityInterpolated(px, py, pz) {
-  const spacing = world.spacing;
-  const gx = px / spacing;
-  const gy = py / spacing;
-  const gz = pz / spacing;
-
-  // If coordinates are out of grid bounds, treat it as air (-1.0)
-  if (gx < 0 || gx >= world.sizeX || 
-      gy < 0 || gy >= world.sizeY || 
-      gz < 0 || gz >= world.sizeZ) {
-    return -1.0;
-  }
-
-  const x0 = Math.floor(gx);
-  const y0 = Math.floor(gy);
-  const z0 = Math.floor(gz);
-
-  const x1 = Math.min(x0 + 1, world.sizeX - 1);
-  const y1 = Math.min(y0 + 1, world.sizeY - 1);
-  const z1 = Math.min(z0 + 1, world.sizeZ - 1);
-
-  const tx = gx - x0;
-  const ty = gy - y0;
-  const tz = gz - z0;
-
-  // Get densities at 8 corners using exact array indices
-  const d000 = world.density[x0 * world.sizeY * world.sizeZ + y0 * world.sizeZ + z0] || 0;
-  const d100 = world.density[x1 * world.sizeY * world.sizeZ + y0 * world.sizeZ + z0] || 0;
-  const d010 = world.density[x0 * world.sizeY * world.sizeZ + y1 * world.sizeZ + z0] || 0;
-  const d110 = world.density[x1 * world.sizeY * world.sizeZ + y1 * world.sizeZ + z0] || 0;
-  const d001 = world.density[x0 * world.sizeY * world.sizeZ + y0 * world.sizeZ + z1] || 0;
-  const d101 = world.density[x1 * world.sizeY * world.sizeZ + y0 * world.sizeZ + z1] || 0;
-  const d011 = world.density[x0 * world.sizeY * world.sizeZ + y1 * world.sizeZ + z1] || 0;
-  const d111 = world.density[x1 * world.sizeY * world.sizeZ + y1 * world.sizeZ + z1] || 0;
-
-  // Trilinear interpolation
-  const d00 = d000 + tx * (d100 - d000);
-  const d10 = d010 + tx * (d110 - d010);
-  const d01 = d001 + tx * (d101 - d001);
-  const d11 = d011 + tx * (d111 - d011);
-
-  const d0 = d00 + ty * (d10 - d00);
-  const d1 = d01 + ty * (d11 - d01);
-
-  return d0 + tz * (d1 - d0);
-}
-
-// Density check helper to detect wall collisions (using smooth trilinear density)
-export function checkCollision(px, py, pz) {
-  const spacing = world.spacing;
-  const gx = px / spacing;
-  const gz = pz / spacing;
-  
-  // Under the island grid footprint below bedrock level (Y < 0.2), treat it as solid earth!
-  if (py < 0.2 && gx >= 0 && gx < world.sizeX && gz >= 0 && gz < world.sizeZ) {
-    return true;
-  }
-  
-  return getDensityInterpolated(px, py, pz) > 0.15; // Return true if solid
-}
+import { getDensity2DInterpolated, getDensityInterpolated, checkCollision, getSurfaceHeightNear } from './physics.js';
+import { updateWaterHeights } from './water.js';
+export { getDensity2DInterpolated, getDensityInterpolated, checkCollision, getSurfaceHeightNear, updateWaterHeights };
 
 // Helper to create a curved low-poly palm tree mesh
 function createPalmTree() {
@@ -2739,70 +2579,7 @@ export function updateWorld(delta) {
   }
 
   // Update wind swaying on foliage (trees, canes, berry bushes, crops)
-  if (world.sceneryMeshes) {
-    if (game.windSwayEnabled) {
-      world.windTime = (world.windTime || 0.0) + delta * 1.5;
-      const playerPos = (game.controls && game.controls.getObject) ? game.controls.getObject().position : null;
-      
-      world.sceneryMeshes.forEach(item => {
-        if (item.type === 'tree' || item.type === 'cane' || item.type === 'berry_bush' || item.type === 'crop') {
-          const mesh = item.mesh;
-          if (!mesh) return;
-          
-          // Skip falling trees
-          if (item.type === 'tree' && mesh.userData && mesh.userData.falling) {
-            return;
-          }
-          
-          // Distance culling check (45m squared = 2025)
-          if (playerPos) {
-            const distSq = mesh.position.distanceToSquared(playerPos);
-            if (distSq > 2025) {
-              if (mesh.userData.initRotX !== undefined) {
-                mesh.rotation.x = mesh.userData.initRotX;
-                mesh.rotation.z = mesh.userData.initRotZ;
-              }
-              return;
-            }
-          }
-          
-          // Calculate coordinate-based phase offset to randomize sway patterns
-          const phase = (mesh.position.x * 0.15) + (mesh.position.z * 0.25);
-          const t = world.windTime + phase;
-          
-          // Wind calculations
-          const baseSway = Math.sin(t) * 0.022;
-          const gustSway = Math.cos(t * 0.4) * Math.sin(t * 1.6) * 0.012;
-          let totalSway = baseSway + gustSway;
-          
-          if (item.type === 'cane') {
-            totalSway *= 2.4; // Canes are very flexible
-          } else if (item.type === 'berry_bush' || item.type === 'crop') {
-            totalSway *= 0.6; // Stiff/short plants
-          }
-          
-          if (mesh.userData.initRotX === undefined) {
-            mesh.userData.initRotX = mesh.rotation.x;
-            mesh.userData.initRotZ = mesh.rotation.z;
-          }
-          
-          mesh.rotation.x = mesh.userData.initRotX + totalSway;
-          mesh.rotation.z = mesh.userData.initRotZ + totalSway * 0.65;
-        }
-      });
-    } else {
-      // If disabled, reset to initial rotation if they were modified
-      world.sceneryMeshes.forEach(item => {
-        if (item.type === 'tree' || item.type === 'cane' || item.type === 'berry_bush' || item.type === 'crop') {
-          const mesh = item.mesh;
-          if (mesh && mesh.userData && mesh.userData.initRotX !== undefined) {
-            mesh.rotation.x = mesh.userData.initRotX;
-            mesh.rotation.z = mesh.userData.initRotZ;
-          }
-        }
-      });
-    }
-  }
+  updateFoliageWind(delta);
 }
 
 // Builds a low-poly 3D campfire model with crossed wooden log cylinders and a central conical flame
@@ -3047,24 +2824,6 @@ export function createLabTableMesh(isHologram) {
   return group;
 }
 
-function updateWaterHeights(delta) {
-  if (!world.waterHeights || !world.waterGroundHeights || !world.waterActiveVertices) return;
-  for (let gx = 0; gx <= WATER_CELLS_X; gx++) {
-    const idxOffset = gx * (WATER_CELLS_Z + 1);
-    for (let gz = 0; gz <= WATER_CELLS_Z; gz++) {
-      const idx = idxOffset + gz;
-      
-      const active = world.waterActiveVertices[idx] === 1;
-      const groundY = world.waterGroundHeights[idx];
-      
-      const targetY = active ? 4.0 : Math.min(4.0, groundY);
-      const currentY = world.waterHeights[idx];
-      
-      // Interpolate water height towards target with a fill rate of 3.0 (fills in ~1.5s)
-      world.waterHeights[idx] = currentY + (targetY - currentY) * 3.0 * delta;
-    }
-  }
-}
 
 // Builds a 3D low-poly cane cluster containing 4-5 green segmented stalks made of cylinders
 export function createCanePlant() {
