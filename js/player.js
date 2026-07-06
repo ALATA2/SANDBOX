@@ -936,7 +936,12 @@ export function updatePlayer(delta) {
       // Surface temperature: depends on day/night cycle
       const cycleDuration = 240;
       const progress = (game.time / cycleDuration) % 1.0;
-      const angle = progress * Math.PI * 2;
+      let angle;
+      if (progress < 0.7) {
+        angle = (progress / 0.7) * Math.PI;
+      } else {
+        angle = Math.PI + ((progress - 0.7) / 0.3) * Math.PI;
+      }
       const isDay = Math.sin(angle) >= 0;
       
       if (isDay) {

@@ -563,11 +563,17 @@ function animate() {
   // Animate low-poly water waves
   updateOceanWaves(delta, wasSubmerged);
 
-  // Day / Night Cycle (Dynamically progressing)
+  // Day / Night Cycle (Dynamically progressing: 70% Day, 30% Night)
   const cycleDuration = 240; // 4 minutes for a full day
   const cycleTime = game.time;
   const progress = (cycleTime / cycleDuration) % 1.0;
-  const angle = progress * Math.PI * 2;
+  
+  let angle;
+  if (progress < 0.7) {
+    angle = (progress / 0.7) * Math.PI;
+  } else {
+    angle = Math.PI + ((progress - 0.7) / 0.3) * Math.PI;
+  }
 
   // Orbit math: Sun and Moon rotate opposite to each other (Zero-alloc)
   sunDir.set(-Math.cos(angle), Math.sin(angle), -0.3).normalize();
