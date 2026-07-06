@@ -6,6 +6,7 @@ import { playSelect } from './audio.js';
 import { startCampfirePlacement } from './interact.js';
 import { getVertexVirtualDepth, getOriginalHeight, world, checkIsSheltered, getSurfaceHeightNear, getWaterHeightAt } from './world.js';
 
+import { getSurfaceTemperature } from './weather.js';
 import { getDom, updateHUD, renderInventoryUI } from './ui.js';
 export { renderInventoryUI };
 
@@ -933,22 +934,10 @@ export function updatePlayer(delta) {
       // Rises up to 250°C at 1100m depth
       temp = 120 + Math.min(130, ((depth - 700) / (1100 - 700)) * 130);
     } else {
-      // Surface temperature: depends on day/night cycle
-      const cycleDuration = 240;
-      const progress = (game.time / cycleDuration) % 1.0;
-      let angle;
-      if (progress < 0.7) {
-        angle = (progress / 0.7) * Math.PI;
-      } else {
-        angle = Math.PI + ((progress - 0.7) / 0.3) * Math.PI;
-      }
-      const isDay = Math.sin(angle) >= 0;
+      // Surface temperature: depends on calendar season, day/night, and weather
+      temp = getSurfaceTemperature();
       
-      if (isDay) {
-        temp = 25;
-      } else {
-        temp = 5; // Cold night
-        
+      if (temp < 15) {
         // Check heat sources
         let isNearFire = false;
         if (world.campfires) {
@@ -966,7 +955,7 @@ export function updatePlayer(delta) {
         if (isNearFire) {
           temp = 25;
         } else if (isSheltered) {
-          temp = 21; // Warm shelter
+          temp = Math.max(temp, 21); // Warm shelter
         }
         
         // Explorer vest adds thermal protection (+5°C)

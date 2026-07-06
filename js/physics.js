@@ -86,6 +86,17 @@ export function checkCollision(px, py, pz) {
     return true;
   }
   
+  // If mountain lake is frozen, make the ice plane Y=14.4 solid!
+  if (world.lakeFrozen) {
+    const dx = px - 41.6;
+    const dz = pz - 41.6;
+    if (dx*dx + dz*dz < 24.0 * 24.0) {
+      if (py <= 14.45 && py >= 14.3) {
+        return true;
+      }
+    }
+  }
+  
   return getDensityInterpolated(px, py, pz) > 0.15; // Return true if solid
 }
 
@@ -126,6 +137,17 @@ export function getSurfaceHeightNear(px, py, pz) {
     } else {
       // Crater caldera center (flat lava surface at Y=6.2)
       return 6.2;
+    }
+  }
+
+  // If mountain lake is frozen, return Y=14.4 height when above/near it
+  if (world.lakeFrozen) {
+    const dx = px - 41.6;
+    const dz = pz - 41.6;
+    if (dx*dx + dz*dz < 24.0 * 24.0) {
+      if (py >= 14.2) {
+        return 14.4;
+      }
     }
   }
 

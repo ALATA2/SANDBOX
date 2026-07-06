@@ -2,14 +2,114 @@ import * as THREE from 'three';
 import { game } from './game.js';
 import { world } from './world.js';
 import { player, showHudMessage } from './player.js';
-import { playWoodChop, setSubmergedAudio } from './audio.js';
+import { playWoodChop, setSubmergedAudio, updateAmbientAudioParams } from './audio.js';
 import { 
   menuParticles, 
   rainParticles, 
   underwaterParticles,
   particleSpeeds, 
-  updateRainParticles 
+  updateRainParticles,
+  snowParticles,
+  updateSnowParticles,
+  autumnLeafParticles,
+  updateAutumnLeafParticles
 } from './particles.js';
+
+// Calendar and Seasons
+export const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+export const MONTH_NAMES_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+export const MONTH_NAMES_IT = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+export const SEASON_NAMES_EN = ['Winter', 'Spring', 'Summer', 'Autumn'];
+export const SEASON_NAMES_IT = ['Inverno', 'Primavera', 'Estate', 'Autunno'];
+
+export const ROME_BASE_TEMPS = [
+  7.5,  // Jan (0)
+  8.2,  // Feb (1)
+  11.5, // Mar (2)
+  14.0, // Apr (3)
+  18.5, // May (4)
+  22.5, // Jun (5)
+  25.5, // Jul (6)
+  25.5, // Aug (7)
+  21.5, // Sep (8)
+  17.5, // Oct (9)
+  12.5, // Nov (10)
+  8.5   // Dec (11)
+];
+
+export function getCalendarState() {
+  const cycleDuration = 1320; // 22 minutes
+  // Start from March 1st (day index 59)
+  const dayOfYear = (59 + Math.floor(game.time / cycleDuration)) % 365;
+  
+  let daysLeft = dayOfYear;
+  let monthIdx = 0;
+  for (let m = 0; m < 12; m++) {
+    if (daysLeft < MONTH_DAYS[m]) {
+      monthIdx = m;
+      break;
+    }
+    daysLeft -= MONTH_DAYS[m];
+  }
+  const dayOfMonth = daysLeft + 1;
+  
+  let seasonIdx = 0; // Winter: Dec (11), Jan (0), Feb (1)
+  if (monthIdx >= 2 && monthIdx <= 4) seasonIdx = 1; // Spring: Mar (2), Apr (3), May (4)
+  else if (monthIdx >= 5 && monthIdx <= 7) seasonIdx = 2; // Summer: Jun (5), Jul (6), Aug (7)
+  else if (monthIdx >= 8 && monthIdx <= 10) seasonIdx = 3; // Autumn: Sep (8), Oct (9), Nov (10)
+
+  const lang = player.currentLang;
+  const monthName = lang === 'it' ? MONTH_NAMES_IT[monthIdx] : MONTH_NAMES_EN[monthIdx];
+  const seasonName = lang === 'it' ? SEASON_NAMES_IT[seasonIdx] : SEASON_NAMES_EN[seasonIdx];
+  
+  return {
+    day: dayOfMonth,
+    monthName: monthName,
+    seasonName: seasonName,
+    monthIdx: monthIdx,
+    seasonIdx: seasonIdx
+  };
+}
+
+export function getSurfaceTemperature() {
+  const cal = getCalendarState();
+  const baseTemp = ROME_BASE_TEMPS[cal.monthIdx];
+  
+  // Calculate day/night progress to get smooth transition instead of instant jump!
+  const cycleDuration = 1320; // 22 minutes
+  const progress = (game.time / cycleDuration) % 1.0;
+  
+  // Angle calculated based on season (Summer: 75% day, Spring/Autumn: 70% day, Winter: 55% day)
+  let dayRatio = 0.7; // default Spring/Autumn
+  if (cal.seasonIdx === 2) dayRatio = 0.75; // Summer
+  else if (cal.seasonIdx === 0) dayRatio = 0.55; // Winter
+  
+  let angle;
+  if (progress < dayRatio) {
+    angle = (progress / dayRatio) * Math.PI;
+  } else {
+    angle = Math.PI + ((progress - dayRatio) / (1.0 - dayRatio)) * Math.PI;
+  }
+  
+  const cycleFactor = Math.sin(angle); // +1.0 at noon, -1.0 at midnight
+  
+  // Day rises temp by +5.5, Night drops by -7.5
+  let temp = baseTemp;
+  if (cycleFactor >= 0) {
+    temp += cycleFactor * 5.5;
+  } else {
+    temp += cycleFactor * 7.5;
+  }
+  
+  // Weather adjustments: rain/storm/snow cools by -4.5°C, cloudy by -2.0°C
+  if (game.weather === 'rain' || game.weather === 'storm' || game.weather === 'snow') {
+    temp -= 4.5;
+  } else if (game.weather === 'cloudy') {
+    temp -= 2.0;
+  }
+  
+  return Math.round(temp);
+}
 
 export let currentPreset = 'sunset';
 
@@ -298,6 +398,57 @@ export function applyPreset(presetName) {
   }
 }
 
+let lastSeasonIdx = -1;
+let originalLakeColor = null;
+let originalLakeOpacity = null;
+let originalLakeRoughness = null;
+let originalLakeEmissive = null;
+
+function updateLakeFreezing(temp) {
+  if (!world.lakeMesh) return;
+  
+  if (temp < -3) {
+    if (!world.lakeFrozen) {
+      if (originalLakeColor === null) {
+        originalLakeColor = world.lakeMesh.material.color.clone();
+        originalLakeOpacity = world.lakeMesh.material.opacity;
+        originalLakeRoughness = world.lakeMesh.material.roughness;
+        originalLakeEmissive = world.lakeMesh.material.emissive.clone();
+      }
+      
+      world.lakeMesh.material.color.setHex(0xd0e8ff);
+      world.lakeMesh.material.opacity = 0.95;
+      world.lakeMesh.material.roughness = 0.05;
+      world.lakeMesh.material.emissive.setHex(0x103a4c);
+      world.lakeFrozen = true;
+    }
+  } else {
+    if (world.lakeFrozen) {
+      if (originalLakeColor !== null) {
+        world.lakeMesh.material.color.copy(originalLakeColor);
+        world.lakeMesh.material.opacity = originalLakeOpacity;
+        world.lakeMesh.material.roughness = originalLakeRoughness;
+        world.lakeMesh.material.emissive.copy(originalLakeEmissive);
+      }
+      world.lakeFrozen = false;
+    }
+  }
+}
+
+function updateWildflowersBlooming(seasonIdx) {
+  if (seasonIdx === lastSeasonIdx) return;
+  lastSeasonIdx = seasonIdx;
+  
+  const isSpring = (seasonIdx === 1);
+  if (world.wildflowers) {
+    world.wildflowers.forEach(flower => {
+      if (flower.mesh) {
+        flower.mesh.visible = isSpring;
+      }
+    });
+  }
+}
+
 export function updateWeatherAndOrbit(delta, wasSubmerged, cameraPos, angle, sunDir, moonDir, cameraShakeSetter) {
   // Atmospheric cycle interpolation (Day <-> Twilight <-> Night)
   const cycle = presetCycles[currentPreset];
@@ -334,47 +485,163 @@ export function updateWeatherAndOrbit(delta, wasSubmerged, cameraPos, angle, sun
     game.scene.fog.color.copy(colorTempFog);
   }
 
+  const cal = getCalendarState();
+  const temp = getSurfaceTemperature();
+
+  // Update seasonal effects
+  updateWildflowersBlooming(cal.seasonIdx);
+  updateLakeFreezing(temp);
+
   // Weather System State Progression & Effects
   if (!game.paused) {
     if (!game.weather) {
       game.weather = 'clear';
-      game.weatherTimer = 90.0;
+      game.weatherTimer = 120.0;
     }
     game.weatherTimer -= delta;
     if (game.weatherTimer <= 0) {
-      const weatherStates = ['clear', 'rain', 'storm'];
-      const filtered = weatherStates.filter(s => s !== game.weather);
-      game.weather = filtered[Math.floor(Math.random() * filtered.length)];
-      game.weatherTimer = 80.0 + Math.random() * 60.0;
-
-      const localizedMsg = game.weather === 'clear' ? 
-        (player.currentLang === 'it' ? "Il cielo si sta schiarendo." : "The weather is clearing up.") :
-        game.weather === 'rain' ?
-        (player.currentLang === 'it' ? "Inizia a piovere." : "It is starting to rain.") :
-        (player.currentLang === 'it' ? "⚠️ Una tempesta tropicale si sta avvicinando! Trova un rifugio!" : "⚠️ A tropical storm is brewing! Seek shelter!");
-      
-      showHudMessage(localizedMsg);
+      if (game.weather === 'clear') {
+        const r = Math.random();
+        let nextState = 'clear';
+        let rainProb = 0.30;
+        let stormProb = 0.10;
+        
+        if (cal.seasonIdx === 2) { // Summer
+          rainProb = 0.10;
+          stormProb = 0.05;
+        } else if (cal.seasonIdx === 3) { // Autumn
+          rainProb = 0.45;
+          stormProb = 0.15;
+        } else if (cal.seasonIdx === 0) { // Winter
+          rainProb = 0.35;
+          stormProb = 0.10;
+        }
+        
+        if (r < stormProb) {
+          nextState = 'storm';
+        } else if (r < stormProb + rainProb) {
+          nextState = 'rain';
+        } else {
+          nextState = 'clear';
+        }
+        
+        if (nextState !== 'clear') {
+          game.weather = 'cloudy';
+          game.targetWeather = nextState;
+          game.weatherTimer = 30.0; // 30s precursor clouding
+          
+          const cloudMsg = player.currentLang === 'it' ? 
+            "Il cielo si sta oscurando con nuvole dense..." : 
+            "The sky is darkening with heavy clouds...";
+          showHudMessage(cloudMsg);
+        } else {
+          game.weather = 'clear';
+          game.weatherTimer = 120.0 + Math.random() * 80.0;
+        }
+      } else if (game.weather === 'cloudy') {
+        let target = game.targetWeather || 'rain';
+        if (temp >= -1 && temp <= 1 && target === 'rain') {
+          target = 'snow';
+        }
+        
+        if (temp < -3) {
+          game.weather = 'clear';
+          game.weatherTimer = 90.0 + Math.random() * 60.0;
+          const coldMsg = player.currentLang === 'it' ?
+            "Il freddo è pungente, il cielo resta coperto." :
+            "The cold is piercing, the sky remains overcast.";
+          showHudMessage(coldMsg);
+        } else {
+          game.weather = target;
+          let duration = 80.0 + Math.random() * 40.0;
+          if (cal.seasonIdx === 2) duration = 40.0 + Math.random() * 30.0;
+          else if (cal.seasonIdx === 3) duration = 100.0 + Math.random() * 60.0;
+          game.weatherTimer = duration;
+          
+          let startMsg = "";
+          if (target === 'snow') {
+            startMsg = player.currentLang === 'it' ? "Inizia a nevicare!" : "It is starting to snow!";
+          } else if (target === 'rain') {
+            startMsg = player.currentLang === 'it' ? "Inizia a piovere." : "It is starting to rain.";
+          } else {
+            startMsg = player.currentLang === 'it' ? "⚠️ Una tempesta tropicale si sta avvicinando! Trova un rifugio!" : "⚠️ A tropical storm is brewing! Seek shelter!";
+          }
+          showHudMessage(startMsg);
+        }
+      } else {
+        game.weather = 'clear';
+        game.weatherTimer = 100.0 + Math.random() * 60.0;
+        const clearMsg = player.currentLang === 'it' ? "Il cielo si sta schiarendo." : "The weather is clearing up.";
+        showHudMessage(clearMsg);
+      }
     }
   }
 
+  // Update ambient wind/wave gains
+  updateAmbientAudioParams(cal.seasonIdx === 0 || game.weather === 'snow', game.weather === 'storm');
+
   // Apply Weather Overlays to Ambient/Directional lights & Fog
-  if (game.weather === 'rain' || game.weather === 'storm') {
+  if (game.weather === 'rain' || game.weather === 'storm' || game.weather === 'snow' || game.weather === 'cloudy') {
     if (game.scene.fog) {
-      const mult = game.weather === 'storm' ? 0.35 : 0.65;
+      let mult = 1.0;
+      let targetDensity = 0.0015;
+      
+      if (game.weather === 'cloudy') {
+        mult = 0.8;
+        targetDensity = 0.008;
+      } else if (game.weather === 'rain') {
+        mult = 0.65;
+        targetDensity = 0.025;
+      } else if (game.weather === 'storm') {
+        mult = 0.35;
+        targetDensity = 0.045;
+      } else if (game.weather === 'snow') {
+        mult = 0.75;
+        targetDensity = 0.055;
+        game.scene.fog.color.lerp(cTemp1.set(0xe0e8f0), 0.5);
+      }
+      
       game.scene.fog.color.multiplyScalar(mult);
-      game.scene.fog.density = Math.max(game.scene.fog.density, game.weather === 'storm' ? 0.045 : 0.025);
+      game.scene.fog.density = Math.max(game.scene.fog.density, targetDensity);
     }
     
     if (game.lights.sun) {
-      game.lights.sun.intensity *= (game.weather === 'storm' ? 0.3 : 0.6);
+      let sunMult = 1.0;
+      if (game.weather === 'cloudy') sunMult = 0.75;
+      else if (game.weather === 'rain' || game.weather === 'snow') sunMult = 0.6;
+      else if (game.weather === 'storm') sunMult = 0.3;
+      game.lights.sun.intensity *= sunMult;
     }
-
-    if (rainParticles) {
-      rainParticles.visible = !wasSubmerged;
-      updateRainParticles(delta);
+    
+    if (game.weather === 'rain' || game.weather === 'storm') {
+      if (rainParticles) {
+        rainParticles.visible = !wasSubmerged;
+        updateRainParticles(delta);
+      }
+      if (snowParticles) snowParticles.visible = false;
+    } else if (game.weather === 'snow') {
+      if (rainParticles) rainParticles.visible = false;
+      if (snowParticles) {
+        snowParticles.visible = !wasSubmerged;
+        updateSnowParticles(delta);
+      }
+    } else {
+      if (rainParticles) rainParticles.visible = false;
+      if (snowParticles) snowParticles.visible = false;
     }
   } else {
     if (rainParticles) rainParticles.visible = false;
+    if (snowParticles) snowParticles.visible = false;
+  }
+
+  // Update Autumn leaf particles
+  if (cal.seasonIdx === 3) {
+    if (autumnLeafParticles) {
+      autumnLeafParticles.visible = !wasSubmerged;
+      updateAutumnLeafParticles(delta);
+    }
+  } else {
+    if (autumnLeafParticles) autumnLeafParticles.visible = false;
   }
 
   // Lightning strike simulation during storms (Zero-alloc)
@@ -404,8 +671,8 @@ export function updateWeatherAndOrbit(delta, wasSubmerged, cameraPos, angle, sun
 
   // Wind sway pinetrees
   if (world.trees && !game.paused) {
-    const windSpeed = game.weather === 'storm' ? 8.0 : game.weather === 'rain' ? 4.0 : 1.5;
-    const windForce = game.weather === 'storm' ? 0.08 : game.weather === 'rain' ? 0.03 : 0.008;
+    const windSpeed = game.weather === 'storm' ? 8.0 : (game.weather === 'rain' || game.weather === 'snow') ? 4.0 : 1.5;
+    const windForce = game.weather === 'storm' ? 0.08 : (game.weather === 'rain' || game.weather === 'snow') ? 0.03 : 0.008;
     world.trees.forEach(tree => {
       if (tree.userData && tree.userData.falling) return;
       const sway = Math.sin(game.time * windSpeed + tree.position.x * 0.5) * windForce;

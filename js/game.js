@@ -5,11 +5,11 @@ import { initPlayer, updatePlayer, triggerToolSwing, player } from './player.js'
 import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard, activeDebris } from './interact.js';
 import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute, setSubmergedAudio, startAmbientSounds, stopAmbientSounds, playWoodChop } from './audio.js';
 import { setLanguage, currentLang } from './lang.js';
-import { initMenuParticles, initUnderwaterParticles, initRainParticles, updateMenuParticles, updateUnderwaterParticles, updateRainParticles, menuParticles } from './particles.js';
+import { initMenuParticles, initUnderwaterParticles, initRainParticles, updateMenuParticles, updateUnderwaterParticles, updateRainParticles, menuParticles, initSnowParticles, initAutumnLeafParticles } from './particles.js';
 import { updateShadowCamera } from './shadows.js';
 import { updateFaunaAI } from './fauna.js';
 import { updateOceanWaves } from './water.js';
-import { currentPreset, updateWeatherAndOrbit, presets, applyPreset, updateUnderwaterVisuals, wasSubmerged } from './weather.js';
+import { currentPreset, updateWeatherAndOrbit, presets, applyPreset, updateUnderwaterVisuals, wasSubmerged, getCalendarState } from './weather.js';
 import { getDom, bindPerfProtocolsUI, initTerminalLogger } from './ui.js';
 
 // Global Game State
@@ -235,6 +235,8 @@ function init() {
   initMenuParticles();
   initUnderwaterParticles();
   initRainParticles();
+  initSnowParticles();
+  initAutumnLeafParticles();
 
   // Apply default lighting preset color adjustments
   applyPreset('sunset');
@@ -563,16 +565,21 @@ function animate() {
   // Animate low-poly water waves
   updateOceanWaves(delta, wasSubmerged);
 
-  // Day / Night Cycle (Dynamically progressing: 70% Day, 30% Night)
-  const cycleDuration = 240; // 4 minutes for a full day
+  // Day / Night Cycle (Dynamically progressing: 22 minutes, seasonal daylight hours)
+  const cycleDuration = 1320; // 22 minutes for a full day
   const cycleTime = game.time;
   const progress = (cycleTime / cycleDuration) % 1.0;
   
+  const cal = getCalendarState();
+  let dayRatio = 0.7; // default Spring/Autumn
+  if (cal.seasonIdx === 2) dayRatio = 0.75; // Summer
+  else if (cal.seasonIdx === 0) dayRatio = 0.55; // Winter
+  
   let angle;
-  if (progress < 0.7) {
-    angle = (progress / 0.7) * Math.PI;
+  if (progress < dayRatio) {
+    angle = (progress / dayRatio) * Math.PI;
   } else {
-    angle = Math.PI + ((progress - 0.7) / 0.3) * Math.PI;
+    angle = Math.PI + ((progress - dayRatio) / (1.0 - dayRatio)) * Math.PI;
   }
 
   // Orbit math: Sun and Moon rotate opposite to each other (Zero-alloc)

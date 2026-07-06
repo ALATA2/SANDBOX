@@ -210,3 +210,137 @@ export function updateUnderwaterParticles(delta) {
 
   underwaterParticles.geometry.attributes.position.needsUpdate = true;
 }
+
+export let snowParticles = null;
+export function initSnowParticles() {
+  const particleCount = 600;
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(particleCount * 3);
+  const velocities = new Float32Array(particleCount);
+
+  for (let i = 0; i < particleCount; i++) {
+    positions[i * 3 + 0] = (Math.random() - 0.5) * 35;
+    positions[i * 3 + 1] = Math.random() * 20;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 35;
+    velocities[i] = 1.5 + Math.random() * 1.5;
+  }
+
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+  const material = new THREE.PointsMaterial({
+    color: 0xffffff,
+    size: 0.16,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false
+  });
+
+  snowParticles = new THREE.Points(geometry, material);
+  snowParticles.visible = false;
+  snowParticles.userData = { velocities: velocities };
+  
+  game.scene.add(snowParticles);
+}
+
+export function updateSnowParticles(delta) {
+  if (!snowParticles || !snowParticles.visible || !game.camera) return;
+
+  const positions = snowParticles.geometry.attributes.position.array;
+  const velocities = snowParticles.userData.velocities;
+  const camPos = game.camera.position;
+
+  snowParticles.position.copy(camPos);
+
+  const time = game.time || 0;
+  for (let i = 0; i < velocities.length; i++) {
+    positions[i * 3 + 1] -= velocities[i] * delta;
+    positions[i * 3 + 0] += Math.sin(time * 1.5 + i) * 0.8 * delta;
+    positions[i * 3 + 2] += Math.cos(time * 1.2 + i) * 0.5 * delta;
+
+    if (positions[i * 3 + 1] < -5.0) {
+      positions[i * 3 + 1] = 15.0 + Math.random() * 5.0;
+      positions[i * 3 + 0] = (Math.random() - 0.5) * 35;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 35;
+    }
+  }
+
+  snowParticles.geometry.attributes.position.needsUpdate = true;
+}
+
+export let autumnLeafParticles = null;
+export function initAutumnLeafParticles() {
+  const particleCount = 80;
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(particleCount * 3);
+  const velocities = new Float32Array(particleCount * 3);
+  const colors = new Float32Array(particleCount * 3);
+
+  const leafColors = [
+    [0xd84315, 0xbf360c], // orange-red
+    [0xffb300, 0xf57f17], // gold/yellow
+    [0x8d6e63, 0x5d4037]  // brown
+  ];
+
+  for (let i = 0; i < particleCount; i++) {
+    positions[i * 3 + 0] = (Math.random() - 0.5) * 40;
+    positions[i * 3 + 1] = 5.0 + Math.random() * 15.0;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 40;
+
+    velocities[i * 3 + 0] = -1.5 - Math.random() * 2.0;
+    velocities[i * 3 + 1] = -1.0 - Math.random() * 1.5;
+    velocities[i * 3 + 2] = 0.5 + Math.random() * 1.0;
+
+    const category = leafColors[Math.floor(Math.random() * leafColors.length)];
+    const hex = category[Math.floor(Math.random() * category.length)];
+    const color = new THREE.Color(hex);
+    colors[i * 3 + 0] = color.r;
+    colors[i * 3 + 1] = color.g;
+    colors[i * 3 + 2] = color.b;
+  }
+
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+  const material = new THREE.PointsMaterial({
+    size: 0.18,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false
+  });
+
+  autumnLeafParticles = new THREE.Points(geometry, material);
+  autumnLeafParticles.visible = false;
+  autumnLeafParticles.userData = { velocities: velocities };
+  
+  game.scene.add(autumnLeafParticles);
+}
+
+export function updateAutumnLeafParticles(delta) {
+  if (!autumnLeafParticles || !autumnLeafParticles.visible || !game.camera) return;
+
+  const positions = autumnLeafParticles.geometry.attributes.position.array;
+  const velocities = autumnLeafParticles.userData.velocities;
+  const camPos = game.camera.position;
+
+  autumnLeafParticles.position.copy(camPos);
+
+  const time = game.time || 0;
+  const count = positions.length / 3;
+  for (let i = 0; i < count; i++) {
+    positions[i * 3 + 0] += velocities[i * 3 + 0] * delta;
+    positions[i * 3 + 1] += velocities[i * 3 + 1] * delta;
+    positions[i * 3 + 2] += velocities[i * 3 + 2] * delta;
+
+    positions[i * 3 + 0] += Math.sin(time * 2.0 + i) * 0.4 * delta;
+    positions[i * 3 + 2] += Math.cos(time * 1.8 + i) * 0.4 * delta;
+
+    if (positions[i * 3 + 1] < -5.0 || Math.abs(positions[i * 3 + 0]) > 25.0 || Math.abs(positions[i * 3 + 2]) > 25.0) {
+      positions[i * 3 + 1] = 10.0 + Math.random() * 10.0;
+      positions[i * 3 + 0] = (Math.random() - 0.5) * 40;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 40;
+    }
+  }
+
+  autumnLeafParticles.geometry.attributes.position.needsUpdate = true;
+}

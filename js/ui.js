@@ -4,7 +4,7 @@ import { world } from './world.js';
 import { player, toggleInventory, equipItem, syncHotbarCounts, isNearStation, getActiveAxe, getActivePickaxe } from './player.js';
 import { getTranslation } from './lang.js';
 import { playHover, playSelect } from './audio.js';
-import { currentPreset } from './weather.js';
+import { currentPreset, getCalendarState } from './weather.js';
 
 // Local cache for DOM elements to avoid document lookups in animate/render loops
 const domCache = {};
@@ -357,6 +357,11 @@ export function updateHUD(depth, temp) {
   }
   const depthVal = getDom('hud-depth-val');
   if (depthVal) depthVal.innerText = `-${depth} m`;
+  const dateVal = getDom('hud-date-val');
+  const seasonVal = getDom('hud-season-val');
+  const cal = getCalendarState();
+  if (dateVal) dateVal.innerText = `${cal.day} ${cal.monthName}`;
+  if (seasonVal) seasonVal.innerText = cal.seasonName;
   const tempVal = getDom('hud-temp-val');
   if (tempVal && playerPos) {
     const isSheltered = checkIsSheltered(playerPos);

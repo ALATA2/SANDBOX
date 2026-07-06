@@ -15,6 +15,8 @@ let windFilter = null;
 let waveLfo = null;
 let windLfo = null;
 let ambientNoise = null;
+let waveGain = null;
+let windGain = null;
 
 // Initialize Audio Context on first interaction
 function initAudio() {
@@ -421,10 +423,10 @@ export function startAmbientSounds() {
   ambientGain.gain.setValueAtTime(0, time);
   ambientGain.gain.linearRampToValueAtTime(0.12, time + 2.0); // fade in smoothly
 
-  const waveGain = audioCtx.createGain();
+  waveGain = audioCtx.createGain();
   waveGain.gain.setValueAtTime(0.75, time);
 
-  const windGain = audioCtx.createGain();
+  windGain = audioCtx.createGain();
   windGain.gain.setValueAtTime(0.25, time);
 
   // Connection routing
@@ -462,6 +464,8 @@ export function stopAmbientSounds() {
   windFilter = null;
   waveLfo = null;
   windLfo = null;
+  waveGain = null;
+  windGain = null;
 
   if (gainNode) {
     gainNode.gain.cancelScheduledValues(time);
@@ -616,4 +620,35 @@ export function playRowingSplash() {
 
 // Bind to window for global access
 window.playRowingSplash = playRowingSplash;
+
+export function updateAmbientAudioParams(isWinterOrSnow, isStorm) {
+  if (!audioCtx || !waveGain || !windGain) return;
+  const time = audioCtx.currentTime;
+  
+  let targetWaveVal = 0.75;
+  let targetWindVal = 0.25;
+  let windFreq = 750;
+  let windQ = 1.8;
+  
+  if (isStorm) {
+    targetWaveVal = 0.55;
+    targetWindVal = 0.75;
+    windFreq = 950;
+    windQ = 2.5;
+  } else if (isWinterOrSnow) {
+    targetWaveVal = 0.20; // quiet waves
+    targetWindVal = 0.70; // loud cold wind
+    windFreq = 1100;      // high whistling wind
+    windQ = 3.5;          // whistle resonance
+  }
+  
+  waveGain.gain.setTargetAtTime(targetWaveVal, time, 0.5);
+  windGain.gain.setTargetAtTime(targetWindVal, time, 0.5);
+  
+  if (windFilter) {
+    windFilter.frequency.setTargetAtTime(windFreq, time, 0.5);
+    windFilter.Q.setTargetAtTime(windQ, time, 0.5);
+  }
+}
+window.updateAmbientAudioParams = updateAmbientAudioParams;
 

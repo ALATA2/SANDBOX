@@ -23,6 +23,7 @@ export const world = {
   waterActiveVertices: null, // Precalculated Uint8Array of active vertices
   oreDeposits: [], // Array of meshes representing ore nodes
   sceneryMeshes: [], // Trees, rocks, etc.
+  wildflowers: [], // Array of spawned wildflowers
   trees: [], // Array of active tree groups for Axe chopping
   lighthouseBeam: null, // Rotating lighthouse beam
   feedbackBoard: null, // Feedback Board Mesh
@@ -2212,6 +2213,7 @@ function spawnScenery() {
       flower.scale.set(scale, scale, scale);
       
       game.scene.add(flower);
+      world.wildflowers.push({ mesh: flower, baseScale: scale });
       // Register in sceneryMeshes so they sway in the wind!
       world.sceneryMeshes.push({ mesh: flower, type: 'crop' });
       spawnedFlowers++;
