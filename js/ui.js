@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { game } from './game.js';
 import { world } from './world.js';
 import { player, toggleInventory, equipItem, syncHotbarCounts, isNearStation, getActiveAxe, getActivePickaxe } from './player.js';

@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { game } from './game.js';
 
 export let menuParticles = null;

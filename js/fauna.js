@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { game } from './game.js';
 import { world } from './world.js';
 import { getSurfaceHeightNear } from './physics.js';
