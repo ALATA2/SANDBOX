@@ -567,8 +567,7 @@ function animate() {
   const cycleDuration = 240; // 4 minutes for a full day
   const cycleTime = game.time;
   const progress = (cycleTime / cycleDuration) % 1.0;
-  // Locked at 12 degrees elevation to match the sunset concept art
-  const angle = 12 * Math.PI / 180;
+  const angle = progress * Math.PI * 2;
 
   // Orbit math: Sun and Moon rotate opposite to each other (Zero-alloc)
   sunDir.set(-Math.cos(angle), Math.sin(angle), -0.3).normalize();
