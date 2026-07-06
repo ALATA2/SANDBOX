@@ -5,7 +5,7 @@ import { initPlayer, updatePlayer, triggerToolSwing, player } from './player.js'
 import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard, activeDebris } from './interact.js';
 import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute, setSubmergedAudio, startAmbientSounds, stopAmbientSounds, playWoodChop } from './audio.js';
 import { setLanguage, currentLang } from './lang.js';
-import { initMenuParticles, initUnderwaterParticles, initRainParticles, updateMenuParticles, updateUnderwaterParticles, updateRainParticles } from './particles.js';
+import { initMenuParticles, initUnderwaterParticles, initRainParticles, updateMenuParticles, updateUnderwaterParticles, updateRainParticles, menuParticles } from './particles.js';
 import { updateShadowCamera } from './shadows.js';
 import { updateFaunaAI } from './fauna.js';
 import { updateOceanWaves } from './water.js';
