@@ -1056,7 +1056,7 @@ export function toggleInventory() {
 
 
 // Equip wearable item or use item
-function equipItem(itemId) {
+export function equipItem(itemId) {
   if (itemId === 'raw_fish' || itemId === 'raw_crab' || itemId === 'cooked_meat' || itemId === 'egg' || itemId === 'cooked_egg' || itemId === 'berries') {
     consumeFood(itemId);
     return;
@@ -1190,7 +1190,7 @@ function consumeFood(itemId) {
 }
 
 // Unequip wearable or hand-held item
-function unequipItem(slotType) {
+export function unequipItem(slotType) {
   const equippedId = player.equipped[slotType];
   if (!equippedId) return;
 

@@ -1,10 +1,9 @@
 import { game } from './game.js';
 import { world } from './world.js';
-import { player, toggleInventory, equipItem, syncHotbarCounts } from './player.js';
+import { player, toggleInventory, equipItem, syncHotbarCounts, isNearStation, getActiveAxe, getActivePickaxe } from './player.js';
 import { getTranslation } from './lang.js';
 import { playHover, playSelect } from './audio.js';
 import { currentPreset } from './weather.js';
-import { isNearStation, getActiveAxe, getActivePickaxe } from './interact.js';
 
 // Local cache for DOM elements to avoid document lookups in animate/render loops
 const domCache = {};
