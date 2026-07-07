@@ -1543,19 +1543,6 @@ function spawnScenery() {
   world.waterMesh.position.set(0, 4.0, 0); // Directly at coordinate origin, Y=4.0 height (no rotation needed)
   game.scene.add(world.waterMesh);
 
-  // 1d. Infinite Seabed Floor Plane (underwater slate ground)
-  const seabedGeometry = new THREE.PlaneGeometry(16000, 16000);
-  seabedGeometry.rotateX(-Math.PI / 2);
-  const seabedMaterial = new THREE.MeshStandardMaterial({
-    color: 0x1f2b35, // Dark slate-grey underwater rock
-    roughness: 0.9,
-    metalness: 0.05,
-    flatShading: true
-  });
-  world.seabedMesh = new THREE.Mesh(seabedGeometry, seabedMaterial);
-  world.seabedMesh.position.set(96.0, 0.2, 96.0); // Centered at bedrock level
-  game.scene.add(world.seabedMesh);
-
   // 1b. Mountain Lake Plane
   const lakeGeometry = new THREE.CircleGeometry(24.0, 32);
   lakeGeometry.rotateX(-Math.PI / 2);
