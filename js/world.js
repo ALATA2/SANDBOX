@@ -8,8 +8,8 @@ import { updateFoliageWind } from './wind.js';
 // Lake center coordinates (dynamic based on sizeX/sizeZ, scaled to 170x170 grid center)
 // Volcano is centered at cx - 45, cz - 45 = (85 - 45, 85 - 45) = (40, 40) voxels.
 // 40 * 1.6 = 64.0 meters.
-export const LAKE_CENTER_X = 64.0;
-export const LAKE_CENTER_Z = 64.0;
+export const LAKE_CENTER_X = 41.6;
+export const LAKE_CENTER_Z = 41.6;
 
 // World Configuration
 export const world = {
@@ -166,8 +166,8 @@ const lerp = (a, b, t) => a + t * (b - a);
 
 // Centralized helper to calculate procedural starting island voxel height
 function calculateIslandHeightVoxel(x, z) {
-  const cx = world.sizeX / 2;
-  const cz = world.sizeZ / 2;
+  const cx = 60; // Centered at the original coordinate (60, 60) for a compact layout
+  const cz = 60;
 
   const dx = x - cx;
   const dz = z - cz;
@@ -178,7 +178,7 @@ function calculateIslandHeightVoxel(x, z) {
   const wave = Math.sin(angle * 5.5) * 3.5 + Math.cos(angle * 3.0) * 2.5;
   const modifiedDist = dist + wave;
 
-  const maxDist = world.sizeX * 0.40; // Reduced to keep the island away from straight grid edges
+  const maxDist = 120 * 0.44; // Restored to original island radius scale (approx 53 voxels)
   const radialFactor = Math.max(0, 1.0 - modifiedDist / maxDist);
   
   // Base land height using noise
