@@ -29,6 +29,12 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); // Horizontal intersection backup
 
+// Keyboard movement state
+const activeKeys = { w: false, a: false, s: false, d: false };
+const moveDirection = new THREE.Vector3();
+const moveSide = new THREE.Vector3();
+const moveVector = new THREE.Vector3();
+
 // Setup mock game object properties so world.js/fauna.js work seamlessly
 game.shadowsEnabled = true;
 game.isMobile = false;
@@ -85,6 +91,7 @@ function initEditor() {
   renderer.domElement.addEventListener('mousemove', onMouseMove);
   renderer.domElement.addEventListener('pointerdown', onPointerDown);
   window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
 
   setupUI();
 
@@ -107,6 +114,30 @@ function animate() {
   
   // Animate preview rotation/wind sway
   game.time = performance.now() * 0.001;
+
+  // Handle keyboard translation (WASD)
+  if (activeKeys.w || activeKeys.a || activeKeys.s || activeKeys.d) {
+    camera.getWorldDirection(moveDirection);
+    moveDirection.y = 0;
+    moveDirection.normalize();
+
+    moveSide.crossVectors(moveDirection, camera.up).normalize();
+    moveSide.y = 0;
+    moveSide.normalize();
+
+    moveVector.set(0, 0, 0);
+    if (activeKeys.w) moveVector.add(moveDirection);
+    if (activeKeys.s) moveVector.sub(moveDirection);
+    if (activeKeys.d) moveVector.add(moveSide);
+    if (activeKeys.a) moveVector.sub(moveSide);
+
+    if (moveVector.lengthSq() > 0) {
+      const currentSpeed = 2.5; // Fast speed to cross the map quickly
+      moveVector.normalize().multiplyScalar(currentSpeed);
+      camera.position.add(moveVector);
+      controls.target.add(moveVector);
+    }
+  }
   
   controls.update();
   
@@ -460,12 +491,24 @@ function onPointerDown(event) {
   }
 }
 
-// Hotkey listeners (e.g. rotation)
+// Hotkey listeners (e.g. rotation, keyboard movement)
 function onKeyDown(event) {
   if (event.key === 'r' || event.key === 'R') {
     rotationY += Math.PI / 4; // Rotate 45 degrees
     if (rotationY >= Math.PI * 2) rotationY = 0;
     updatePreviewPosition();
+  }
+
+  const key = event.key.toLowerCase();
+  if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
+    activeKeys[key] = true;
+  }
+}
+
+function onKeyUp(event) {
+  const key = event.key.toLowerCase();
+  if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
+    activeKeys[key] = false;
   }
 }
 
