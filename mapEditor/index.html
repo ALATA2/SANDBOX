@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Archipelago - Map Editor</title>
+  <link rel="stylesheet" href="./editor.css">
+
+  <!-- ES Module Shims for older browser compatibility -->
+  <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+  <!-- ES Module Import Map -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/",
+        "../js/world.js": "../js/world.js?v=0.080",
+        "../js/physics.js": "../js/physics.js?v=0.080",
+        "../js/water.js": "../js/water.js?v=0.080",
+        "../js/fauna.js": "../js/fauna.js?v=0.080"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- 3D Canvas Container -->
+  <div id="canvas-container"></div>
+
+  <!-- Top Action Bar -->
+  <div id="top-bar" class="hud-panel">
+    <div class="logo-section">
+      <h1>Archipelago 🗺️</h1>
+      <span>Map Editor v0.080</span>
+    </div>
+    <div class="action-buttons">
+      <button class="btn btn-secondary" id="btn-import">📂 Import JSON</button>
+      <button class="btn btn-secondary" id="btn-export">💾 Export JSON</button>
+      <button class="btn btn-danger" id="btn-reset">🧹 Reset Map</button>
+      <button class="btn btn-primary" id="btn-play">▶️ Play Test</button>
+    </div>
+  </div>
+
+  <!-- Left Sidebar Panel -->
+  <div id="sidebar" class="hud-panel">
+    <h3>Design Tools</h3>
+    <div class="tab-selector">
+      <button class="tab-btn active" id="tab-objects">Objects</button>
+    </div>
+
+    <!-- Scenery & Entity Objects Grid -->
+    <div id="objects-panel">
+      <div class="object-grid">
+        <div class="grid-item active" data-type="pine">
+          <span class="grid-item-icon">🌲</span>
+          <span class="grid-item-label">Pine Tree</span>
+        </div>
+        <div class="grid-item" data-type="palm">
+          <span class="grid-item-icon">🌴</span>
+          <span class="grid-item-label">Palm Tree</span>
+        </div>
+        <div class="grid-item" data-type="land_rock">
+          <span class="grid-item-icon">🪨</span>
+          <span class="grid-item-label">Land Rock</span>
+        </div>
+        <div class="grid-item" data-type="marine_rock">
+          <span class="grid-item-icon">🌊</span>
+          <span class="grid-item-label">Marine Rock</span>
+        </div>
+        <div class="grid-item" data-type="ore">
+          <span class="grid-item-icon">🥉</span>
+          <span class="grid-item-label">Ore Deposit</span>
+        </div>
+        <div class="grid-item" data-type="berry_bush">
+          <span class="grid-item-icon">🍒</span>
+          <span class="grid-item-label">Berry Bush</span>
+        </div>
+        <div class="grid-item" data-type="cane">
+          <span class="grid-item-icon">🎋</span>
+          <span class="grid-item-label">Cane Plant</span>
+        </div>
+        <div class="grid-item" data-type="flower">
+          <span class="grid-item-icon">🌸</span>
+          <span class="grid-item-label">Wildflower</span>
+        </div>
+        <div class="grid-item" data-type="starfish">
+          <span class="grid-item-icon">⭐</span>
+          <span class="grid-item-label">Starfish</span>
+        </div>
+        <div class="grid-item" data-type="player_spawn">
+          <span class="grid-item-icon">👤</span>
+          <span class="grid-item-label">Player Spawn</span>
+        </div>
+        <div class="grid-item" data-type="spawn_rooster">
+          <span class="grid-item-icon">🐓</span>
+          <span class="grid-item-label">Arturo Spawn</span>
+        </div>
+        <div class="grid-item" data-type="spawn_hen">
+          <span class="grid-item-icon">🐔</span>
+          <span class="grid-item-label">Rosita Spawn</span>
+        </div>
+        <div class="grid-item" data-type="spawn_crab">
+          <span class="grid-item-icon">🦀</span>
+          <span class="grid-item-label">Crab Spawn</span>
+        </div>
+        <div class="grid-item" data-type="spawn_fish">
+          <span class="grid-item-icon">🐟</span>
+          <span class="grid-item-label">Fish Spawn</span>
+        </div>
+        <div class="grid-item" data-type="spawn_seagull">
+          <span class="grid-item-icon">🦅</span>
+          <span class="grid-item-label">Seagull Spawn</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Instructions -->
+    <div class="instructions">
+      <strong>Controls:</strong><br>
+      • <strong>Left Click</strong>: Place selected object<br>
+      • <strong>Right Click</strong>: Delete hovered object<br>
+      • <strong>Mouse Drag / Wheel</strong>: Rotate & Orbit camera<br>
+      • <strong>R Key</strong>: Rotate object preview
+    </div>
+  </div>
+
+  <!-- Help & Navigation Info -->
+  <div id="help-badge">
+    Hold <strong>Ctrl + Click</strong> to pan camera • Click <strong>Play Test</strong> to launch game instantly
+  </div>
+
+  <!-- Hidden File Input for Importing Map -->
+  <input type="file" id="file-input" accept=".json">
+
+  <!-- Main Editor Script -->
+  <script type="module" src="./editor.js?v=0.080"></script>
+</body>
+</html>

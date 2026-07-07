@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { initControls, updateControls, joystickValues, triggerMobileJump } from './controls.js';
-import { initWorld, updateWorld, world, getSurfaceHeightNear, checkInWater, getWaterHeightAt, scrollWorld } from './world.js';
+import { initWorld, updateWorld, world, getSurfaceHeightNear, checkInWater, getWaterHeightAt, scrollWorld, loadCustomMap } from './world.js';
 import { initPlayer, updatePlayer, triggerToolSwing, player } from './player.js';
 import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard, activeDebris } from './interact.js';
 import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute, setSubmergedAudio, startAmbientSounds, stopAmbientSounds, playWoodChop } from './audio.js';
@@ -216,20 +216,106 @@ function init() {
   initPlayer();
   initInteraction();
 
-  // Spawn Arturo the Rooster
-  game.roosterMesh = createRooster();
-  const roosterSpawnY = getSurfaceHeightNear(84, 15, 84);
-  game.roosterMesh.position.set(84, roosterSpawnY, 84);
-  game.scene.add(game.roosterMesh);
+  // Check if we have custom map loaded from localStorage
+  const customMapStr = localStorage.getItem('custom_map_data');
+  let loadedCustom = false;
+  if (customMapStr) {
+    try {
+      const mapData = JSON.parse(customMapStr);
+      loadCustomMap(mapData);
+      loadedCustom = true;
 
-  // Spawn Rosita the Hen
-  game.henMesh = createHen();
-  const henSpawnY = getSurfaceHeightNear(81, 15, 81);
-  game.henMesh.position.set(81, henSpawnY, 81);
-  game.scene.add(game.henMesh);
+      // Spawn saved fauna objects
+      if (mapData.objects) {
+        mapData.objects.forEach(obj => {
+          if (obj.type === 'spawn_rooster') {
+            game.roosterMesh = createRooster();
+            game.roosterMesh.position.set(obj.x, obj.y, obj.z);
+            game.scene.add(game.roosterMesh);
+          } else if (obj.type === 'spawn_hen') {
+            game.henMesh = createHen();
+            game.henMesh.position.set(obj.x, obj.y, obj.z);
+            game.scene.add(game.henMesh);
+          } else if (obj.type === 'spawn_crab') {
+            const crab = createCrab();
+            crab.position.set(obj.x, obj.y, obj.z);
+            crab.state = 'idle';
+            crab.timer = 1.0 + Math.random() * 2.0;
+            crab.target = new THREE.Vector3(obj.x, obj.y, obj.z);
+            game.scene.add(crab);
+            game.crabs.push(crab);
+          } else if (obj.type === 'spawn_fish') {
+            const fish = createFish();
+            fish.position.set(obj.x, obj.y, obj.z);
+            fish.velocity = new THREE.Vector3((Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 1.2);
+            fish.swimTimer = 2.0 + Math.random() * 3.0;
+            fish.targetY = obj.y;
+            game.scene.add(fish);
+            game.fishes.push(fish);
+          } else if (obj.type === 'spawn_seagull') {
+            const seagull = createSeagull();
+            seagull.position.set(obj.x, obj.y, obj.z);
+            seagull.state = 'soar';
+            seagull.timer = 2.0 + Math.random() * 3.0;
+            seagull.target = new THREE.Vector3(obj.x, obj.y, obj.z);
+            game.scene.add(seagull);
+            game.seagulls.push(seagull);
+          }
+        });
+      }
 
-  // Spawn additional island life (crabs, fishes, seagulls)
-  spawnFauna();
+      // Position the player camera at the spawn point if defined
+      if (world.playerSpawnPoint && game.controls) {
+        game.controls.getObject().position.copy(world.playerSpawnPoint);
+      }
+
+      // Add a back-to-editor UI button to return easily
+      const backBtn = document.createElement('button');
+      backBtn.id = 'back-to-editor-btn';
+      backBtn.innerText = '⬅ Back to Editor';
+      backBtn.style.position = 'fixed';
+      backBtn.style.top = '20px';
+      backBtn.style.right = '20px';
+      backBtn.style.zIndex = '9999';
+      backBtn.style.padding = '12px 20px';
+      backBtn.style.background = 'rgba(15, 23, 42, 0.85)';
+      backBtn.style.color = '#38bdf8';
+      backBtn.style.border = '1px solid #38bdf8';
+      backBtn.style.borderRadius = '8px';
+      backBtn.style.fontFamily = 'Outfit, sans-serif';
+      backBtn.style.fontSize = '14px';
+      backBtn.style.fontWeight = '600';
+      backBtn.style.cursor = 'pointer';
+      backBtn.style.backdropFilter = 'blur(4px)';
+      backBtn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
+      backBtn.style.transition = 'all 0.2s';
+      backBtn.onmouseover = () => { backBtn.style.background = '#38bdf8'; backBtn.style.color = '#0f172a'; };
+      backBtn.onmouseout = () => { backBtn.style.background = 'rgba(15, 23, 42, 0.85)'; backBtn.style.color = '#38bdf8'; };
+      backBtn.onclick = () => { window.location.href = './mapEditor/index.html'; };
+      document.body.appendChild(backBtn);
+
+    } catch (e) {
+      console.error("Failed to parse custom map:", e);
+      loadedCustom = false;
+    }
+  }
+
+  if (!loadedCustom) {
+    // Spawn Arturo the Rooster
+    game.roosterMesh = createRooster();
+    const roosterSpawnY = getSurfaceHeightNear(84, 15, 84);
+    game.roosterMesh.position.set(84, roosterSpawnY, 84);
+    game.scene.add(game.roosterMesh);
+
+    // Spawn Rosita the Hen
+    game.henMesh = createHen();
+    const henSpawnY = getSurfaceHeightNear(81, 15, 81);
+    game.henMesh.position.set(81, henSpawnY, 81);
+    game.scene.add(game.henMesh);
+
+    // Spawn additional island life (crabs, fishes, seagulls)
+    spawnFauna();
+  }
 
   // Initialize atmospheric particles
   initMenuParticles();
@@ -1011,7 +1097,7 @@ function initJoystick() {
 }
 
 // Helper to create low-poly Rooster Arturo
-function createRooster() {
+export function createRooster() {
   const group = new THREE.Group();
   
   const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.8, flatShading: true }); // black body
@@ -1154,7 +1240,7 @@ function createRooster() {
 }
 
 // Helper to create low-poly Hen Rosita
-function createHen() {
+export function createHen() {
   const group = new THREE.Group();
   
   const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xf5f5dc, roughness: 0.8, flatShading: true }); // beige body
@@ -1528,7 +1614,7 @@ function updateRositaLabel() {
 }
 
 // Helper to create detailed low-poly crabs
-function createCrab() {
+export function createCrab() {
   const group = new THREE.Group();
   
   const redMaterial = new THREE.MeshStandardMaterial({ color: 0xe63946, roughness: 0.7, flatShading: true }); // Crab red
@@ -1619,7 +1705,7 @@ function createCrab() {
 }
 
 // Helper to create detailed low-poly fishes
-function createFish() {
+export function createFish() {
   const group = new THREE.Group();
   
   // Bright orange/yellow tropical theme or neon blue
@@ -1732,7 +1818,7 @@ function createWorm() {
 }
 
 // Helper to create detailed low-poly flying seagulls
-function createSeagull() {
+export function createSeagull() {
   const group = new THREE.Group();
   
   const whiteMaterial = new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.6, flatShading: true }); // white body

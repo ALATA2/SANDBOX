@@ -1089,7 +1089,7 @@ import { updateWaterHeights } from './water.js';
 export { getDensity2DInterpolated, getDensityInterpolated, checkCollision, getSurfaceHeightNear, updateWaterHeights };
 
 // Helper to create a curved low-poly palm tree mesh
-function createPalmTree() {
+export function createPalmTree() {
   const palmGroup = new THREE.Group();
   
   // 1. Curved Trunk (Hierarchical nesting of segments to prevent gaps and create a smooth bezier-like tilt)
@@ -1203,7 +1203,7 @@ function createPalmTree() {
 }
 
 // Helper to create a detailed low-poly Pine Tree
-function createPineTree() {
+export function createPineTree() {
   const pineGroup = new THREE.Group();
 
   const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x543d2b, roughness: 0.9, flatShading: true });
@@ -3211,5 +3211,311 @@ export function checkIsSheltered(pos) {
   }
   
   return hasFoundationBelow && (wallCount >= 3) && hasRoofAbove;
+}
+
+// Map Editor 3D Helper Instantiators
+export function createLandRockMesh() {
+  const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x7a8b8b, roughness: 0.9, flatShading: true });
+  const rockGeom = new THREE.DodecahedronGeometry(1.0, 0);
+  const rock = new THREE.Mesh(rockGeom, rockMaterial);
+  rock.castShadow = true;
+  rock.receiveShadow = true;
+  return rock;
+}
+
+export function createMarineRockMesh() {
+  const marineRockMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x5a6363,
+    roughness: 0.6,
+    flatShading: true 
+  });
+  const rockGeom = new THREE.DodecahedronGeometry(1.0, 0);
+  const rock = new THREE.Mesh(rockGeom, marineRockMaterial);
+  rock.castShadow = true;
+  rock.receiveShadow = true;
+  return rock;
+}
+
+export function createOreDepositMesh() {
+  const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x7a8b8b, roughness: 0.9, flatShading: true });
+  const goldMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffd700,
+    roughness: 0.2,
+    metalness: 0.9,
+    emissive: 0xffd700,
+    emissiveIntensity: 0.15,
+    flatShading: true
+  });
+  const oreGroup = new THREE.Group();
+  const baseRockGeom = new THREE.DodecahedronGeometry(1.4, 0);
+  const baseRock = new THREE.Mesh(baseRockGeom, rockMaterial);
+  baseRock.castShadow = true;
+  baseRock.receiveShadow = true;
+  oreGroup.add(baseRock);
+
+  const cryGeom = new THREE.DodecahedronGeometry(0.5, 0);
+  const cryPositions = [
+    new THREE.Vector3(0.8, 0.6, 0.2),
+    new THREE.Vector3(-0.6, 0.8, -0.4),
+    new THREE.Vector3(0.2, 1.1, -0.5),
+    new THREE.Vector3(-0.2, 0.4, 0.8),
+  ];
+
+  cryPositions.forEach((pos) => {
+    const cry = new THREE.Mesh(cryGeom, goldMaterial);
+    cry.position.copy(pos);
+    cry.scale.set(0.8, 1.4, 0.8);
+    cry.rotation.set(0.2, 0.3, 0.5);
+    cry.castShadow = true;
+    oreGroup.add(cry);
+  });
+  return oreGroup;
+}
+
+export function createBerryBushMesh() {
+  const bushGroup = new THREE.Group();
+  const bushGeom = new THREE.DodecahedronGeometry(0.6, 1);
+  const bushMaterial = new THREE.MeshStandardMaterial({ color: 0x1f5f38, roughness: 0.9, flatShading: true });
+  const bushMesh = new THREE.Mesh(bushGeom, bushMaterial);
+  bushMesh.castShadow = true;
+  bushMesh.receiveShadow = true;
+  bushGroup.add(bushMesh);
+  
+  const puffGeom = new THREE.DodecahedronGeometry(0.35, 0);
+  const puff = new THREE.Mesh(puffGeom, bushMaterial);
+  puff.position.set(0.15, 0.15, -0.1);
+  puff.castShadow = true;
+  puff.receiveShadow = true;
+  bushGroup.add(puff);
+
+  const berryGeom = new THREE.DodecahedronGeometry(0.06, 0);
+  const berryMaterial = new THREE.MeshStandardMaterial({ color: 0xee2222, roughness: 0.5, flatShading: true });
+  
+  const berryPositions = [
+    new THREE.Vector3(0.4, 0.2, 0.3),
+    new THREE.Vector3(-0.4, 0.25, 0.2),
+    new THREE.Vector3(0.1, 0.45, -0.35),
+    new THREE.Vector3(-0.25, 0.3, -0.3)
+  ];
+  
+  const berriesList = [];
+  berryPositions.forEach(pos => {
+    const berry = new THREE.Mesh(berryGeom, berryMaterial);
+    berry.position.copy(pos);
+    berry.castShadow = true;
+    bushGroup.add(berry);
+    berriesList.push(berry);
+  });
+  
+  bushGroup.userData = {
+    hasBerries: true,
+    regrowTimer: 0.0,
+    berriesList: berriesList
+  };
+  return bushGroup;
+}
+
+export function createStarfishMesh() {
+  const starfishMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xff7f50, 
+    roughness: 0.5, 
+    flatShading: true 
+  });
+  
+  const starShape = new THREE.Shape();
+  for (let i = 0; i < 5; i++) {
+    const angle = (i * Math.PI * 2) / 5;
+    const rOuter = 0.22;
+    const rInner = 0.09;
+    
+    let sx = Math.cos(angle) * rOuter;
+    let sz = Math.sin(angle) * rOuter;
+    if (i === 0) starShape.moveTo(sx, sz);
+    else starShape.lineTo(sx, sz);
+    
+    const angleInner = angle + (Math.PI / 5);
+    sx = Math.cos(angleInner) * rInner;
+    sz = Math.sin(angleInner) * rInner;
+    starShape.lineTo(sx, sz);
+  }
+  starShape.closePath();
+
+  const starfishGeom = new THREE.ExtrudeGeometry(starShape, {
+    steps: 1,
+    depth: 0.04,
+    bevelEnabled: true,
+    bevelThickness: 0.02,
+    bevelSize: 0.01,
+    bevelSegments: 1
+  });
+  starfishGeom.center();
+  starfishGeom.rotateX(-Math.PI / 2);
+
+  const starfish = new THREE.Mesh(starfishGeom, starfishMaterial);
+  starfish.castShadow = true;
+  starfish.receiveShadow = true;
+  return starfish;
+}
+
+export function clearAllDynamicObjects() {
+  // 1. Remove scenery meshes
+  if (world.sceneryMeshes) {
+    world.sceneryMeshes.forEach(item => {
+      if (item && item.mesh) game.scene.remove(item.mesh);
+    });
+    world.sceneryMeshes = [];
+  }
+  
+  // 2. Remove trees
+  if (world.trees) {
+    world.trees.forEach(t => game.scene.remove(t));
+    world.trees = [];
+  }
+
+  // 3. Remove ore deposits
+  if (world.oreDeposits) {
+    world.oreDeposits.forEach(o => game.scene.remove(o));
+    world.oreDeposits = [];
+  }
+
+  // 4. Remove berry bushes
+  if (world.berryBushes) {
+    world.berryBushes.forEach(b => game.scene.remove(b));
+    world.berryBushes = [];
+  }
+
+  // 5. Remove canes
+  if (world.canes) {
+    world.canes.forEach(c => game.scene.remove(c));
+    world.canes = [];
+  }
+
+  // 6. Remove wildflowers
+  if (world.wildflowers) {
+    world.wildflowers.forEach(f => game.scene.remove(f.mesh));
+    world.wildflowers = [];
+  }
+
+  // 7. Remove starting items / structures
+  if (world.placedStructures) {
+    world.placedStructures.forEach(s => game.scene.remove(s));
+    world.placedStructures = [];
+  }
+  if (world.placedWorkstations) {
+    world.placedWorkstations.forEach(w => game.scene.remove(w));
+    world.placedWorkstations = [];
+  }
+  if (world.campfires) {
+    world.campfires.forEach(f => game.scene.remove(f));
+    world.campfires = [];
+  }
+
+  // 8. Remove fauna
+  if (game.roosterMesh) { game.scene.remove(game.roosterMesh); game.roosterMesh = null; }
+  if (game.henMesh) { game.scene.remove(game.henMesh); game.henMesh = null; }
+  
+  if (game.crabs) {
+    game.crabs.forEach(c => {
+      if (c.mesh) game.scene.remove(c.mesh);
+      else game.scene.remove(c);
+    });
+    game.crabs = [];
+  }
+  
+  if (game.fishes) {
+    game.fishes.forEach(f => {
+      if (f.mesh) game.scene.remove(f.mesh);
+      else game.scene.remove(f);
+    });
+    game.fishes = [];
+  }
+  
+  if (game.seagulls) {
+    game.seagulls.forEach(s => {
+      if (s.mesh) game.scene.remove(s.mesh);
+      else game.scene.remove(s);
+    });
+    game.seagulls = [];
+  }
+  
+  if (game.worms) {
+    game.worms.forEach(w => {
+      if (w.mesh) game.scene.remove(w.mesh);
+      else game.scene.remove(w);
+    });
+    game.worms = [];
+  }
+}
+
+export function loadCustomMap(mapData) {
+  clearAllDynamicObjects();
+  
+  if (!mapData) return;
+
+  // Restore carved voxels
+  if (mapData.carvedVoxels) {
+    world.carvedVoxels = mapData.carvedVoxels;
+  } else {
+    world.carvedVoxels = {};
+  }
+
+  // Set spawn point
+  if (mapData.playerSpawn) {
+    world.playerSpawnPoint = new THREE.Vector3(mapData.playerSpawn.x, mapData.playerSpawn.y, mapData.playerSpawn.z);
+  } else {
+    world.playerSpawnPoint = null;
+  }
+
+  // Spawn static objects
+  if (mapData.objects) {
+    mapData.objects.forEach(obj => {
+      let mesh;
+      if (obj.type === 'pine') {
+        mesh = createPineTree();
+        mesh.userData = { health: 6, maxHealth: 6, falling: false, fallTimer: 0, type: 'pine' };
+        world.trees.push(mesh);
+        world.sceneryMeshes.push({ mesh, type: 'tree' });
+      } else if (obj.type === 'palm') {
+        mesh = createPalmTree();
+        mesh.userData = { health: 6, maxHealth: 6, falling: false, fallTimer: 0, type: 'palm' };
+        world.trees.push(mesh);
+        world.sceneryMeshes.push({ mesh, type: 'tree' });
+      } else if (obj.type === 'land_rock') {
+        mesh = createLandRockMesh();
+        world.sceneryMeshes.push({ mesh, type: 'rock' });
+      } else if (obj.type === 'marine_rock') {
+        mesh = createMarineRockMesh();
+        world.sceneryMeshes.push({ mesh, type: 'rock' });
+      } else if (obj.type === 'ore') {
+        mesh = createOreDepositMesh();
+        mesh.name = `ore_${world.oreDeposits.length}`;
+        world.oreDeposits.push(mesh);
+      } else if (obj.type === 'berry_bush') {
+        mesh = createBerryBushMesh();
+        world.berryBushes.push(mesh);
+        world.sceneryMeshes.push({ mesh, type: 'berry_bush' });
+      } else if (obj.type === 'cane') {
+        mesh = createCanePlant();
+        mesh.userData = { health: 2, maxHealth: 2, broken: false };
+        world.canes.push(mesh);
+        world.sceneryMeshes.push({ mesh, type: 'cane' });
+      } else if (obj.type === 'flower') {
+        mesh = createFlowerMesh();
+        world.wildflowers.push({ mesh, baseScale: obj.scale || 1.0 });
+        world.sceneryMeshes.push({ mesh, type: 'crop' });
+      } else if (obj.type === 'starfish') {
+        mesh = createStarfishMesh();
+        world.sceneryMeshes.push({ mesh, type: 'starfish' });
+      }
+
+      if (mesh) {
+        mesh.position.set(obj.x, obj.y, obj.z);
+        mesh.rotation.y = obj.rotationY || 0;
+        const s = obj.scale || 1.0;
+        mesh.scale.set(s, s, s);
+        game.scene.add(mesh);
+      }
+    });
+  }
 }
 
