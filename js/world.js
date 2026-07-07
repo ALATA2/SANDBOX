@@ -1543,6 +1543,36 @@ function spawnScenery() {
   world.waterMesh.position.set(0, 4.0, 0); // Directly at coordinate origin, Y=4.0 height (no rotation needed)
   game.scene.add(world.waterMesh);
 
+  // 1c. Infinite Outer Ocean Plane (Ring Geometry extending to the horizon)
+  const outerOceanGeometry = new THREE.RingGeometry(160, 12000, 32);
+  outerOceanGeometry.rotateX(-Math.PI / 2);
+  const outerOceanMaterial = new THREE.MeshStandardMaterial({
+    color: 0x093f60, // Vibrant deep ocean blue matching the deep water color
+    roughness: 0.12,
+    metalness: 0.15,
+    transparent: true,
+    opacity: 0.90,
+    flatShading: true,
+    side: THREE.DoubleSide,
+    emissive: new THREE.Color(0x09202e)
+  });
+  world.outerOceanMesh = new THREE.Mesh(outerOceanGeometry, outerOceanMaterial);
+  world.outerOceanMesh.position.set(96.0, 4.0, 96.0); // Centered at water grid center
+  game.scene.add(world.outerOceanMesh);
+
+  // 1d. Infinite Seabed Floor Plane (underwater slate ground)
+  const seabedGeometry = new THREE.PlaneGeometry(16000, 16000);
+  seabedGeometry.rotateX(-Math.PI / 2);
+  const seabedMaterial = new THREE.MeshStandardMaterial({
+    color: 0x1f2b35, // Dark slate-grey underwater rock
+    roughness: 0.9,
+    metalness: 0.05,
+    flatShading: true
+  });
+  world.seabedMesh = new THREE.Mesh(seabedGeometry, seabedMaterial);
+  world.seabedMesh.position.set(96.0, 0.2, 96.0); // Centered at bedrock level
+  game.scene.add(world.seabedMesh);
+
   // 1b. Mountain Lake Plane
   const lakeGeometry = new THREE.CircleGeometry(24.0, 32);
   lakeGeometry.rotateX(-Math.PI / 2);
