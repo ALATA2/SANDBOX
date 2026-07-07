@@ -160,7 +160,12 @@ function setupUI() {
 
 // Create appropriate 3D mesh for the ghost preview
 function updatePreviewMesh() {
-  if (previewMesh) scene.remove(previewMesh);
+  if (previewMesh) {
+    scene.remove(previewMesh);
+    previewMesh = null;
+  }
+
+  if (currentToolType === null) return;
 
   let geom, mat;
   const opacity = 0.5;
@@ -259,8 +264,54 @@ function updatePreviewPosition() {
   }
 }
 
+function updateSidebarSelection() {
+  const gridItems = document.querySelectorAll('.grid-item');
+  gridItems.forEach(item => {
+    if (item.getAttribute('data-type') === currentToolType) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
+}
+
 // Spawn object in scene
 function placeObject() {
+  if (currentToolType === null) {
+    // Pick up / Move mode
+    raycaster.setFromCamera(mouse, camera);
+    const meshesToTest = [];
+    editorObjects.forEach(obj => {
+      obj.mesh.traverse(child => {
+        if (child.isMesh) {
+          child.userData.ownerMeta = obj;
+          meshesToTest.push(child);
+        }
+      });
+    });
+
+    const intersects = raycaster.intersectObjects(meshesToTest);
+    if (intersects.length > 0) {
+      const hitMesh = intersects[0].object;
+      const meta = hitMesh.userData.ownerMeta;
+      if (meta) {
+        // Pick it up: copy properties
+        currentToolType = meta.type;
+        rotationY = meta.rotationY || 0;
+        
+        // Remove old mesh from scene
+        scene.remove(meta.mesh);
+        if (meta.mesh === playerSpawnMarker) playerSpawnMarker = null;
+        editorObjects = editorObjects.filter(o => o !== meta);
+
+        updatePreviewMesh();
+        updatePreviewPosition();
+        updateSidebarSelection();
+      }
+    }
+    return;
+  }
+
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObject(world.terrainMesh);
 
@@ -397,7 +448,15 @@ function onPointerDown(event) {
     if (event.ctrlKey) return; // Allow panning with ctrl+click without placing
     placeObject();
   } else if (event.button === 2) { // Right Click
-    deleteObject();
+    if (currentToolType !== null) {
+      // Cancel active selection / enter move mode
+      currentToolType = null;
+      updatePreviewMesh();
+      updateSidebarSelection();
+    } else {
+      // Free hands: delete object
+      deleteObject();
+    }
   }
 }
 
