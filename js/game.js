@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { initControls, updateControls, joystickValues, triggerMobileJump } from './controls.js';
-import { initWorld, updateWorld, world, getSurfaceHeightNear, checkInWater, getWaterHeightAt, scrollWorld, loadCustomMap } from './world.js';
+import { initWorld, updateWorld, world, getSurfaceHeightNear, checkInWater, getWaterHeightAt, scrollWorld, loadCustomMap, LAKE_CENTER_X, LAKE_CENTER_Z } from './world.js';
 import { initPlayer, updatePlayer, triggerToolSwing, player } from './player.js';
 import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard, activeDebris } from './interact.js';
 import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute, setSubmergedAudio, startAmbientSounds, stopAmbientSounds, playWoodChop } from './audio.js';
@@ -1945,8 +1945,8 @@ function spawnFauna() {
   for (let i = 0; i < lakeFishCount; i++) {
     const angle = Math.random() * Math.PI * 2;
     const dist = Math.random() * 18.0; // keep it inside the lake (radius 24.0)
-    const rx = 41.6 + Math.cos(angle) * dist;
-    const rz = 41.6 + Math.sin(angle) * dist;
+    const rx = LAKE_CENTER_X + Math.cos(angle) * dist;
+    const rz = LAKE_CENTER_Z + Math.sin(angle) * dist;
     
     const fish = createFish();
     const ry = 15.0 + Math.random() * 1.5; // Under lake water level (17.6)
@@ -1966,8 +1966,8 @@ function spawnFauna() {
   }
 
   // 2c. Spawn a Dead Seagull with crawling worms on the lake shore (Southeastern side)
-  const deadGullX = 57.6; // 41.6 + 16.0
-  const deadGullZ = 50.6; // 41.6 + 9.0
+  const deadGullX = LAKE_CENTER_X + 16.0;
+  const deadGullZ = LAKE_CENTER_Z + 9.0;
   const deadGullY = getSurfaceHeightNear(deadGullX, 15, deadGullZ);
   
   const deadSeagull = createSeagull();

@@ -5,11 +5,17 @@ import { spawnDebris } from './interact.js';
 import { player } from './player.js';
 import { updateFoliageWind } from './wind.js';
 
+// Lake center coordinates (dynamic based on sizeX/sizeZ, scaled to 170x170 grid center)
+// Volcano is centered at cx - 45, cz - 45 = (85 - 45, 85 - 45) = (40, 40) voxels.
+// 40 * 1.6 = 64.0 meters.
+export const LAKE_CENTER_X = 64.0;
+export const LAKE_CENTER_Z = 64.0;
+
 // World Configuration
 export const world = {
-  sizeX: 120,
+  sizeX: 170,
   sizeY: 24,
-  sizeZ: 120,
+  sizeZ: 170,
   spacing: 1.6,
   currentVirtualDepth: 0,
   carvedVoxels: {},
@@ -77,9 +83,9 @@ export function isVertexActive(gx, gz) {
 }
 
 export function getWaterHeightAt(vx, vz) {
-  // Check if near mountain lake: center at (41.6, 41.6), radius = 24.0
-  const lakeCenterX = 41.6;
-  const lakeCenterZ = 41.6;
+  // Check if near mountain lake: center at dynamic coordinates, radius = 24.0
+  const lakeCenterX = LAKE_CENTER_X;
+  const lakeCenterZ = LAKE_CENTER_Z;
   const lakeRadius = 24.0;
   const dx = vx - lakeCenterX;
   const dz = vz - lakeCenterZ;
@@ -1092,8 +1098,8 @@ export function buildWaterGeometry() {
 // Check if a specific world coordinate (px, py, pz) is inside active water
 export function checkInWater(px, py, pz) {
   // Check if player is in the mountain lake
-  const lakeCenterX = 41.6;
-  const lakeCenterZ = 41.6;
+  const lakeCenterX = LAKE_CENTER_X;
+  const lakeCenterZ = LAKE_CENTER_Z;
   const lakeRadius = 24.0;
   const dx = px - lakeCenterX;
   const dz = pz - lakeCenterZ;
@@ -1593,7 +1599,7 @@ function spawnScenery() {
     emissive: new THREE.Color(0x041a24)
   });
   world.lakeMesh = new THREE.Mesh(lakeGeometry, lakeMaterial);
-  world.lakeMesh.position.set(41.6, 17.6, 41.6); // center (26*1.6, 11.0*1.6, 26*1.6)
+  world.lakeMesh.position.set(LAKE_CENTER_X, 17.6, LAKE_CENTER_Z);
   game.scene.add(world.lakeMesh);
 
   // 2. Low-Poly Trees and Rocks
@@ -1621,7 +1627,7 @@ function spawnScenery() {
     const wy = getSurfaceHeightNear(wx, 15, wz);
 
     // Only spawn trees on land above water and NOT inside the lake
-    const lakeDist = Math.sqrt((wx - 41.6)*(wx - 41.6) + (wz - 41.6)*(wz - 41.6));
+    const lakeDist = Math.sqrt((wx - LAKE_CENTER_X)*(wx - LAKE_CENTER_X) + (wz - LAKE_CENTER_Z)*(wz - LAKE_CENTER_Z));
     if (wy > 4.1 && lakeDist > 25.0) {
       let treeGroup;
       const isPalm = wy <= 6.2;
@@ -1667,7 +1673,7 @@ function spawnScenery() {
     const wz = rz * spacing;
     const wy = getSurfaceHeightNear(wx, 15, wz);
 
-    const lakeDist = Math.sqrt((wx - 41.6)*(wx - 41.6) + (wz - 41.6)*(wz - 41.6));
+    const lakeDist = Math.sqrt((wx - LAKE_CENTER_X)*(wx - LAKE_CENTER_X) + (wz - LAKE_CENTER_Z)*(wz - LAKE_CENTER_Z));
     if (wy > 3.0 && lakeDist > 25.0) {
       tempPosition.set(wx, wy - 0.5, wz);
       tempRotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
@@ -2172,7 +2178,7 @@ function spawnScenery() {
     const wz = rz * spacing;
     const wy = getSurfaceHeightNear(wx, 15, wz);
     
-    const lakeDist = Math.sqrt((wx - 41.6)*(wx - 41.6) + (wz - 41.6)*(wz - 41.6));
+    const lakeDist = Math.sqrt((wx - LAKE_CENTER_X)*(wx - LAKE_CENTER_X) + (wz - LAKE_CENTER_Z)*(wz - LAKE_CENTER_Z));
     if (wy > 4.2 && lakeDist > 25.0) {
       const bushGroup = new THREE.Group();
       
@@ -2238,7 +2244,7 @@ function spawnScenery() {
     const wy = getSurfaceHeightNear(wx, 15, wz);
     
     // Position on grass (Layer 1, above beach height Y=4.4, not in the mountain lake)
-    const lakeDist = Math.sqrt((wx - 41.6)*(wx - 41.6) + (wz - 41.6)*(wz - 41.6));
+    const lakeDist = Math.sqrt((wx - LAKE_CENTER_X)*(wx - LAKE_CENTER_X) + (wz - LAKE_CENTER_Z)*(wz - LAKE_CENTER_Z));
     if (wy > 4.4 && lakeDist > 25.0) {
       const flower = createFlowerMesh();
       flower.position.set(wx, wy, wz);
@@ -2971,8 +2977,8 @@ export function getSeabedHeight(x, z) {
   const baseFloor = -70.0;
   
   // Influence factors (smoothly interpolation from 1 near center to 0 far away)
-  // Starting island: slopes down to -70m over ~120 meters distance
-  const wStart = Math.exp(-Math.pow(dStart / 120.0, 2));
+  // Starting island: slopes down to -70m over ~170 meters distance
+  const wStart = Math.exp(-Math.pow(dStart / 170.0, 2));
   const hStart = 2.0; // Starting island base height (just below water surface Y=4.0)
   
   // Lighthouse Island: slopes down to -70m over ~400 meters

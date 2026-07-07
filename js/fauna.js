@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { game } from './game.js';
-import { world } from './world.js';
+import { world, LAKE_CENTER_X, LAKE_CENTER_Z } from './world.js';
 import { getSurfaceHeightNear } from './physics.js';
 
 const tempFishVec1 = new THREE.Vector3();
@@ -147,12 +147,12 @@ export function updateFaunaAI(delta) {
       fish.position.y += (fish.targetY - fish.position.y) * delta * 1.5;
       
       if (fish.isLakeFish) {
-        // Stay within lake circle (center 41.6, 41.6, radius 24m)
-        const dx = fish.position.x - 41.6;
-        const dz = fish.position.z - 41.6;
+        // Stay within lake circle (center dynamic, radius 24m)
+        const dx = fish.position.x - LAKE_CENTER_X;
+        const dz = fish.position.z - LAKE_CENTER_Z;
         const dist = Math.sqrt(dx*dx + dz*dz);
         if (dist > 20.0) {
-          const toLakeCenter = tempFishVec1.set(41.6, fish.position.y, 41.6).sub(fish.position);
+          const toLakeCenter = tempFishVec1.set(LAKE_CENTER_X, fish.position.y, LAKE_CENTER_Z).sub(fish.position);
           toLakeCenter.y = 0;
           toLakeCenter.normalize();
           fish.velocity.copy(toLakeCenter).multiplyScalar(1.2);

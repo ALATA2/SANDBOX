@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { game } from './game.js';
-import { world, deformTerrainLowPoly, getSurfaceHeightNear, createCampfireMesh, getVertexVirtualDepth, getWaterHeightAt, createFoundationMesh, createWallMesh, createRoofMesh, createDoorMesh } from './world.js';
+import { world, deformTerrainLowPoly, getSurfaceHeightNear, createCampfireMesh, getVertexVirtualDepth, getWaterHeightAt, createFoundationMesh, createWallMesh, createRoofMesh, createDoorMesh, LAKE_CENTER_X, LAKE_CENTER_Z } from './world.js';
 import { player, showHudMessage, selectSlot, syncHotbarCounts, renderInventoryUI, cancelFishing, getActiveAxe, getActivePickaxe, getActiveSpear } from './player.js';
 import { getTranslation, currentLang } from './lang.js';
 import { playWoodChop, playSelect, playSizzling, playDrink, playSpark, playRowingSplash } from './audio.js';
@@ -1528,8 +1528,8 @@ function handleFishingInteraction() {
     const dir = new THREE.Vector3();
     game.camera.getWorldDirection(dir);
 
-    const dx = playerPos.x - 41.6;
-    const dz = playerPos.z - 41.6;
+    const dx = playerPos.x - LAKE_CENTER_X;
+    const dz = playerPos.z - LAKE_CENTER_Z;
     const inLakeZone = (dx*dx + dz*dz < 24.0 * 24.0);
     const waterY = inLakeZone ? 17.6 : 4.0;
 

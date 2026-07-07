@@ -1,4 +1,4 @@
-import { world, getSeabedHeight } from './world.js';
+import { world, getSeabedHeight, LAKE_CENTER_X, LAKE_CENTER_Z } from './world.js';
 
 // Bilinear density interpolation at a specific grid height (y)
 export function getDensity2DInterpolated(gx, y, gz) {
@@ -88,8 +88,8 @@ export function checkCollision(px, py, pz) {
   
   // If mountain lake is frozen, make the ice plane Y=17.6 solid!
   if (world.lakeFrozen) {
-    const dx = px - 41.6;
-    const dz = pz - 41.6;
+    const dx = px - LAKE_CENTER_X;
+    const dz = pz - LAKE_CENTER_Z;
     if (dx*dx + dz*dz < 24.0 * 24.0) {
       if (py <= 17.65 && py >= 17.5) {
         return true;
@@ -142,8 +142,8 @@ export function getSurfaceHeightNear(px, py, pz) {
 
   // If mountain lake is frozen, return Y=17.6 height when above/near it
   if (world.lakeFrozen) {
-    const dx = px - 41.6;
-    const dz = pz - 41.6;
+    const dx = px - LAKE_CENTER_X;
+    const dz = pz - LAKE_CENTER_Z;
     if (dx*dx + dz*dz < 24.0 * 24.0) {
       if (py >= 17.4) {
         return 17.6;

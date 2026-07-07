@@ -214,7 +214,7 @@ export function initPlayer() {
 
   // Initialize Fog of War Explored Grid
   if (!player.exploredGrid) {
-    player.exploredGrid = new Uint8Array(120 * 120);
+    player.exploredGrid = new Uint8Array(world.sizeX * world.sizeZ);
   }
 
   // 5. Setup Keyboard listener for slot swapping (1-8 keys) and inventory toggle
@@ -763,8 +763,8 @@ export function updatePlayer(delta) {
           if (dx * dx + dz * dz <= revealRadius * revealRadius) {
             const nx = gx + dx;
             const nz = gz + dz;
-            if (nx >= 0 && nx < 120 && nz >= 0 && nz < 120) {
-              player.exploredGrid[nz * 120 + nx] = 1;
+            if (nx >= 0 && nx < world.sizeX && nz >= 0 && nz < world.sizeZ) {
+              player.exploredGrid[nz * world.sizeX + nx] = 1;
             }
           }
         }
@@ -1417,8 +1417,8 @@ export function drawExploredMap() {
 
   const w = canvas.width;
   const h = canvas.height;
-  const gridW = 120;
-  const gridH = 120;
+  const gridW = world.sizeX;
+  const gridH = world.sizeZ;
   const cellSize = w / gridW;
 
   ctx.fillStyle = '#1c1b18';
@@ -1475,8 +1475,8 @@ export function drawExploredMap() {
 
   if (game.controls && game.controls.getObject) {
     const playerPos = game.controls.getObject().position;
-    const pGridX = (playerPos.x / (120 * 1.6)) * w;
-    const pGridZ = (playerPos.z / (120 * 1.6)) * h;
+    const pGridX = (playerPos.x / (world.sizeX * world.spacing)) * w;
+    const pGridZ = (playerPos.z / (world.sizeZ * world.spacing)) * h;
 
     // Zero-alloc yaw check
     game.camera.getWorldDirection(directionVec);
