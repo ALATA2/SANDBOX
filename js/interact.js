@@ -1531,7 +1531,7 @@ function handleFishingInteraction() {
     const dx = playerPos.x - 41.6;
     const dz = playerPos.z - 41.6;
     const inLakeZone = (dx*dx + dz*dz < 24.0 * 24.0);
-    const waterY = inLakeZone ? 14.4 : 4.0;
+    const waterY = inLakeZone ? 17.6 : 4.0;
 
     if (dir.y < -0.05) {
       const t = (waterY - playerPos.y) / dir.y;
@@ -1699,7 +1699,7 @@ function drinkWater() {
   
   // Check if near water source
   const isNearOcean = playerPos.y <= 5.5 && waterHeight === 4.0;
-  const isNearLake = playerPos.y <= 15.5 && waterHeight === 14.4;
+  const isNearLake = playerPos.y <= 18.7 && waterHeight === 17.6;
   
   if (!isNearOcean && !isNearLake) {
     showHudMessage(player.currentLang === 'it' ? "Non c'è acqua qui! Cerca il lago di montagna o fonti dolci." : "No water here! Look for the mountain lake or fresh water.");

@@ -1275,7 +1275,7 @@ export function syncHotbarCounts() {
       const playerPos = game.controls.getObject().position;
       const waterHeight = getWaterHeightAt(playerPos.x, playerPos.z);
       const isNearOcean = playerPos.y <= 5.5 && waterHeight === 4.0;
-      const isNearLake = playerPos.y <= 15.5 && waterHeight === 14.4;
+      const isNearLake = playerPos.y <= 18.7 && waterHeight === 17.6;
       isNearWater = isNearOcean || isNearLake;
     }
     
@@ -1446,9 +1446,9 @@ export function drawExploredMap() {
         color = '#dfcf9f';
       } else if (height < 10.0) {
         color = '#8fad77';
-      } else if (height < 14.0) {
+      } else if (height < 17.0) {
         color = '#8c7c64';
-      } else if (height === 14.4) {
+      } else if (height === 17.6) {
         color = '#5f9ea0';
       } else {
         color = '#dcdcdc';

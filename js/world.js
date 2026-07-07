@@ -8,7 +8,7 @@ import { updateFoliageWind } from './wind.js';
 // World Configuration
 export const world = {
   sizeX: 120,
-  sizeY: 16,
+  sizeY: 24,
   sizeZ: 120,
   spacing: 1.6,
   currentVirtualDepth: 0,
@@ -84,7 +84,7 @@ export function getWaterHeightAt(vx, vz) {
   const dx = vx - lakeCenterX;
   const dz = vz - lakeCenterZ;
   if (dx*dx + dz*dz < lakeRadius * lakeRadius) {
-    return 14.4;
+    return 17.6;
   }
 
   if (!world.waterHeights) return 4.0;
@@ -163,19 +163,23 @@ function calculateIslandHeightVoxel(x, z) {
   const cx = world.sizeX / 2;
   const cz = world.sizeZ / 2;
 
-  // Distance from center of the island (radial falloff)
   const dx = x - cx;
   const dz = z - cz;
   const dist = Math.sqrt(dx*dx + dz*dz);
-  const maxDist = world.sizeX * 0.48;
-  const radialFactor = Math.max(0, 1.0 - dist / maxDist);
   
-  // Calculate base land height using noise
+  // 1. Organic shape: Add wavy noise to the distance to break straight borders and make shores natural
+  const angle = Math.atan2(dz, dx);
+  const wave = Math.sin(angle * 5.5) * 3.5 + Math.cos(angle * 3.0) * 2.5;
+  const modifiedDist = dist + wave;
+
+  const maxDist = world.sizeX * 0.40; // Reduced to keep the island away from straight grid edges
+  const radialFactor = Math.max(0, 1.0 - modifiedDist / maxDist);
+  
+  // Base land height using noise
   const noiseVal = fbmNoise2D(x * 0.1, z * 0.1);
   let islandHeight = (noiseVal * 8.0 + 2.0) * Math.pow(radialFactor, 1.2);
 
-  // 1. CARVE THE BAY (opens to the east)
-  // Scale offset and radius from the 40x40 equivalent: center is 60, offset is 54, radius is 48
+  // 2. CARVE THE BAY (opens to the east)
   const bayX = cx + 54;
   const bayZ = cz;
   const bayRadius = 48;
@@ -186,12 +190,11 @@ function calculateIslandHeightVoxel(x, z) {
   if (bayDist < bayRadius) {
     const t = bayDist / bayRadius;
     const smoothT = Math.sin(t * Math.PI / 2);
-    // Interpolate island height down to sea level/seabed (voxel height 1.2, which is 1.92 meters)
     const targetBayHeight = 1.2;
     islandHeight = lerp(targetBayHeight, islandHeight, smoothT);
   }
 
-  // Hill center is at (cx - 34, cz - 34) = (26, 26), radius is 42
+  // 3. VOLCANIC CONE (Extinct Volcano - taller, with a elevated lake)
   const hillX = cx - 34;
   const hillZ = cz - 34;
   const hillRadius = 42;
@@ -200,24 +203,42 @@ function calculateIslandHeightVoxel(x, z) {
   const hillDist = Math.sqrt(hillDx*hillDx + hillDz*hillDz);
 
   if (hillDist < hillRadius) {
-    // Lake basin radius: 15 voxels (24m)
     const lakeRadius = 15;
     const t = hillDist / hillRadius;
     
-    // Hill base elevation: +12.0 voxels at the summit, 0 at the foot
-    const hillElevation = 12.0 * Math.cos(t * Math.PI / 2);
+    // Increased summit elevation: +18.0 voxels (rises higher)
+    const hillElevation = 18.0 * Math.cos(t * Math.PI / 2);
 
     if (hillDist < lakeRadius) {
-      // Inside the lake basin: crater/depression down to 7.0 voxel height (11.2m)
+      // Elevated lake basin: crater down to 9.0 voxel height (14.4m)
       const lakeT = hillDist / lakeRadius;
-      const rimHeight = islandHeight + 12.0 * Math.cos((lakeRadius / hillRadius) * Math.PI / 2);
-      const lakeBottomHeight = 7.0;
+      const rimHeight = islandHeight + 18.0 * Math.cos((lakeRadius / hillRadius) * Math.PI / 2);
+      const lakeBottomHeight = 9.0; // Restored to 9.0 so it is below water level (11.0 voxels = 17.6m)
       
       const lakeProfile = lakeBottomHeight + (rimHeight - lakeBottomHeight) * lakeT * lakeT;
       islandHeight = lakeProfile;
     } else {
       // Outside the lake basin, on the hill slope
       islandHeight += hillElevation;
+    }
+  }
+
+  // 4. CORAL ATOLL RING (Chain of small islets surrounding the main island)
+  // Distance from center: around 53 voxels (~85m)
+  const atollCenterDist = 53.0;
+  const atollWidth = 5.5;
+  const distToAtoll = Math.abs(modifiedDist - atollCenterDist);
+  if (distToAtoll < atollWidth) {
+    const atollFactor = 1.0 - distToAtoll / atollWidth;
+    const atollNoise = fbmNoise2D(x * 0.18, z * 0.18);
+    if (atollNoise > 0.42) {
+      // Islets rising slightly above water level (water level is y=2.5 voxels, so 4.0m)
+      const isletHeight = 2.8 + atollNoise * 1.5;
+      islandHeight = Math.max(islandHeight, isletHeight * atollFactor);
+    } else if (atollNoise > 0.28) {
+      // Shallow reef under the water
+      const reefHeight = 1.8 + atollNoise * 0.8;
+      islandHeight = Math.max(islandHeight, reefHeight * atollFactor);
     }
   }
 
@@ -1062,7 +1083,7 @@ export function checkInWater(px, py, pz) {
   const dx = px - lakeCenterX;
   const dz = pz - lakeCenterZ;
   if (dx*dx + dz*dz < lakeRadius * lakeRadius) {
-    if (py < 14.4 && py > 11.5) {
+    if (py < 17.6 && py > 14.2) {
       return true;
     }
   }
@@ -1557,7 +1578,7 @@ function spawnScenery() {
     emissive: new THREE.Color(0x041a24)
   });
   world.lakeMesh = new THREE.Mesh(lakeGeometry, lakeMaterial);
-  world.lakeMesh.position.set(41.6, 14.4, 41.6); // center (26*1.6, 9.0*1.6, 26*1.6)
+  world.lakeMesh.position.set(41.6, 17.6, 41.6); // center (26*1.6, 11.0*1.6, 26*1.6)
   game.scene.add(world.lakeMesh);
 
   // 2. Low-Poly Trees and Rocks

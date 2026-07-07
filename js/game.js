@@ -1949,7 +1949,7 @@ function spawnFauna() {
     const rz = 41.6 + Math.sin(angle) * dist;
     
     const fish = createFish();
-    const ry = 12.0 + Math.random() * 1.5; // Under lake water level (14.4)
+    const ry = 15.0 + Math.random() * 1.5; // Under lake water level (17.6)
     fish.position.set(rx, ry, rz);
     fish.isLakeFish = true;
     
