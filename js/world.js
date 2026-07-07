@@ -223,6 +223,21 @@ function calculateIslandHeightVoxel(x, z) {
     }
   }
 
+  // 5. FERTILE PLAIN (to smooth out the straight 90° edge on the south-west/west side)
+  const plainX = 20;
+  const plainZ = 55;
+  const plainRadius = 25;
+  const plainDx = x - plainX;
+  const plainDz = z - plainZ;
+  const plainDist = Math.sqrt(plainDx*plainDx + plainDz*plainDz);
+  if (plainDist < plainRadius) {
+    const t = plainDist / plainRadius;
+    const smoothT = Math.cos(t * Math.PI / 2); // 1 at center, 0 at boundary
+    // A soft plain of height ~3.5 voxels (5.6m) sloping down gently to sea/seabed
+    const plainHeight = 1.2 + (3.5 - 1.2) * smoothT;
+    islandHeight = Math.max(islandHeight, plainHeight);
+  }
+
   // 4. CORAL ATOLL RING (Chain of small islets surrounding the main island)
   // Distance from center: around 53 voxels (~85m)
   const atollCenterDist = 53.0;
