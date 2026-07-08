@@ -304,38 +304,41 @@ export function getVertexVirtualDepth(vx, vy, vz) {
 function getVertexColorForDepth(vx, vy, vz) {
   const depth = getVertexVirtualDepth(vx, vy, vz);
 
-  // 1. Calculate surface biome color based on absolute altitude (vy)
-  let surfaceColor = [0.34, 0.62, 0.28]; // Default grass
+  // 1. Calculate surface biome color based on absolute altitude (vy) using sunset image palette
+  let surfaceColor = [0.44, 0.58, 0.18]; // Default olive green grass
   
   if (vy <= 4.8) {
-    // Sand beach
-    surfaceColor = [0.87, 0.81, 0.64];
+    // Sand beach (Peach gold sand)
+    surfaceColor = [0.90, 0.77, 0.58];
   } else if (vy <= 6.2) {
     // Transition from Sand to Grass
     const t = (vy - 4.8) / (6.2 - 4.8);
     surfaceColor = [
-      0.87 + t * (0.34 - 0.87),
-      0.81 + t * (0.62 - 0.81),
-      0.64 + t * (0.28 - 0.64)
+      0.90 + t * (0.44 - 0.90),
+      0.77 + t * (0.58 - 0.77),
+      0.58 + t * (0.18 - 0.58)
     ];
   } else if (vy <= 18.0) {
-    // Grass/Meadow
-    surfaceColor = [0.34, 0.62, 0.28];
+    // Grass/Meadow (Olive green grass)
+    surfaceColor = [0.44, 0.58, 0.18];
   } else if (vy <= 24.0) {
-    // Transition from Grass to Rock
+    // Transition from Grass to Rock (Warm peach-red rock)
     const t = (vy - 18.0) / (24.0 - 18.0);
     surfaceColor = [
-      0.34 + t * (0.55 - 0.34),
-      0.62 + t * (0.58 - 0.62),
-      0.28 + t * (0.60 - 0.28)
+      0.44 + t * (0.72 - 0.44),
+      0.58 + t * (0.50 - 0.58),
+      0.18 + t * (0.44 - 0.18)
     ];
+  } else if (vy <= 365.0) {
+    // Rocky slopes (Warm peach-red rock)
+    surfaceColor = [0.72, 0.50, 0.44];
   } else {
-    // Transition to Snow Peak (above Y=24.0, like the volcanic rim)
-    const t = Math.min(1.0, (vy - 24.0) / 3.0);
+    // Transition to Snow Peak (above Y=365.0)
+    const t = Math.min(1.0, (vy - 365.0) / 10.0);
     surfaceColor = [
-      0.55 + t * (0.98 - 0.55),
-      0.58 + t * (0.98 - 0.58),
-      0.60 + t * (1.0 - 0.60)
+      0.72 + t * (0.98 - 0.72),
+      0.50 + t * (0.98 - 0.50),
+      0.44 + t * (1.0 - 0.44)
     ];
   }
 
