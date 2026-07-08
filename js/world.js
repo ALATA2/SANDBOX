@@ -263,6 +263,20 @@ function calculateIslandHeightVoxel(x, z) {
     }
   }
 
+  // 5. Emerging Seabed Sandbank (Emerged portion of the seabed outside the main island)
+  const sandbankX = 110;
+  const sandbankZ = 110;
+  const sandbankRadius = 18;
+  const sDx = x - sandbankX;
+  const sDz = z - sandbankZ;
+  const sDist = Math.sqrt(sDx*sDx + sDz*sDz);
+  if (sDist < sandbankRadius) {
+    const t = 1.0 - sDist / sandbankRadius;
+    const smoothT = Math.cos(t * Math.PI / 2); // 1 at center, 0 at border
+    const sandbankHeight = 3.6 * smoothT; // Rises above Y=4.0 water level (approx 5.76m at peak)
+    islandHeight = Math.max(islandHeight, sandbankHeight);
+  }
+
   // Safety ceiling check: prevent terrain from reaching sizeY - 1
   return Math.min(world.sizeY - 2.5, islandHeight);
 }

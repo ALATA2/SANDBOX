@@ -14,7 +14,7 @@ export const player = {
   health: 100,
   energy: 100,
   hydration: 100,
-  selectedSlot: -1, // Start with free hands!
+  selectedSlot: 6, // Start with Pickaxe slot selected (index 6, slot 7)
   exploredGrid: null,
   
   // Hand held models state
@@ -76,9 +76,9 @@ export const player = {
     sharp_stone: 0,
     plank: 0,
     stone_block: 0,
-    primitive_spear: 0,
-    primitive_axe: 0,
-    primitive_pickaxe: 0,
+    primitive_spear: 1,
+    primitive_axe: 1,
+    primitive_pickaxe: 1,
     refined_spear: 0,
     refined_axe: 0,
     refined_pickaxe: 0,
