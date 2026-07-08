@@ -12,7 +12,7 @@ export function updateShadowCamera(cameraPos, sunDir, moonDir, isDayTime, curren
     game.lights.sun.target.position.copy(cameraPos);
     game.lights.sun.target.updateMatrixWorld();
   }
-  game.lights.sun.position.copy(cameraPos).addScaledVector(lightSourceDir, 60.0);
+  game.lights.sun.position.copy(cameraPos).addScaledVector(lightSourceDir, 200.0);
 
   // Set shadows dynamic: cast shadows during daytime, or at night only if the preset represents clear sky
   const isClearSky = (currentPreset === 'sunset' || currentPreset === 'nebula');

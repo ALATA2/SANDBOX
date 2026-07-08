@@ -194,9 +194,9 @@ async function init() {
   game.lights.sun.shadow.mapSize.width = 1024;
   game.lights.sun.shadow.mapSize.height = 1024;
   game.lights.sun.shadow.camera.near = 0.5;
-  game.lights.sun.shadow.camera.far = 120;
+  game.lights.sun.shadow.camera.far = 400;
   
-  const shadowRange = 30;
+  const shadowRange = 180;
   game.lights.sun.shadow.camera.left = -shadowRange;
   game.lights.sun.shadow.camera.right = shadowRange;
   game.lights.sun.shadow.camera.top = shadowRange;
