@@ -742,6 +742,7 @@ export function buildMarchingCubesMesh() {
     const oldGeometry = world.terrainMesh.geometry;
     world.terrainMesh.geometry = geometry;
     oldGeometry.dispose();
+    world.terrainMesh.visible = false; // Temporarily invisible
   } else {
     // Material details: stylized peach-sandy-gold rock
     // Set color to white to multiply with vertex colors, using FrontSide to prevent self-intersection and visual overlapping.
@@ -757,6 +758,7 @@ export function buildMarchingCubesMesh() {
     world.terrainMesh = new THREE.Mesh(geometry, world.material);
     world.terrainMesh.receiveShadow = true;
     world.terrainMesh.castShadow = true;
+    world.terrainMesh.visible = false; // Temporarily invisible
     game.scene.add(world.terrainMesh);
   }
 }
@@ -1619,7 +1621,8 @@ function spawnScenery() {
   world.lakeMesh.position.set(LAKE_CENTER_X, 17.6, LAKE_CENTER_Z);
   game.scene.add(world.lakeMesh);
 
-  // 2. Low-Poly Trees and Rocks
+  // 2. Low-Poly Trees and Rocks (Temporarily disabled)
+  return;
   // Materials
   const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9, flatShading: true });
   const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x2e8b57, roughness: 0.8, flatShading: true });
@@ -2979,60 +2982,50 @@ export function createFlowerMesh() {
 }
 
 
-// Calculate the depth/height of the seabed mathematically (deeper far from islands)
 export function getSeabedHeight(x, z) {
-  // Distance to Starting Island
-  const dStart = Math.sqrt((x - 96.0) * (x - 96.0) + (z - 96.0) * (z - 96.0));
-  
-  // Distance to Lighthouse Island
+  const spacing = world.spacing;
+  const gx = x / spacing;
+  const gz = z / spacing;
+
+  let height = -70.0;
+
+  // 1. If inside the starting island grid area, get the exact voxel island height
+  if (gx >= 0 && gx < world.sizeX && gz >= 0 && gz < world.sizeZ) {
+    const islandH = calculateIslandHeightVoxel(gx, gz) * spacing;
+    height = islandH;
+  } else {
+    // 2. Outside the starting island grid, slope down smoothly to -70m
+    const dStart = Math.sqrt((x - 96.0) * (x - 96.0) + (z - 96.0) * (z - 96.0));
+    const islandRadius = 84.48;
+    const transitionWidth = 120.0;
+    if (dStart < islandRadius + transitionWidth) {
+      const t = (dStart - islandRadius) / transitionWidth;
+      const smoothT = Math.cos(t * Math.PI) * 0.5 + 0.5; // 1 to 0
+      height = -70.0 + (0.0 - (-70.0)) * smoothT;
+    }
+  }
+
+  // 3. Distance to Lighthouse Island
   const dLight = Math.sqrt((x - 1500) * (x - 1500) + (z - (-2000)) * (z - (-2000)));
   
-  // Distance to Volcanic Island
+  // 4. Distance to Volcanic Island
   const dVolc = Math.sqrt((x - (-1800)) * (x - (-1800)) + (z - 1500) * (z - 1500));
   
-  // Base deep ocean floor Y height (deeper far from islands, e.g. -70m)
-  const baseFloor = -70.0;
-  
-  // Starting island: shelf at 0.0m under the island, then slopes down smoothly to -70m outside
-  const islandRadius = 84.48; // Max radius of the starting island in meters
-  const transitionWidth = 120.0; // Distance over which it slopes down to -70m
-  let hStart = -70.0;
-  let wStart = 0.0;
-
-  if (dStart < islandRadius) {
-    hStart = 0.0;
-    wStart = 1.0;
-  } else if (dStart < islandRadius + transitionWidth) {
-    const t = (dStart - islandRadius) / transitionWidth;
-    const smoothT = Math.cos(t * Math.PI) * 0.5 + 0.5; // Smooth step cosine blend (1 to 0)
-    hStart = -70.0 + (0.0 - (-70.0)) * smoothT;
-    wStart = smoothT;
-  }
-  
-  // Lighthouse Island: slopes down to -70m over ~400 meters
   const wLight = Math.exp(-Math.pow(dLight / 400.0, 2));
   const hLight = -5.0; // Matches lighthouse base Y=-5
   
-  // Volcanic Island: slopes down to -70m over ~500 meters
   const wVolc = Math.exp(-Math.pow(dVolc / 500.0, 2));
   const hVolc = -5.0; // Matches volcano base Y=-5
   
   // Total blended height
-  let height = baseFloor;
-  
-  // Blend start island
-  height = THREE.MathUtils.lerp(height, hStart, wStart);
-  
-  // Blend lighthouse
   height = THREE.MathUtils.lerp(height, hLight, wLight);
-  
-  // Blend volcano
   height = THREE.MathUtils.lerp(height, hVolc, wVolc);
   
-  // Add procedural ocean floor ridges and valleys (large-scale low-poly terrain detail)
-  const floorNoise = fbmNoise2D(x * 0.001, z * 0.001) * 20.0 - 10.0; // +/- 10 meters variation
+  // Add procedural ocean floor ridges and valleys outside the starting island area
+  const dStart = Math.sqrt((x - 96.0) * (x - 96.0) + (z - 96.0) * (z - 96.0));
+  const wStart = Math.max(0, Math.min(1.0, 1.0 - (dStart / 150.0)));
+  const floorNoise = fbmNoise2D(x * 0.001, z * 0.001) * 20.0 - 10.0;
   
-  // Scale noise down near the islands so the transitions are clean
   const noiseScale = (1.0 - wStart) * (1.0 - wLight) * (1.0 - wVolc);
   height += floorNoise * noiseScale;
   
@@ -3042,8 +3035,7 @@ export function getSeabedHeight(x, z) {
   const reefDist = Math.sqrt(reefDx*reefDx + reefDz*reefDz);
   if (reefDist < 30.0) {
     const t = 1.0 - reefDist / 30.0;
-    const smoothT = Math.cos(t * Math.PI / 2); // 1 at center, 0 at boundary
-    // Rises to 8.0 meters height (4m above the water Y=4.0)
+    const smoothT = Math.cos(t * Math.PI / 2);
     const reefHeight = 8.0 * smoothT;
     height = Math.max(height, reefHeight);
   }
