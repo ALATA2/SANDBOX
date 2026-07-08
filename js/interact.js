@@ -842,31 +842,9 @@ function performMiningRaycast() {
       const deformDepth = player.energy < 10 ? 0.6 : 1.2;
       deformTerrainLowPoly(hitPoint, deformRadius, deformDepth);
 
-      const comp = getBlockChemicalComposition(hitPoint.x, virtualDepth, hitPoint.z);
-      let spawned = false;
-      const rand = Math.random() * 100;
-      let accum = 0;
-
-      // Priority list: check rare resources first
-      const checkElements = ['Au', 'Ag', 'U', 'Nh', 'Ti', 'Cu', 'Si'];
-      for (const el of checkElements) {
-        const pct = comp[el] || 0;
-        if (pct > 0.5) {
-          accum += pct;
-          if (rand < accum * 1.5) {
-            let dropType = 'stone';
-            if (el === 'Au') dropType = 'ore';
-            else if (el === 'Si') dropType = 'raw_silicon';
-            else if (el === 'Cu') dropType = 'raw_copper';
-            else if (el === 'Ti') dropType = 'raw_titanium';
-            else if (el === 'U') dropType = 'uranium';
-
-            spawnDebris(hitPoint, hitNormal, dropType);
-            spawned = true;
-            break;
-          }
-        }
-      }
+      // Force raw_silicon drop for this seabed island experiment!
+      spawnDebris(hitPoint, hitNormal, 'raw_silicon');
+      let spawned = true;
 
       if (!spawned) {
         if (player.energy >= 10 || Math.random() > 0.5) {
