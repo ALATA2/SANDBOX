@@ -3119,7 +3119,7 @@ export function getSeabedHeight(x, z) {
     height = islandH;
   } else {
     // 2. Outside the starting island grid, slope down smoothly to -70m
-    const dStart = Math.sqrt((x - 96.0) * (x - 96.0) + (z - 96.0) * (z - 96.0));
+    const dStart = Math.sqrt((x - 144.0) * (x - 144.0) + (z - 144.0) * (z - 144.0));
     const islandRadius = 84.48;
     const transitionWidth = 120.0;
     if (dStart < islandRadius + transitionWidth) {
@@ -3146,16 +3146,16 @@ export function getSeabedHeight(x, z) {
   height = THREE.MathUtils.lerp(height, hVolc, wVolc);
   
   // Add procedural ocean floor ridges and valleys outside the starting island area
-  const dStart = Math.sqrt((x - 96.0) * (x - 96.0) + (z - 96.0) * (z - 96.0));
+  const dStart = Math.sqrt((x - 144.0) * (x - 144.0) + (z - 144.0) * (z - 144.0));
   const wStart = Math.max(0, Math.min(1.0, 1.0 - (dStart / 150.0)));
   const floorNoise = fbmNoise2D(x * 0.001, z * 0.001) * 20.0 - 10.0;
   
   const noiseScale = (1.0 - wStart) * (1.0 - wLight) * (1.0 - wVolc);
   height += floorNoise * noiseScale;
   
-  // Add a custom emerging non-diggable seabed reef peak at (140.0, 96.0)
-  const reefDx = x - 140.0;
-  const reefDz = z - 96.0;
+  // Add a custom emerging non-diggable seabed reef peak at (188.0, 144.0)
+  const reefDx = x - 188.0;
+  const reefDz = z - 144.0;
   const reefDist = Math.sqrt(reefDx*reefDx + reefDz*reefDz);
   if (reefDist < 30.0) {
     const t = 1.0 - reefDist / 30.0;
@@ -3179,16 +3179,16 @@ function spawnSeabed() {
     const vx = pos.getX(i);
     const vz = pos.getZ(i);
     
-    // Warp coordinates to cluster vertices near the starting island (centered around 96.0, 96.0)
+    // Warp coordinates to cluster vertices near the starting island (centered around 144.0, 144.0)
     // Maps range [-8000, 8000] relative to the center and compresses it using power-based scaling (1.7)
-    const tx = (vx - 96.0) / 8000.0;
-    const tz = (vz - 96.0) / 8000.0;
+    const tx = (vx - 144.0) / 8000.0;
+    const tz = (vz - 144.0) / 8000.0;
     
     const warpedTx = Math.sign(tx) * Math.pow(Math.abs(tx), 1.7);
     const warpedTz = Math.sign(tz) * Math.pow(Math.abs(tz), 1.7);
     
-    const wx = 96.0 + warpedTx * 8000.0;
-    const wz = 96.0 + warpedTz * 8000.0;
+    const wx = 144.0 + warpedTx * 8000.0;
+    const wz = 144.0 + warpedTz * 8000.0;
     
     pos.setX(i, wx);
     pos.setZ(i, wz);
