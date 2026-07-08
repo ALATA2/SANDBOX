@@ -263,9 +263,6 @@ function calculateIslandHeightVoxel(x, z) {
     }
   }
 
-  // Ensure a minimum seabed floor height so the island is connected to the ground and doesn't float
-  islandHeight = Math.max(1.2, islandHeight);
-
   // Safety ceiling check: prevent terrain from reaching sizeY - 1
   return Math.min(world.sizeY - 2.5, islandHeight);
 }
@@ -1002,11 +999,14 @@ export function buildWaterGeometry() {
 
       let depth = 4.0;
       if (!isOuter) {
-        if (isVertexActive(vgx, vgz)) {
-          const groundY = getSurfaceHeightNear(vx, 5.0, vz);
-          depth = Math.max(0, 4.0 - groundY);
-        } else {
-          depth = 0;
+        const groundY = getSurfaceHeightNear(vx, 5.0, vz);
+        depth = Math.max(0, 4.0 - groundY);
+
+        // Smoothly blend depth to 4.0 (deep ocean) near the boundaries to integrate with the outer ocean
+        const borderDist = Math.min(vgx, Math.min(world.sizeX - vgx, Math.min(vgz, world.sizeZ - vgz)));
+        if (borderDist < 20) {
+          const factor = Math.max(0, Math.min(1.0, borderDist / 20.0)); // 0.0 at border, 1.0 at 20 voxels away
+          depth = depth * factor + 4.0 * (1.0 - factor);
         }
         
         // Inner ocean: smoothly blend from colorShallow (beach teal) near shores to noiseColor in deep water
@@ -2968,7 +2968,7 @@ export function createFlowerMesh() {
 // Calculate the depth/height of the seabed mathematically (deeper far from islands)
 export function getSeabedHeight(x, z) {
   // Distance to Starting Island
-  const dStart = Math.sqrt((x - 32) * (x - 32) + (z - 32) * (z - 32));
+  const dStart = Math.sqrt((x - 96.0) * (x - 96.0) + (z - 96.0) * (z - 96.0));
   
   // Distance to Lighthouse Island
   const dLight = Math.sqrt((x - 1500) * (x - 1500) + (z - (-2000)) * (z - (-2000)));
