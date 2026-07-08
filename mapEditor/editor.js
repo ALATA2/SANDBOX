@@ -4,6 +4,9 @@ import { game } from '../js/game.js';
 import { 
   world, 
   initWorld, 
+  getDensity,
+  setDensity,
+  buildMarchingCubesMesh,
   createPalmTree, 
   createPineTree, 
   createLandRockMesh, 
@@ -95,6 +98,44 @@ function initEditor() {
 
   setupUI();
 
+  // Initialize Global Minimap Teleporter Interaction
+  const minimapArea = document.getElementById('minimap-area');
+  if (minimapArea) {
+    const handleMinimapInteraction = (e) => {
+      const rect = minimapArea.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      
+      const px = Math.max(0, Math.min(196, clickX));
+      const pz = Math.max(0, Math.min(196, clickY));
+      
+      const targetX = -8000 + (px / 196) * 16000;
+      const targetZ = -8000 + (pz / 196) * 16000;
+      
+      camera.position.set(targetX, camera.position.y, targetZ + 120);
+      controls.target.set(targetX, getSurfaceHeightNear(targetX, 40, targetZ), targetZ);
+      controls.update();
+    };
+    
+    let isMouseDownOnMinimap = false;
+    minimapArea.addEventListener('pointerdown', (e) => {
+      isMouseDownOnMinimap = true;
+      handleMinimapInteraction(e);
+      minimapArea.setPointerCapture(e.pointerId);
+    });
+    
+    minimapArea.addEventListener('pointermove', (e) => {
+      if (isMouseDownOnMinimap) {
+        handleMinimapInteraction(e);
+      }
+    });
+    
+    minimapArea.addEventListener('pointerup', (e) => {
+      isMouseDownOnMinimap = false;
+      minimapArea.releasePointerCapture(e.pointerId);
+    });
+  }
+
   // Load existing map from localStorage if there is one
   const existingMap = localStorage.getItem('custom_map_data');
   if (existingMap) {
@@ -143,6 +184,15 @@ function animate() {
   
   // Position the preview mesh on terrain
   updatePreviewPosition();
+
+  // Update Global Minimap Marker
+  const minimapMarker = document.getElementById('minimap-marker');
+  if (minimapMarker) {
+    const px = ((camera.position.x - (-8000)) / 16000) * 196;
+    const pz = ((camera.position.z - (-8000)) / 16000) * 196;
+    minimapMarker.style.left = `${px}px`;
+    minimapMarker.style.top = `${pz}px`;
+  }
 
   renderer.render(scene, camera);
 }
@@ -252,6 +302,12 @@ function updatePreviewMesh() {
     mat = new THREE.MeshBasicMaterial({ color: 0xf8fafc, transparent: true, opacity });
     previewMesh = new THREE.Mesh(geom, mat);
     previewMesh.position.y = 0.3;
+  } else if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area') {
+    const color = currentToolType === 'sculpt_up' ? 0x22c55e : (currentToolType === 'sculpt_down' ? 0xef4444 : 0xe11d48);
+    geom = new THREE.CylinderGeometry(10.0, 10.0, 0.4, 24);
+    mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.35 });
+    previewMesh = new THREE.Mesh(geom, mat);
+    previewMesh.position.y = 0.2;
   }
 
   // Fade out material hierarchy for previews
@@ -286,6 +342,7 @@ function updatePreviewPosition() {
     else if (currentToolType === 'spawn_crab') offset = 0.075;
     else if (currentToolType === 'spawn_fish') offset = 0.1;
     else if (currentToolType === 'spawn_seagull') offset = 0.3;
+    else if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area') offset = 0.2;
 
     previewMesh.position.set(hitPoint.x, hitPoint.y + offset, hitPoint.z);
     previewMesh.rotation.y = rotationY;
@@ -304,6 +361,54 @@ function updateSidebarSelection() {
       item.classList.remove('active');
     }
   });
+}
+
+// Sculpt Voxel Terrain or Erase area
+function sculptTerrain(hitPoint, radius, valueChange, eraseMode = false) {
+  const spacing = world.spacing;
+  const gx = hitPoint.x / spacing;
+  const gy = hitPoint.y / spacing;
+  const gz = hitPoint.z / spacing;
+  const gRadius = radius / spacing;
+
+  const minX = Math.max(0, Math.floor(gx - gRadius));
+  const maxX = Math.min(world.sizeX - 1, Math.ceil(gx + gRadius));
+  const minY = Math.max(0, Math.floor(gy - gRadius));
+  const maxY = Math.min(world.sizeY - 1, Math.ceil(gy + gRadius));
+  const minZ = Math.max(0, Math.floor(gz - gRadius));
+  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gz + gRadius));
+
+  let modified = false;
+
+  for (let x = minX; x <= maxX; x++) {
+    for (let y = minY; y <= maxY; y++) {
+      for (let z = minZ; z <= maxZ; z++) {
+        const dx = x - gx;
+        const dy = y - gy;
+        const dz = z - gz;
+        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+        if (dist < gRadius) {
+          let newDens;
+          if (eraseMode) {
+            newDens = -5.0; // Clear completely to negative/vacuum density
+          } else {
+            const change = valueChange * (1.0 - dist / gRadius);
+            newDens = getDensity(x, y, z) + change;
+          }
+          
+          setDensity(x, y, z, newDens);
+          const key = `${x},${y},${z}`;
+          world.carvedVoxels[key] = newDens;
+          modified = true;
+        }
+      }
+    }
+  }
+
+  if (modified) {
+    buildMarchingCubesMesh();
+  }
 }
 
 // Spawn object in scene
@@ -348,6 +453,35 @@ function placeObject() {
 
   if (intersects.length > 0) {
     const hitPoint = intersects[0].point;
+
+    // Sculpt or Erase Terrain/Scenery Brush
+    if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area') {
+      if (currentToolType === 'sculpt_up') {
+        sculptTerrain(hitPoint, 10.0, 1.8, false);
+      } else if (currentToolType === 'sculpt_down') {
+        sculptTerrain(hitPoint, 10.0, -1.8, false);
+      } else if (currentToolType === 'erase_area') {
+        // Sculpt down/flatten terrain density completely
+        sculptTerrain(hitPoint, 10.0, 0.0, true);
+        
+        // Remove scenery objects within the 10.0m radius
+        const objectsToKeep = [];
+        editorObjects.forEach(obj => {
+          const dx = obj.x - hitPoint.x;
+          const dz = obj.z - hitPoint.z;
+          const dist = Math.sqrt(dx*dx + dz*dz);
+          if (dist < 10.0) {
+            scene.remove(obj.mesh);
+            if (obj.mesh === playerSpawnMarker) playerSpawnMarker = null;
+          } else {
+            objectsToKeep.push(obj);
+          }
+        });
+        editorObjects = objectsToKeep;
+      }
+      return;
+    }
+
     const wx = hitPoint.x;
     const wz = hitPoint.z;
     const wy = hitPoint.y;

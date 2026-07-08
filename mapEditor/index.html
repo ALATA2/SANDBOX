@@ -44,7 +44,23 @@
 
   <!-- Left Sidebar Panel -->
   <div id="sidebar" class="hud-panel">
-    <h3>Design Tools</h3>
+    <h3>Terrain Tools ⛰️</h3>
+    <div class="object-grid" style="margin-bottom: 12px; grid-template-columns: repeat(3, 1fr);">
+      <div class="grid-item" data-type="sculpt_up" title="Alza il terreno (tira in su)">
+        <span class="grid-item-icon">🔺</span>
+        <span class="grid-item-label">Tira Su</span>
+      </div>
+      <div class="grid-item" data-type="sculpt_down" title="Abbassa il terreno (spingi in giù)">
+        <span class="grid-item-icon">🔻</span>
+        <span class="grid-item-label">Spingi Giù</span>
+      </div>
+      <div class="grid-item" data-type="erase_area" title="Cancella oggetti ed appiattisce il terreno">
+        <span class="grid-item-icon">🧹</span>
+        <span class="grid-item-label">Cancella</span>
+      </div>
+    </div>
+
+    <h3>Design Tools 🌴</h3>
     <div class="tab-selector">
       <button class="tab-btn active" id="tab-objects">Objects</button>
     </div>
@@ -118,7 +134,7 @@
     <!-- Quick Instructions -->
     <div class="instructions">
       <strong>Controls:</strong><br>
-      • <strong>Left Click</strong>: Place selected object<br>
+      • <strong>Left Click</strong>: Place/Sculpt Terrain<br>
       • <strong>Right Click</strong>: Delete hovered object<br>
       • <strong>Mouse Drag / Wheel</strong>: Rotate & Orbit camera<br>
       • <strong>R Key</strong>: Rotate object preview
@@ -132,6 +148,22 @@
 
   <!-- Hidden File Input for Importing Map -->
   <input type="file" id="file-input" accept=".json">
+
+  <!-- Global Minimap Teleporter -->
+  <div id="minimap-container">
+    <div id="minimap-title">Mini-Mappa Globale</div>
+    <div id="minimap-area">
+      <!-- Starting Island landmark (center of map) -->
+      <div class="minimap-landmark landmark-start" style="left: 51.4%; top: 51.4%;" title="Isola Principale"></div>
+      <!-- Lighthouse Island landmark at (1500, -2000) -->
+      <div class="minimap-landmark landmark-light" style="left: 59.4%; top: 37.5%;" title="Faro"></div>
+      <!-- Volcanic Island landmark at (-1800, 1500) -->
+      <div class="minimap-landmark landmark-volc" style="left: 38.8%; top: 59.4%;" title="Vulcano Remoto"></div>
+      
+      <!-- Camera indicator -->
+      <div id="minimap-marker"></div>
+    </div>
+  </div>
 
   <!-- Main Editor Script -->
   <script type="module" src="./editor.js?v=0.080"></script>
