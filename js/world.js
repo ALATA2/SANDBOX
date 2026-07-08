@@ -3058,13 +3058,27 @@ function spawnSeabed() {
     const vx = pos.getX(i);
     const vz = pos.getZ(i);
     
-    // Calculate height mathematically
-    const vy = getSeabedHeight(vx, vz);
+    // Warp coordinates to cluster vertices near the starting island (centered around 96.0, 96.0)
+    // Maps range [-4000, 4000] relative to the center and compresses it using power-based scaling (1.7)
+    const tx = (vx - 96.0) / 4000.0;
+    const tz = (vz - 96.0) / 4000.0;
+    
+    const warpedTx = Math.sign(tx) * Math.pow(Math.abs(tx), 1.7);
+    const warpedTz = Math.sign(tz) * Math.pow(Math.abs(tz), 1.7);
+    
+    const wx = 96.0 + warpedTx * 4000.0;
+    const wz = 96.0 + warpedTz * 4000.0;
+    
+    pos.setX(i, wx);
+    pos.setZ(i, wz);
+    
+    // Calculate height at the warped coordinates
+    const vy = getSeabedHeight(wx, wz);
     pos.setY(i, vy);
     
     // Coloring: shallower parts are sandier, deeper parts are darker
-    // vy ranges from -70 (deep floor) to +2 (shoreline)
-    const t = Math.max(0, Math.min(1.0, (vy - (-70.0)) / 72.0));
+    // vy ranges from -70 (deep floor) to +24 (island peak)
+    const t = Math.max(0, Math.min(1.0, (vy - (-70.0)) / 94.0));
     tempColor.copy(colorDeep).lerp(colorShallow, t);
     colors.push(tempColor.r, tempColor.g, tempColor.b);
   }
