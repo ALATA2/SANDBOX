@@ -190,8 +190,8 @@ export function updateControls(delta) {
     const waterSurfaceY = baseWaterHeight + 1.0; // Water level + eye height offset to keep head above water
     const isMovingForward = game.isMobile ? (direction.z > 0.1) : moveForward;
     
-    // Dive can be triggered by C, ControlLeft, or ShiftLeft/Right (sprint key maps to dive in water)
-    const activeDive = moveDown || shiftPressed;
+    // Dive is triggered by C or ControlLeft (Shift is now reserved for sprinting in water!)
+    const activeDive = moveDown;
     
     if (moveUp) {
       velocity.y += 12.0 * delta;
@@ -253,8 +253,11 @@ export function updateControls(delta) {
   const isRunning = (shiftPressed || game.isMobile) && (player.energy > 10);
   const speedScale = isRunning ? 1.0 : 0.4;
 
+  // Boost speed when sprinting in water (Shift)
+  const waterBoost = (inWater && isRunning) ? 2.2 : 1.0;
+
   // Apply acceleration input
-  const moveSpeed = (inWater ? 28.0 : 45.0) * speedMultiplier * speedScale; // Acceleration force
+  const moveSpeed = (inWater ? 28.0 * waterBoost : 45.0) * speedMultiplier * speedScale; // Acceleration force
   if (game.isMobile) {
     velocity.addScaledVector(forward, direction.z * moveSpeed * delta);
     velocity.addScaledVector(right, direction.x * moveSpeed * delta);
@@ -269,7 +272,7 @@ export function updateControls(delta) {
 
   // Cap horizontal speed to keep movement smooth
   const horizontalVelocity = new THREE.Vector2(velocity.x, velocity.z);
-  const maxSpeed = (inWater ? 2.5 : 5.0) * speedMultiplier * speedScale;
+  const maxSpeed = (inWater ? 2.5 * waterBoost : 5.0) * speedMultiplier * speedScale;
   if (horizontalVelocity.length() > maxSpeed) {
     horizontalVelocity.setLength(maxSpeed);
     velocity.x = horizontalVelocity.x;
