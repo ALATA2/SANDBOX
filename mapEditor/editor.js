@@ -519,15 +519,48 @@ function onWindowResize() {
 }
 
 // Export Map to JSON file
-function exportMapJSON() {
+async function exportMapJSON() {
   const mapData = serializeMapData();
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(mapData, null, 2));
+  const dataStr = JSON.stringify(mapData, null, 2);
+
+  // Check if FileSystem Access API is supported
+  if (window.showSaveFilePicker) {
+    try {
+      const options = {
+        suggestedName: 'custom_map.json',
+        types: [{
+          description: 'JSON Map File',
+          accept: {
+            'application/json': ['.json']
+          }
+        }]
+      };
+      const handle = await window.showSaveFilePicker(options);
+      const writable = await handle.createWritable();
+      await writable.write(dataStr);
+      await writable.close();
+    } catch (err) {
+      // Ignore AbortError if user cancels the save dialog
+      if (err.name !== 'AbortError') {
+        console.error("Save picker failed, falling back to download:", err);
+        fallbackDownload(dataStr);
+      }
+    }
+  } else {
+    fallbackDownload(dataStr);
+  }
+}
+
+function fallbackDownload(dataStr) {
+  const blob = new Blob([dataStr], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
   const downloadAnchor = document.createElement('a');
-  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("href", url);
   downloadAnchor.setAttribute("download", "custom_map.json");
   document.body.appendChild(downloadAnchor);
   downloadAnchor.click();
   downloadAnchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 // Compile Map Data into JSON Structure
