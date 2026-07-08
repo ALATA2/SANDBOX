@@ -2979,10 +2979,21 @@ export function getSeabedHeight(x, z) {
   // Base deep ocean floor Y height (deeper far from islands, e.g. -70m)
   const baseFloor = -70.0;
   
-  // Influence factors (smoothly interpolation from 1 near center to 0 far away)
-  // Starting island: slopes down to -70m over ~170 meters distance
-  const wStart = Math.exp(-Math.pow(dStart / 170.0, 2));
-  const hStart = 2.0; // Starting island base height (just below water surface Y=4.0)
+  // Starting island: shelf at 2.0m under the island, then slopes down smoothly to -70m outside
+  const islandRadius = 84.48; // Max radius of the starting island in meters
+  const transitionWidth = 120.0; // Distance over which it slopes down to -70m
+  let hStart = -70.0;
+  let wStart = 0.0;
+
+  if (dStart < islandRadius) {
+    hStart = 2.0;
+    wStart = 1.0;
+  } else if (dStart < islandRadius + transitionWidth) {
+    const t = (dStart - islandRadius) / transitionWidth;
+    const smoothT = Math.cos(t * Math.PI) * 0.5 + 0.5; // Smooth step cosine blend (1 to 0)
+    hStart = -70.0 + (2.0 - (-70.0)) * smoothT;
+    wStart = smoothT;
+  }
   
   // Lighthouse Island: slopes down to -70m over ~400 meters
   const wLight = Math.exp(-Math.pow(dLight / 400.0, 2));
