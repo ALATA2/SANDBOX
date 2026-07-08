@@ -3036,6 +3036,18 @@ export function getSeabedHeight(x, z) {
   const noiseScale = (1.0 - wStart) * (1.0 - wLight) * (1.0 - wVolc);
   height += floorNoise * noiseScale;
   
+  // Add a custom emerging non-diggable seabed reef peak at (140.0, 96.0)
+  const reefDx = x - 140.0;
+  const reefDz = z - 96.0;
+  const reefDist = Math.sqrt(reefDx*reefDx + reefDz*reefDz);
+  if (reefDist < 30.0) {
+    const t = 1.0 - reefDist / 30.0;
+    const smoothT = Math.cos(t * Math.PI / 2); // 1 at center, 0 at boundary
+    // Rises to 8.0 meters height (4m above the water Y=4.0)
+    const reefHeight = 8.0 * smoothT;
+    height = Math.max(height, reefHeight);
+  }
+  
   return height;
 }
 
