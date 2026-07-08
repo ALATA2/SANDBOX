@@ -88,12 +88,13 @@ export function checkCollision(px, py, pz) {
     return true;
   }
   
-  // If mountain lake is frozen, make the ice plane Y=17.6 solid!
+  // If mountain lake is frozen, make the ice plane Y=world.lakeLevel solid!
   if (world.lakeFrozen) {
     const dx = px - LAKE_CENTER_X;
     const dz = pz - LAKE_CENTER_Z;
     if (dx*dx + dz*dz < 24.0 * 24.0) {
-      if (py <= 17.65 && py >= 17.5) {
+      const level = world.lakeLevel !== undefined ? world.lakeLevel : 32.0;
+      if (py <= level + 0.05 && py >= level - 0.1) {
         return true;
       }
     }
@@ -142,13 +143,14 @@ export function getSurfaceHeightNear(px, py, pz) {
     }
   }
 
-  // If mountain lake is frozen, return Y=17.6 height when above/near it
+  // If mountain lake is frozen, return Y=world.lakeLevel height when above/near it
   if (world.lakeFrozen) {
     const dx = px - LAKE_CENTER_X;
     const dz = pz - LAKE_CENTER_Z;
     if (dx*dx + dz*dz < 24.0 * 24.0) {
-      if (py >= 17.4) {
-        return 17.6;
+      const level = world.lakeLevel !== undefined ? world.lakeLevel : 32.0;
+      if (py >= level - 0.2) {
+        return level;
       }
     }
   }

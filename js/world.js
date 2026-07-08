@@ -14,7 +14,7 @@ export const LAKE_CENTER_Z = 41.6;
 // World Configuration
 export const world = {
   sizeX: 170,
-  sizeY: 24,
+  sizeY: 48, // Increased vertical size to 48 (76.8m) to support doubled volcano height
   sizeZ: 170,
   spacing: 1.6,
   currentVirtualDepth: 0,
@@ -23,6 +23,7 @@ export const world = {
   terrainMesh: null,
   waterMesh: null,
   lakeMesh: null, // 3D Mountain Lake Mesh
+  lakeLevel: 32.0, // Dynamic lake water level
   waterActive: null, // 3D Uint8Array for connected water cells
   waterHeights: null, // 2D Float32Array for dynamic height filling
   waterGroundHeights: null, // Precomputed 2D Float32Array for static height lookup
@@ -90,7 +91,7 @@ export function getWaterHeightAt(vx, vz) {
   const dx = vx - lakeCenterX;
   const dz = vz - lakeCenterZ;
   if (dx*dx + dz*dz < lakeRadius * lakeRadius) {
-    return 17.6;
+    return world.lakeLevel !== undefined ? world.lakeLevel : 32.0;
   }
 
   if (!world.waterHeights) return 4.0;
@@ -212,14 +213,14 @@ function calculateIslandHeightVoxel(x, z) {
     const lakeRadius = 15;
     const t = hillDist / hillRadius;
     
-    // Increased summit elevation: +18.0 voxels (rises higher)
-    const hillElevation = 18.0 * Math.cos(t * Math.PI / 2);
+    // Doubled summit elevation: +36.0 voxels (rises higher, up to 57.6m)
+    const hillElevation = 36.0 * Math.cos(t * Math.PI / 2);
 
     if (hillDist < lakeRadius) {
-      // Elevated lake basin: crater down to 9.0 voxel height (14.4m)
+      // Elevated lake basin: crater down to 18.0 voxel height (28.8m)
       const lakeT = hillDist / lakeRadius;
-      const rimHeight = islandHeight + 18.0 * Math.cos((lakeRadius / hillRadius) * Math.PI / 2);
-      const lakeBottomHeight = 9.0; // Restored to 9.0 so it is below water level (11.0 voxels = 17.6m)
+      const rimHeight = islandHeight + 36.0 * Math.cos((lakeRadius / hillRadius) * Math.PI / 2);
+      const lakeBottomHeight = 18.0; 
       
       const lakeProfile = lakeBottomHeight + (rimHeight - lakeBottomHeight) * lakeT * lakeT;
       islandHeight = lakeProfile;
@@ -1659,7 +1660,7 @@ function spawnScenery() {
     emissive: new THREE.Color(0x041a24)
   });
   world.lakeMesh = new THREE.Mesh(lakeGeometry, lakeMaterial);
-  world.lakeMesh.position.set(LAKE_CENTER_X, 17.6, LAKE_CENTER_Z);
+  world.lakeMesh.position.set(LAKE_CENTER_X, 32.0, LAKE_CENTER_Z);
   game.scene.add(world.lakeMesh);
 
   // 2. Low-Poly Trees and Rocks
@@ -2597,8 +2598,103 @@ export function snapSceneryNear(hitPoint, radius) {
   }
 }
 
+// Spawn flowing water visual particles
+function spawnWaterParticle(x, y, z) {
+  const particleGeom = new THREE.DodecahedronGeometry(0.15 + Math.random() * 0.2, 0);
+  const particleMat = new THREE.MeshBasicMaterial({
+    color: 0x00c3df,
+    transparent: true,
+    opacity: 0.8
+  });
+  const mesh = new THREE.Mesh(particleGeom, particleMat);
+  mesh.position.set(x, y, z);
+  game.scene.add(mesh);
+  
+  // Gravitational trajectory
+  const velocity = new THREE.Vector3(
+    (Math.random() - 0.5) * 0.5,
+    -0.5 - Math.random() * 1.0,
+    (Math.random() - 0.5) * 0.5
+  );
+  
+  const startTime = performance.now();
+  function animate() {
+    const elapsed = (performance.now() - startTime) / 1000.0;
+    if (elapsed > 1.5 || !game.scene) {
+      if (game.scene) game.scene.remove(mesh);
+      particleGeom.dispose();
+      particleMat.dispose();
+      return;
+    }
+    mesh.position.addScaledVector(velocity, 0.05);
+    velocity.y -= 0.05; // Gravity
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
+
+// Check volcano rim paths to see if the lake is breached and drain it dynamically
+function updateVolcanoDrainage(delta) {
+  if (!world.lakeMesh) return;
+
+  const lakeX = LAKE_CENTER_X;
+  const lakeZ = LAKE_CENTER_Z;
+  const lakeRad = 24.0; // meters
+
+  let lowestBreachPeak = 32.0;
+  let breachPathPoints = null;
+
+  // Scan 16 radial directions
+  for (let a = 0; a < 16; a++) {
+    const angle = (a / 16) * Math.PI * 2;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    
+    let pathPeak = 0.0;
+    const points = [];
+    
+    // Step along the path from lake edge to the outer slope
+    for (let d = lakeRad; d < 65.0; d += 3.0) {
+      const px = lakeX + cos * d;
+      const pz = lakeZ + sin * d;
+      const h = getSurfaceHeightNear(px, 32.0, pz);
+      if (h > pathPeak) {
+        pathPeak = h;
+      }
+      points.push({ x: px, y: h, z: pz });
+    }
+
+    // If this path has a peak lower than current lake level, it's a breach candidate
+    if (pathPeak < lowestBreachPeak) {
+      lowestBreachPeak = pathPeak;
+      breachPathPoints = points;
+    }
+  }
+  
+  // Set target level to the lowest breach peak (clamped to ocean water level Y=4.0)
+  const targetLevel = Math.max(4.0, lowestBreachPeak);
+  
+  if (world.lakeLevel > targetLevel + 0.1) {
+    // Slowly drain!
+    world.lakeLevel -= 0.15 * delta;
+    if (world.lakeLevel < targetLevel) world.lakeLevel = targetLevel;
+    
+    // Lower lake mesh
+    world.lakeMesh.position.y = world.lakeLevel;
+    
+    // Spawn water particles along the breach path
+    if (breachPathPoints && Math.random() < 0.45) {
+      const pt = breachPathPoints[Math.floor(Math.random() * breachPathPoints.length)];
+      spawnWaterParticle(pt.x, pt.y + 0.2, pt.z);
+    }
+  }
+}
+
 // Update World Animation (e.g. lighthouse rotation, cloud drift)
 export function updateWorld(delta) {
+  // Update Volcano Lake Drainage
+  updateVolcanoDrainage(delta);
+
   // Rotate the lighthouse beam around Y axis
   if (world.lighthouseBeam) {
     world.lighthouseBeam.rotation.y += 0.8 * delta;
