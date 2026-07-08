@@ -303,6 +303,42 @@ export function getVertexVirtualDepth(vx, vy, vz) {
 function getVertexColorForDepth(vx, vy, vz) {
   const depth = getVertexVirtualDepth(vx, vy, vz);
 
+  // 1. Calculate surface biome color based on absolute altitude (vy)
+  let surfaceColor = [0.34, 0.62, 0.28]; // Default grass
+  
+  if (vy <= 4.8) {
+    // Sand beach
+    surfaceColor = [0.87, 0.81, 0.64];
+  } else if (vy <= 6.2) {
+    // Transition from Sand to Grass
+    const t = (vy - 4.8) / (6.2 - 4.8);
+    surfaceColor = [
+      0.87 + t * (0.34 - 0.87),
+      0.81 + t * (0.62 - 0.81),
+      0.64 + t * (0.28 - 0.64)
+    ];
+  } else if (vy <= 18.0) {
+    // Grass/Meadow
+    surfaceColor = [0.34, 0.62, 0.28];
+  } else if (vy <= 24.0) {
+    // Transition from Grass to Rock
+    const t = (vy - 18.0) / (24.0 - 18.0);
+    surfaceColor = [
+      0.34 + t * (0.55 - 0.34),
+      0.62 + t * (0.58 - 0.62),
+      0.28 + t * (0.60 - 0.28)
+    ];
+  } else {
+    // Transition to Snow Peak (above Y=24.0, like the volcanic rim)
+    const t = Math.min(1.0, (vy - 24.0) / 3.0);
+    surfaceColor = [
+      0.55 + t * (0.98 - 0.55),
+      0.58 + t * (0.98 - 0.58),
+      0.60 + t * (1.0 - 0.60)
+    ];
+  }
+
+  // 2. Calculate mining depth color (underground layers)
   let color = [0.54, 0.38, 0.25]; // Layer 1 default
 
   if (depth < 7.0) {
@@ -390,7 +426,14 @@ function getVertexColorForDepth(vx, vy, vz) {
     color = [0.3, 0.33, 0.35];
   }
 
-  return color;
+  // 3. Blend between surface biome color and mining depth color based on depth
+  // At depth = 0, it's 100% surface color. At depth >= 2.5, it's 100% underground color.
+  const blendT = Math.max(0, Math.min(1.0, depth / 2.5));
+  return [
+    surfaceColor[0] + blendT * (color[0] - surfaceColor[0]),
+    surfaceColor[1] + blendT * (color[1] - surfaceColor[1]),
+    surfaceColor[2] + blendT * (color[2] - surfaceColor[2])
+  ];
 }
 
 // 3D Noise for subterranean caves
@@ -742,7 +785,6 @@ export function buildMarchingCubesMesh() {
     const oldGeometry = world.terrainMesh.geometry;
     world.terrainMesh.geometry = geometry;
     oldGeometry.dispose();
-    world.terrainMesh.visible = false; // Temporarily invisible
   } else {
     // Material details: stylized peach-sandy-gold rock
     // Set color to white to multiply with vertex colors, using FrontSide to prevent self-intersection and visual overlapping.
@@ -758,7 +800,6 @@ export function buildMarchingCubesMesh() {
     world.terrainMesh = new THREE.Mesh(geometry, world.material);
     world.terrainMesh.receiveShadow = true;
     world.terrainMesh.castShadow = true;
-    world.terrainMesh.visible = false; // Temporarily invisible
     game.scene.add(world.terrainMesh);
   }
 }
@@ -1060,18 +1101,18 @@ export function buildWaterGeometry() {
 
   // 1. Outer Ocean (Segmented Sectors to match waves)
   // Left and Right sectors
-  addSegmentedSector(-11000, startZ, startX, endZ, true);
-  addSegmentedSector(endX, startZ, 11000, endZ, true);
+  addSegmentedSector(-22000, startZ, startX, endZ, true);
+  addSegmentedSector(endX, startZ, 22000, endZ, true);
 
   // Top sectors (split into Left, Middle, Right to align boundary vertices)
-  addSegmentedSector(-11000, endZ, startX, 11000, true);
-  addSegmentedSector(startX, endZ, endX, 11000, true);
-  addSegmentedSector(endX, endZ, 11000, 11000, true);
+  addSegmentedSector(-22000, endZ, startX, 22000, true);
+  addSegmentedSector(startX, endZ, endX, 22000, true);
+  addSegmentedSector(endX, endZ, 22000, 22000, true);
 
   // Bottom sectors (split into Left, Middle, Right to align boundary vertices)
-  addSegmentedSector(-11000, -11000, startX, startZ, true);
-  addSegmentedSector(startX, -11000, endX, startZ, true);
-  addSegmentedSector(endX, -11000, 11000, startZ, true);
+  addSegmentedSector(-22000, -22000, startX, startZ, true);
+  addSegmentedSector(startX, -22000, endX, startZ, true);
+  addSegmentedSector(endX, -22000, 22000, startZ, true);
 
   // 2. Inner Ocean cells
   for (let ix = 0; ix < cellCountX; ix++) {
@@ -1621,8 +1662,7 @@ function spawnScenery() {
   world.lakeMesh.position.set(LAKE_CENTER_X, 17.6, LAKE_CENTER_Z);
   game.scene.add(world.lakeMesh);
 
-  // 2. Low-Poly Trees and Rocks (Temporarily disabled)
-  return;
+  // 2. Low-Poly Trees and Rocks
   // Materials
   const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9, flatShading: true });
   const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x2e8b57, roughness: 0.8, flatShading: true });
@@ -3045,29 +3085,26 @@ export function getSeabedHeight(x, z) {
 
 // Spawn the large-scale low-poly seabed mesh that covers the active world
 function spawnSeabed() {
-  const geom = new THREE.PlaneGeometry(8000, 8000, 160, 160);
+  const geom = new THREE.PlaneGeometry(16000, 16000, 160, 160);
   geom.rotateX(-Math.PI / 2); // Rotate to face upwards (horizontal plane)
   
   const pos = geom.attributes.position;
   const colors = [];
-  const colorShallow = new THREE.Color(0xbfa38a); // Sandy beach color
-  const colorDeep = new THREE.Color(0x1a2e35);    // Dark grey-blue ocean floor
-  const tempColor = new THREE.Color();
   
   for (let i = 0; i < pos.count; i++) {
     const vx = pos.getX(i);
     const vz = pos.getZ(i);
     
     // Warp coordinates to cluster vertices near the starting island (centered around 96.0, 96.0)
-    // Maps range [-4000, 4000] relative to the center and compresses it using power-based scaling (1.7)
-    const tx = (vx - 96.0) / 4000.0;
-    const tz = (vz - 96.0) / 4000.0;
+    // Maps range [-8000, 8000] relative to the center and compresses it using power-based scaling (1.7)
+    const tx = (vx - 96.0) / 8000.0;
+    const tz = (vz - 96.0) / 8000.0;
     
     const warpedTx = Math.sign(tx) * Math.pow(Math.abs(tx), 1.7);
     const warpedTz = Math.sign(tz) * Math.pow(Math.abs(tz), 1.7);
     
-    const wx = 96.0 + warpedTx * 4000.0;
-    const wz = 96.0 + warpedTz * 4000.0;
+    const wx = 96.0 + warpedTx * 8000.0;
+    const wz = 96.0 + warpedTz * 8000.0;
     
     pos.setX(i, wx);
     pos.setZ(i, wz);
@@ -3076,11 +3113,9 @@ function spawnSeabed() {
     const vy = getSeabedHeight(wx, wz);
     pos.setY(i, vy);
     
-    // Coloring: shallower parts are sandier, deeper parts are darker
-    // vy ranges from -70 (deep floor) to +24 (island peak)
-    const t = Math.max(0, Math.min(1.0, (vy - (-70.0)) / 94.0));
-    tempColor.copy(colorDeep).lerp(colorShallow, t);
-    colors.push(tempColor.r, tempColor.g, tempColor.b);
+    // Coloring: use getVertexColorForDepth for matching biomes (depth=0 since it's surface)
+    const c = getVertexColorForDepth(wx, vy, wz);
+    colors.push(c[0], c[1], c[2]);
   }
   
   geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
