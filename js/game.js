@@ -62,8 +62,82 @@ const sunDir = new THREE.Vector3();
 const moonDir = new THREE.Vector3();
 const cameraPosFallback = new THREE.Vector3();
 
+function spawnFaunaFromMap(mapData) {
+  if (mapData.objects) {
+    mapData.objects.forEach(obj => {
+      if (obj.type === 'spawn_rooster') {
+        game.roosterMesh = createRooster();
+        game.roosterMesh.position.set(obj.x, obj.y, obj.z);
+        game.scene.add(game.roosterMesh);
+      } else if (obj.type === 'spawn_hen') {
+        game.henMesh = createHen();
+        game.henMesh.position.set(obj.x, obj.y, obj.z);
+        game.scene.add(game.henMesh);
+      } else if (obj.type === 'spawn_crab') {
+        const crab = createCrab();
+        crab.position.set(obj.x, obj.y, obj.z);
+        crab.state = 'idle';
+        crab.timer = 1.0 + Math.random() * 2.0;
+        crab.target = new THREE.Vector3(obj.x, obj.y, obj.z);
+        game.scene.add(crab);
+        game.crabs.push(crab);
+      } else if (obj.type === 'spawn_fish') {
+        const fish = createFish();
+        fish.position.set(obj.x, obj.y, obj.z);
+        fish.velocity = new THREE.Vector3((Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 1.2);
+        fish.swimTimer = 2.0 + Math.random() * 3.0;
+        fish.targetY = obj.y;
+        game.scene.add(fish);
+        game.fishes.push(fish);
+      } else if (obj.type === 'spawn_seagull') {
+        const seagull = createSeagull();
+        seagull.position.set(obj.x, obj.y, obj.z);
+        seagull.state = 'soar';
+        seagull.timer = 2.0 + Math.random() * 3.0;
+        seagull.target = new THREE.Vector3(obj.x, obj.y, obj.z);
+        game.scene.add(seagull);
+        game.seagulls.push(seagull);
+      }
+    });
+  }
+
+  // Position the player camera at the spawn point if defined
+  if (world.playerSpawnPoint && game.controls) {
+    game.controls.getObject().position.copy(world.playerSpawnPoint);
+  }
+
+  addBackToEditorButton();
+}
+
+function addBackToEditorButton() {
+  if (document.getElementById('back-to-editor-btn')) return;
+  const backBtn = document.createElement('button');
+  backBtn.id = 'back-to-editor-btn';
+  backBtn.innerText = '⬅ Back to Editor';
+  backBtn.style.position = 'fixed';
+  backBtn.style.top = '20px';
+  backBtn.style.right = '20px';
+  backBtn.style.zIndex = '9999';
+  backBtn.style.padding = '12px 20px';
+  backBtn.style.background = 'rgba(15, 23, 42, 0.85)';
+  backBtn.style.color = '#38bdf8';
+  backBtn.style.border = '1px solid #38bdf8';
+  backBtn.style.borderRadius = '8px';
+  backBtn.style.fontFamily = 'Outfit, sans-serif';
+  backBtn.style.fontSize = '14px';
+  backBtn.style.fontWeight = '600';
+  backBtn.style.cursor = 'pointer';
+  backBtn.style.backdropFilter = 'blur(4px)';
+  backBtn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
+  backBtn.style.transition = 'all 0.2s';
+  backBtn.onmouseover = () => { backBtn.style.background = '#38bdf8'; backBtn.style.color = '#0f172a'; };
+  backBtn.onmouseout = () => { backBtn.style.background = 'rgba(15, 23, 42, 0.85)'; backBtn.style.color = '#38bdf8'; };
+  backBtn.onclick = () => { window.location.href = './mapEditor/index.html'; };
+  document.body.appendChild(backBtn);
+}
+
 // Initialize the 3D Game Engine
-function init() {
+async function init() {
   // Detect mobile device touch support
   game.isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
   if (game.isMobile) {
@@ -224,79 +298,26 @@ function init() {
       const mapData = JSON.parse(customMapStr);
       loadCustomMap(mapData);
       loadedCustom = true;
-
-      // Spawn saved fauna objects
-      if (mapData.objects) {
-        mapData.objects.forEach(obj => {
-          if (obj.type === 'spawn_rooster') {
-            game.roosterMesh = createRooster();
-            game.roosterMesh.position.set(obj.x, obj.y, obj.z);
-            game.scene.add(game.roosterMesh);
-          } else if (obj.type === 'spawn_hen') {
-            game.henMesh = createHen();
-            game.henMesh.position.set(obj.x, obj.y, obj.z);
-            game.scene.add(game.henMesh);
-          } else if (obj.type === 'spawn_crab') {
-            const crab = createCrab();
-            crab.position.set(obj.x, obj.y, obj.z);
-            crab.state = 'idle';
-            crab.timer = 1.0 + Math.random() * 2.0;
-            crab.target = new THREE.Vector3(obj.x, obj.y, obj.z);
-            game.scene.add(crab);
-            game.crabs.push(crab);
-          } else if (obj.type === 'spawn_fish') {
-            const fish = createFish();
-            fish.position.set(obj.x, obj.y, obj.z);
-            fish.velocity = new THREE.Vector3((Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 1.2);
-            fish.swimTimer = 2.0 + Math.random() * 3.0;
-            fish.targetY = obj.y;
-            game.scene.add(fish);
-            game.fishes.push(fish);
-          } else if (obj.type === 'spawn_seagull') {
-            const seagull = createSeagull();
-            seagull.position.set(obj.x, obj.y, obj.z);
-            seagull.state = 'soar';
-            seagull.timer = 2.0 + Math.random() * 3.0;
-            seagull.target = new THREE.Vector3(obj.x, obj.y, obj.z);
-            game.scene.add(seagull);
-            game.seagulls.push(seagull);
-          }
-        });
-      }
-
-      // Position the player camera at the spawn point if defined
-      if (world.playerSpawnPoint && game.controls) {
-        game.controls.getObject().position.copy(world.playerSpawnPoint);
-      }
-
-      // Add a back-to-editor UI button to return easily
-      const backBtn = document.createElement('button');
-      backBtn.id = 'back-to-editor-btn';
-      backBtn.innerText = '⬅ Back to Editor';
-      backBtn.style.position = 'fixed';
-      backBtn.style.top = '20px';
-      backBtn.style.right = '20px';
-      backBtn.style.zIndex = '9999';
-      backBtn.style.padding = '12px 20px';
-      backBtn.style.background = 'rgba(15, 23, 42, 0.85)';
-      backBtn.style.color = '#38bdf8';
-      backBtn.style.border = '1px solid #38bdf8';
-      backBtn.style.borderRadius = '8px';
-      backBtn.style.fontFamily = 'Outfit, sans-serif';
-      backBtn.style.fontSize = '14px';
-      backBtn.style.fontWeight = '600';
-      backBtn.style.cursor = 'pointer';
-      backBtn.style.backdropFilter = 'blur(4px)';
-      backBtn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
-      backBtn.style.transition = 'all 0.2s';
-      backBtn.onmouseover = () => { backBtn.style.background = '#38bdf8'; backBtn.style.color = '#0f172a'; };
-      backBtn.onmouseout = () => { backBtn.style.background = 'rgba(15, 23, 42, 0.85)'; backBtn.style.color = '#38bdf8'; };
-      backBtn.onclick = () => { window.location.href = './mapEditor/index.html'; };
-      document.body.appendChild(backBtn);
-
+      spawnFaunaFromMap(mapData);
     } catch (e) {
-      console.error("Failed to parse custom map:", e);
+      console.error("Failed to parse custom map from localStorage:", e);
       loadedCustom = false;
+    }
+  }
+
+  // If no localStorage override, try to fetch static map_data.json from root
+  if (!loadedCustom) {
+    try {
+      const response = await fetch('./map_data.json');
+      if (response.ok) {
+        const mapData = await response.json();
+        loadCustomMap(mapData);
+        loadedCustom = true;
+        spawnFaunaFromMap(mapData);
+        console.log("Static map_data.json loaded successfully!");
+      }
+    } catch (e) {
+      console.log("No static map_data.json found. Running procedural generator.");
     }
   }
 
