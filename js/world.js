@@ -263,6 +263,9 @@ function calculateIslandHeightVoxel(x, z) {
     }
   }
 
+  // Ensure a minimum seabed floor height so the island is connected to the ground and doesn't float
+  islandHeight = Math.max(1.2, islandHeight);
+
   // Safety ceiling check: prevent terrain from reaching sizeY - 1
   return Math.min(world.sizeY - 2.5, islandHeight);
 }
