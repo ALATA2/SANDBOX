@@ -33,7 +33,7 @@ const mouse = new THREE.Vector2();
 const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); // Horizontal intersection backup
 
 // Keyboard movement state
-const activeKeys = { w: false, a: false, s: false, d: false };
+const activeKeys = { w: false, a: false, s: false, d: false, shift: false };
 const moveDirection = new THREE.Vector3();
 const moveSide = new THREE.Vector3();
 const moveVector = new THREE.Vector3();
@@ -173,7 +173,7 @@ function animate() {
     if (activeKeys.a) moveVector.sub(moveSide);
 
     if (moveVector.lengthSq() > 0) {
-      const currentSpeed = 2.5; // Fast speed to cross the map quickly
+      const currentSpeed = activeKeys.shift ? 7.5 : 2.5; // Shift speed multiplier (3x faster!)
       moveVector.normalize().multiplyScalar(currentSpeed);
       camera.position.add(moveVector);
       controls.target.add(moveVector);
@@ -633,6 +633,10 @@ function onKeyDown(event) {
     updatePreviewPosition();
   }
 
+  if (event.key === 'Shift') {
+    activeKeys.shift = true;
+  }
+
   const key = event.key.toLowerCase();
   if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
     activeKeys[key] = true;
@@ -640,6 +644,10 @@ function onKeyDown(event) {
 }
 
 function onKeyUp(event) {
+  if (event.key === 'Shift') {
+    activeKeys.shift = false;
+  }
+
   const key = event.key.toLowerCase();
   if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
     activeKeys[key] = false;
