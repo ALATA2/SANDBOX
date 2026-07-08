@@ -158,9 +158,9 @@ export function getSurfaceHeightNear(px, py, pz) {
   const spacing = world.spacing;
   const gx = px / spacing;
   let gy = py / spacing;
-  // If py is 15.0 or higher (which was the old sky level query), treat it as scanning from the sky (25.0)
-  if (py >= 15.0) {
-    gy = 25.0 / spacing;
+  // If py is a sky-level query or higher than the world height, treat it as scanning from the top of the grid
+  if (py >= 38.0) {
+    gy = (world.sizeY - 1.5);
   }
   const gz = pz / spacing;
 
