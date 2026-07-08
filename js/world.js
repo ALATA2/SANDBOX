@@ -187,18 +187,17 @@ function calculateIslandHeightVoxel(x, z) {
   let islandHeight = (noiseVal * 8.0 + 2.0) * Math.pow(radialFactor, 1.2);
 
   // 2. CARVE THE BAY (opens to the east)
-  const bayX = cx + 54;
-  const bayZ = cz;
-  const bayRadius = 48;
-  const bayDx = x - bayX;
-  const bayDz = z - bayZ;
-  const bayDist = Math.sqrt(bayDx*bayDx + bayDz*bayDz);
-
-  if (bayDist < bayRadius) {
-    const t = bayDist / bayRadius;
-    const smoothT = Math.sin(t * Math.PI / 2);
-    const targetBayHeight = 1.2;
-    islandHeight = lerp(targetBayHeight, islandHeight, smoothT);
+  // Smoothly taper the land height towards the east to create a natural, open sandy bay without sharp leftover horns
+  if (dx > 0) {
+    const angleLimit = Math.PI / 2.8; // Approx 64 degrees
+    const absAngle = Math.abs(angle);
+    if (absAngle < angleLimit) {
+      const t = absAngle / angleLimit;
+      const smoothT = Math.sin(t * Math.PI / 2); // 0 at center (due east), 1 at borders
+      
+      // Interpolate the island height towards a shallow bay floor height (1.2 voxels)
+      islandHeight = lerp(1.2, islandHeight, smoothT);
+    }
   }
 
   // 3. VOLCANIC CONE (Extinct Volcano - taller, with a elevated lake)
