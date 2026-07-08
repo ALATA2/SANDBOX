@@ -81,8 +81,10 @@ export function checkCollision(px, py, pz) {
   const gx = px / spacing;
   const gz = pz / spacing;
   
-  // Under the island grid footprint below bedrock level (Y < 0.2), treat it as solid earth!
-  if (py < 0.2 && gx >= 0 && gx < world.sizeX && gz >= 0 && gz < world.sizeZ) {
+  // Prevent player from falling below the seabed floor (or 0.2m bedrock under the island)
+  const floorY = getSeabedHeight(px, pz);
+  const limitY = (gx >= 0 && gx < world.sizeX && gz >= 0 && gz < world.sizeZ) ? Math.min(0.2, floorY) : floorY;
+  if (py < limitY) {
     return true;
   }
   
