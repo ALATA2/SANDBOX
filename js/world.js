@@ -8,8 +8,8 @@ import { updateFoliageWind } from './wind.js';
 // Lake center coordinates (dynamic based on sizeX/sizeZ, scaled to 170x170 grid center)
 // Volcano is centered at cx - 45, cz - 45 = (85 - 45, 85 - 45) = (40, 40) voxels.
 // 40 * 1.6 = 64.0 meters.
-export const LAKE_CENTER_X = 41.6;
-export const LAKE_CENTER_Z = 41.6;
+export const LAKE_CENTER_X = 89.6;
+export const LAKE_CENTER_Z = 89.6;
 
 // World Configuration
 export const world = {
@@ -167,8 +167,8 @@ const lerp = (a, b, t) => a + t * (b - a);
 
 // Centralized helper to calculate procedural starting island voxel height
 function calculateIslandHeightVoxel(x, z) {
-  const cx = 60; // Centered at the original coordinate (60, 60) for a compact layout
-  const cz = 60;
+  const cx = 90; // Shifted from 60 to 90 to prevent volcano from clipping the (0, 0) grid border
+  const cz = 90;
 
   const dx = x - cx;
   const dz = z - cz;
@@ -231,8 +231,8 @@ function calculateIslandHeightVoxel(x, z) {
   }
 
   // 5. FERTILE PLAIN (to smooth out the straight 90° edge on the south-west/west side)
-  const plainX = 20;
-  const plainZ = 55;
+  const plainX = cx - 40;
+  const plainZ = cz - 5;
   const plainRadius = 25;
   const plainDx = x - plainX;
   const plainDz = z - plainZ;
@@ -1905,12 +1905,12 @@ function spawnScenery() {
   // 5. Wooden Pier / Dock (near player spawn) - Position scaled by 3
   const dockGroup = new THREE.Group();
   const plankMaterial = new THREE.MeshStandardMaterial({ color: 0x6e4e37, roughness: 0.95, flatShading: true });
-  const pierX = 51.0 * spacing; // aligned with beach at 3x scale (originally 17.0)
+  const pierX = (51.0 + 30.0) * spacing; // aligned with beach at 3x scale (originally 17.0)
   
   for (let z = 54.0; z <= 84.0; z += 0.8) { // scaled from 18.0 to 28.0
     const plankGeom = new THREE.BoxGeometry(1.4, 0.06, 0.6);
     const plank = new THREE.Mesh(plankGeom, plankMaterial);
-    plank.position.set(pierX, 4.12, z * spacing);
+    plank.position.set(pierX, 4.12, (z + 30.0) * spacing);
     plank.castShadow = true;
     plank.receiveShadow = true;
     dockGroup.add(plank);
@@ -1918,10 +1918,10 @@ function spawnScenery() {
   
   const postGeom = new THREE.CylinderGeometry(0.08, 0.08, 3.5, 5);
   const postLocations = [
-    { x: pierX - 0.6, z: 18.5 * 3 * spacing },
-    { x: pierX + 0.6, z: 18.5 * 3 * spacing },
-    { x: pierX - 0.6, z: 27.5 * 3 * spacing },
-    { x: pierX + 0.6, z: 27.5 * 3 * spacing }
+    { x: pierX - 0.6, z: (18.5 * 3 + 30.0) * spacing },
+    { x: pierX + 0.6, z: (18.5 * 3 + 30.0) * spacing },
+    { x: pierX - 0.6, z: (27.5 * 3 + 30.0) * spacing },
+    { x: pierX + 0.6, z: (27.5 * 3 + 30.0) * spacing }
   ];
   
   postLocations.forEach(pos => {
@@ -1941,7 +1941,7 @@ function spawnScenery() {
     const logGeom = new THREE.CylinderGeometry(0.12, 0.12, 1.8, 5);
     logGeom.rotateX(Math.PI / 2);
     const log = new THREE.Mesh(logGeom, raftMaterial);
-    log.position.set(pierX - 2.0 + i * 0.28, 4.05, 26.5 * 3 * spacing);
+    log.position.set(pierX - 2.0 + i * 0.28, 4.05, (26.5 * 3 + 30.0) * spacing);
     log.castShadow = true;
     log.receiveShadow = true;
     raftGroup.add(log);
@@ -1962,7 +1962,7 @@ function spawnScenery() {
     const logGeom = new THREE.CylinderGeometry(0.12, 0.12, 1.8, 5);
     logGeom.rotateX(Math.PI / 2);
     const log = new THREE.Mesh(logGeom, blueprintMaterial);
-    log.position.set(pierX - 2.0 + i * 0.28, 4.05, 26.5 * 3 * spacing);
+    log.position.set(pierX - 2.0 + i * 0.28, 4.05, (26.5 * 3 + 30.0) * spacing);
     blueprintGroup.add(log);
   }
   world.raftBlueprint = blueprintGroup;
@@ -1970,10 +1970,10 @@ function spawnScenery() {
 
   // 7. Lit Beach Torches - Position scaled by 3
   const torchPositions = [
-    { x: 22.0 * 3 * spacing, z: 23.0 * 3 * spacing },
-    { x: pierX + 1.2, z: 19.0 * 3 * spacing },
-    { x: pierX + 1.2, z: 27.5 * 3 * spacing },
-    { x: 12.0 * 3 * spacing, z: 21.0 * 3 * spacing }
+    { x: (22.0 * 3 + 30.0) * spacing, z: (23.0 * 3 + 30.0) * spacing },
+    { x: pierX + 1.2, z: (19.0 * 3 + 30.0) * spacing },
+    { x: pierX + 1.2, z: (27.5 * 3 + 30.0) * spacing },
+    { x: (12.0 * 3 + 30.0) * spacing, z: (21.0 * 3 + 30.0) * spacing }
   ];
   
   torchPositions.forEach(pos => {

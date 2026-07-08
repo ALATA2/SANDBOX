@@ -152,7 +152,7 @@ async function init() {
 
   // 2. Create Camera (FPS perspective)
   game.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 24000);
-  game.camera.position.set(75, 8, 75); // Starting position above ground
+  game.camera.position.set(123, 8, 123); // Starting position above ground
 
   // 3. Create WebGL Renderer
   game.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
