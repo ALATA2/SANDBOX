@@ -736,13 +736,18 @@ function animate() {
       updateWorld(delta);
       updateInteraction(delta);
 
-      // Check for vertical world scrolling (sliding window)
+      // Check for vertical world scrolling (sliding window) - only when NOT in water
       if (game.controls && game.controls.getObject) {
         const pObj = game.controls.getObject();
-        if (pObj.position.y < 3.2 && (world.currentVirtualDepth || 0) < 1100) {
-          scrollWorld('down');
-        } else if (pObj.position.y > 15.0 && (world.currentVirtualDepth || 0) > 0) {
-          scrollWorld('up');
+        const waterHeight = getWaterHeightAt(pObj.position.x, pObj.position.z);
+        const inWater = pObj.position.y <= waterHeight + 0.1;
+        
+        if (!inWater) {
+          if (pObj.position.y < 3.2 && (world.currentVirtualDepth || 0) < 1100) {
+            scrollWorld('down');
+          } else if (pObj.position.y > 15.0 && (world.currentVirtualDepth || 0) > 0) {
+            scrollWorld('up');
+          }
         }
       }
       
