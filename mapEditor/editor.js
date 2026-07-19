@@ -42,6 +42,11 @@ const extrudeCenter = new THREE.Vector3();
 let extrudeStartMouseY = 0;
 let extrudeSavedHeights = {};
 
+// Selection Brush State
+let selectedColumns = new Set();
+let selectToolMode = 'add'; // 'add', 'sub', 'extrude'
+let selectionVisualizerGroup = null;
+
 // Raycasting & Mouse
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -103,6 +108,9 @@ function initEditor() {
 
   // 6. Setup Preview Mesh
   updatePreviewMesh();
+
+  selectionVisualizerGroup = new THREE.Group();
+  scene.add(selectionVisualizerGroup);
 
   // 7. Event Listeners
   window.addEventListener('resize', onWindowResize);
@@ -321,10 +329,52 @@ function setupUI() {
       }
     });
   }
+
+  // Selection Tool Sub-Mode buttons
+  const btnSelectAdd = document.getElementById('btn-select-add');
+  const btnSelectSub = document.getElementById('btn-select-sub');
+  const btnSelectDrag = document.getElementById('btn-select-drag');
+  const btnSelectClear = document.getElementById('btn-select-clear');
+
+  if (btnSelectAdd && btnSelectSub && btnSelectDrag) {
+    btnSelectAdd.addEventListener('click', () => {
+      selectToolMode = 'add';
+      btnSelectAdd.classList.add('active');
+      btnSelectSub.classList.remove('active');
+      btnSelectDrag.classList.remove('active');
+      updatePreviewMesh();
+    });
+    btnSelectSub.addEventListener('click', () => {
+      selectToolMode = 'sub';
+      btnSelectSub.classList.add('active');
+      btnSelectAdd.classList.remove('active');
+      btnSelectDrag.classList.remove('active');
+      updatePreviewMesh();
+    });
+    btnSelectDrag.addEventListener('click', () => {
+      selectToolMode = 'extrude';
+      btnSelectDrag.classList.add('active');
+      btnSelectAdd.classList.remove('active');
+      btnSelectSub.classList.remove('active');
+      updatePreviewMesh();
+    });
+  }
+
+  if (btnSelectClear) {
+    btnSelectClear.addEventListener('click', () => {
+      selectedColumns.clear();
+      updateSelectionVisualizer();
+    });
+  }
 }
 
 // Create appropriate 3D mesh for the ghost preview
 function updatePreviewMesh() {
+  const selectPanel = document.getElementById('selection-extrude-panel');
+  if (selectPanel) {
+    selectPanel.style.display = (currentToolType === 'extrude') ? 'flex' : 'none';
+  }
+
   if (previewMesh) {
     scene.remove(previewMesh);
     previewMesh = null;
@@ -560,6 +610,56 @@ function sculptTerrain(hitPoint, valueChange, eraseMode = false) {
   }
 }
 
+// Paints or erases selection columns in a grid under the current brush configuration
+function applySelectionBrush(hitPoint) {
+  const spacing = world.spacing;
+  const gcx = hitPoint.x / spacing;
+  const gcz = hitPoint.z / spacing;
+  
+  const gWidth = brushWidth / spacing;
+  const gLength = brushLength / spacing;
+
+  const minX = Math.max(0, Math.floor(gcx - gWidth));
+  const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gWidth));
+  const minZ = Math.max(0, Math.floor(gcz - gLength));
+  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gLength));
+
+  let changed = false;
+
+  for (let x = minX; x <= maxX; x++) {
+    for (let z = minZ; z <= maxZ; z++) {
+      const dx = x - gcx;
+      const dz = z - gcz;
+      
+      let inside = false;
+      if (brushShape === 'circle') {
+        inside = (dx*dx/(gWidth*gWidth) + dz*dz/(gLength*gLength)) < 1.0;
+      } else {
+        inside = Math.abs(dx) < gWidth && Math.abs(dz) < gLength;
+      }
+
+      if (inside) {
+        const key = `${x},${z}`;
+        if (selectToolMode === 'add') {
+          if (!selectedColumns.has(key)) {
+            selectedColumns.add(key);
+            changed = true;
+          }
+        } else if (selectToolMode === 'sub') {
+          if (selectedColumns.has(key)) {
+            selectedColumns.delete(key);
+            changed = true;
+          }
+        }
+      }
+    }
+  }
+
+  if (changed) {
+    updateSelectionVisualizer();
+  }
+}
+
 // Dynamic terrain sculpting trigger using the current brush configuration
 function applySculpt(hitPoint) {
   if (currentToolType === 'sculpt_up') {
@@ -592,55 +692,78 @@ function applySculpt(hitPoint) {
       }
     });
     editorObjects = objectsToKeep;
+  } else if (currentToolType === 'extrude') {
+    if (selectToolMode === 'add' || selectToolMode === 'sub') {
+      applySelectionBrush(hitPoint);
+    }
   }
 }
 
-// Start the extrusion process (records original surface heights inside shape bounds)
+// Start the extrusion process (records original surface heights inside shape bounds or selection mask)
 function startExtrude(hitPoint) {
   extrudeCenter.copy(hitPoint);
   extrudeSavedHeights = {};
   
   const spacing = world.spacing;
-  const gcx = hitPoint.x / spacing;
-  const gcz = hitPoint.z / spacing;
-  
-  const gWidth = brushWidth / spacing;
-  const gLength = brushLength / spacing;
 
-  const minX = Math.max(0, Math.floor(gcx - gWidth));
-  const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gWidth));
-  const minZ = Math.max(0, Math.floor(gcz - gLength));
-  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gLength));
-
-  for (let x = minX; x <= maxX; x++) {
-    for (let z = minZ; z <= maxZ; z++) {
-      const dx = x - gcx;
-      const dz = z - gcz;
+  if (selectedColumns.size > 0 && selectToolMode === 'extrude') {
+    // Selection mask mode: Record heights of all selected columns
+    selectedColumns.forEach(key => {
+      const parts = key.split(',');
+      const x = parseInt(parts[0]);
+      const z = parseInt(parts[1]);
       
-      let inside = false;
-      if (brushShape === 'circle') {
-        inside = (dx*dx/(gWidth*gWidth) + dz*dz/(gLength*gLength)) < 1.0;
-      } else {
-        inside = Math.abs(dx) < gWidth && Math.abs(dz) < gLength;
+      let surfaceY = 0.0;
+      for (let y = world.sizeY - 1; y >= 0; y--) {
+        if (getDensity(x, y, z) >= -1.5) {
+          surfaceY = y;
+          break;
+        }
       }
+      if (surfaceY === 0.0) {
+        surfaceY = Math.max(-20.0, getDensity(x, 0, z));
+      }
+      extrudeSavedHeights[key] = surfaceY;
+    });
+  } else {
+    // Standard tablecloth mode
+    const gcx = hitPoint.x / spacing;
+    const gcz = hitPoint.z / spacing;
+    
+    const gWidth = brushWidth / spacing;
+    const gLength = brushLength / spacing;
 
-      if (inside) {
-        // Find the original solid height of this column by scanning from top to bottom
-        let surfaceY = 0.0;
-        for (let y = world.sizeY - 1; y >= 0; y--) {
-          if (getDensity(x, y, z) >= -1.5) {
-            surfaceY = y;
-            break;
-          }
-        }
+    const minX = Math.max(0, Math.floor(gcx - gWidth));
+    const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gWidth));
+    const minZ = Math.max(0, Math.floor(gcz - gLength));
+    const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gLength));
+
+    for (let x = minX; x <= maxX; x++) {
+      for (let z = minZ; z <= maxZ; z++) {
+        const dx = x - gcx;
+        const dz = z - gcz;
         
-        // If entirely empty/submerged, estimate starting height from density at Y=0
-        if (surfaceY === 0.0) {
-          surfaceY = Math.max(-20.0, getDensity(x, 0, z));
+        let inside = false;
+        if (brushShape === 'circle') {
+          inside = (dx*dx/(gWidth*gWidth) + dz*dz/(gLength*gLength)) < 1.0;
+        } else {
+          inside = Math.abs(dx) < gWidth && Math.abs(dz) < gLength;
         }
 
-        const key = `${x},${z}`;
-        extrudeSavedHeights[key] = surfaceY;
+        if (inside) {
+          let surfaceY = 0.0;
+          for (let y = world.sizeY - 1; y >= 0; y--) {
+            if (getDensity(x, y, z) >= -1.5) {
+              surfaceY = y;
+              break;
+            }
+          }
+          if (surfaceY === 0.0) {
+            surfaceY = Math.max(-20.0, getDensity(x, 0, z));
+          }
+          const key = `${x},${z}`;
+          extrudeSavedHeights[key] = surfaceY;
+        }
       }
     }
   }
@@ -649,81 +772,116 @@ function startExtrude(hitPoint) {
 // Dynamically updates terrain mesh like pulling up a tablecloth (smooth cosine-squared falloff)
 function updateExtrude(deltaY) {
   const spacing = world.spacing;
-  const gcx = extrudeCenter.x / spacing;
-  const gcz = extrudeCenter.z / spacing;
-  
-  const gWidth = brushWidth / spacing;
-  const gLength = brushLength / spacing;
-
-  const minX = Math.max(0, Math.floor(gcx - gWidth));
-  const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gWidth));
-  const minZ = Math.max(0, Math.floor(gcz - gLength));
-  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gLength));
-
   let modified = false;
 
-  for (let x = minX; x <= maxX; x++) {
-    for (let z = minZ; z <= maxZ; z++) {
-      const key = `${x},${z}`;
+  if (selectedColumns.size > 0 && selectToolMode === 'extrude') {
+    // Selection mask mode: extrude all selected columns uniformly
+    selectedColumns.forEach(key => {
       const origH = extrudeSavedHeights[key];
       if (origH !== undefined) {
-        const dx = x - gcx;
-        const dz = z - gcz;
-        
-        let falloff = 0;
-        if (brushShape === 'circle') {
-          const rx = dx / gWidth;
-          const rz = dz / gLength;
-          const t = Math.sqrt(rx*rx + rz*rz);
-          falloff = Math.pow(Math.cos(Math.min(1.0, t) * Math.PI / 2), 2);
-        } else {
-          const rx = Math.abs(dx) / gWidth;
-          const rz = Math.abs(dz) / gLength;
-          falloff = Math.pow(Math.cos(Math.min(1.0, rx) * Math.PI / 2), 2) * 
-                    Math.pow(Math.cos(Math.min(1.0, rz) * Math.PI / 2), 2);
-        }
-
-        const changeInGrid = (deltaY / spacing) * falloff;
+        const parts = key.split(',');
+        const x = parseInt(parts[0]);
+        const z = parseInt(parts[1]);
+        const changeInGrid = deltaY / spacing;
         const newH = origH + changeInGrid;
 
-        // Rebuild density column cleanly: positive under newH, negative above
         for (let y = 0; y < world.sizeY; y++) {
-          const dens = newH - y;
-          setDensity(x, y, z, dens);
+          setDensity(x, y, z, newH - y);
         }
         modified = true;
+      }
+    });
+  } else {
+    // Standard tablecloth mode
+    const gcx = extrudeCenter.x / spacing;
+    const gcz = extrudeCenter.z / spacing;
+    
+    const gWidth = brushWidth / spacing;
+    const gLength = brushLength / spacing;
+
+    const minX = Math.max(0, Math.floor(gcx - gWidth));
+    const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gWidth));
+    const minZ = Math.max(0, Math.floor(gcz - gLength));
+    const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gLength));
+
+    for (let x = minX; x <= maxX; x++) {
+      for (let z = minZ; z <= maxZ; z++) {
+        const key = `${x},${z}`;
+        const origH = extrudeSavedHeights[key];
+        if (origH !== undefined) {
+          const dx = x - gcx;
+          const dz = z - gcz;
+          
+          let falloff = 0;
+          if (brushShape === 'circle') {
+            const rx = dx / gWidth;
+            const rz = dz / gLength;
+            const t = Math.sqrt(rx*rx + rz*rz);
+            falloff = Math.pow(Math.cos(Math.min(1.0, t) * Math.PI / 2), 2);
+          } else {
+            const rx = Math.abs(dx) / gWidth;
+            const rz = Math.abs(dz) / gLength;
+            falloff = Math.pow(Math.cos(Math.min(1.0, rx) * Math.PI / 2), 2) * 
+                      Math.pow(Math.cos(Math.min(1.0, rz) * Math.PI / 2), 2);
+          }
+
+          const changeInGrid = (deltaY / spacing) * falloff;
+          const newH = origH + changeInGrid;
+
+          // Rebuild density column cleanly: positive under newH, negative above
+          for (let y = 0; y < world.sizeY; y++) {
+            const dens = newH - y;
+            setDensity(x, y, z, dens);
+          }
+          modified = true;
+        }
       }
     }
   }
 
   if (modified) {
     buildMarchingCubesMesh();
+    updateSelectionVisualizer();
   }
 }
 
 // Commits the finalized drag-extrusion densities to carvedVoxels
 function commitExtrude() {
   const spacing = world.spacing;
-  const gcx = extrudeCenter.x / spacing;
-  const gcz = extrudeCenter.z / spacing;
-  
-  const gWidth = brushWidth / spacing;
-  const gLength = brushLength / spacing;
 
-  const minX = Math.max(0, Math.floor(gcx - gWidth));
-  const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gWidth));
-  const minZ = Math.max(0, Math.floor(gcz - gLength));
-  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gLength));
+  if (selectedColumns.size > 0 && selectToolMode === 'extrude') {
+    // Selection mask mode
+    selectedColumns.forEach(key => {
+      const parts = key.split(',');
+      const x = parseInt(parts[0]);
+      const z = parseInt(parts[1]);
+      for (let y = 0; y < world.sizeY; y++) {
+        const voxelKey = `${x},${y},${z}`;
+        world.carvedVoxels[voxelKey] = getDensity(x, y, z);
+      }
+    });
+  } else {
+    // Standard tablecloth mode
+    const gcx = extrudeCenter.x / spacing;
+    const gcz = extrudeCenter.z / spacing;
+    
+    const gWidth = brushWidth / spacing;
+    const gLength = brushLength / spacing;
 
-  for (let x = minX; x <= maxX; x++) {
-    for (let z = minZ; z <= maxZ; z++) {
-      const dx = x - gcx;
-      const dz = z - gcz;
-      
-      let inside = false;
-      if (brushShape === 'circle') {
-        inside = (dx*dx/(gWidth*gWidth) + dz*dz/(gLength*gLength)) < 1.0;
-      } else {
+    const minX = Math.max(0, Math.floor(gcx - gWidth));
+    const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gWidth));
+    const minZ = Math.max(0, Math.floor(gcz - gLength));
+    const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gLength));
+
+    for (let x = minX; x <= maxX; x++) {
+      for (let z = minZ; z <= maxZ; z++) {
+        const dx = x - gcx;
+        const dz = z - gcz;
+        
+        let inside = false;
+        if (brushShape === 'circle') {
+          inside = (dx*dx/(gWidth*gWidth) + dz*dz/(gLength*gLength)) < 1.0;
+        } else {
         inside = Math.abs(dx) < gWidth && Math.abs(dz) < gLength;
       }
 
@@ -735,6 +893,47 @@ function commitExtrude() {
       }
     }
   }
+}
+
+// Rebuilds 3D indicator planes for each selected grid column to show active mask
+function updateSelectionVisualizer() {
+  if (!selectionVisualizerGroup) return;
+
+  // Clear existing visuals
+  while(selectionVisualizerGroup.children.length > 0) {
+    const child = selectionVisualizerGroup.children[0];
+    child.geometry.dispose();
+    child.material.dispose();
+    selectionVisualizerGroup.remove(child);
+  }
+
+  // If no columns are selected, we are done
+  if (selectedColumns.size === 0) return;
+
+  const spacing = world.spacing;
+  const geom = new THREE.PlaneGeometry(spacing * 0.95, spacing * 0.95);
+  geom.rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.65 });
+
+  selectedColumns.forEach(key => {
+    const parts = key.split(',');
+    const x = parseInt(parts[0]);
+    const z = parseInt(parts[1]);
+    
+    // Find the surface height of this column
+    let surfaceY = 0.0;
+    for (let y = world.sizeY - 1; y >= 0; y--) {
+      if (getDensity(x, y, z) >= -1.5) {
+        surfaceY = y * spacing;
+        break;
+      }
+    }
+
+    const mesh = new THREE.Mesh(geom, mat);
+    // Align plane horizontally, slightly elevated to prevent z-fighting
+    mesh.position.set(x * spacing, surfaceY + 0.15, z * spacing);
+    selectionVisualizerGroup.add(mesh);
+  });
 }
 
 // Spawns a registered scenery object in the editor
