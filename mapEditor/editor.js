@@ -33,6 +33,12 @@ let brushRadius = 10.0;
 let isSculpting = false;
 const lastSculptPoint = new THREE.Vector3();
 
+// Extrusion Tool State
+let isExtruding = false;
+const extrudeCenter = new THREE.Vector3();
+let extrudeStartMouseY = 0;
+let extrudeSavedDensities = {};
+
 // Raycasting & Mouse
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -321,8 +327,11 @@ function updatePreviewMesh() {
     mat = new THREE.MeshBasicMaterial({ color: 0xf8fafc, transparent: true, opacity });
     previewMesh = new THREE.Mesh(geom, mat);
     previewMesh.position.y = 0.3;
-  } else if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area' || currentToolType === 'generate_island') {
-    const color = currentToolType === 'sculpt_up' ? 0x22c55e : (currentToolType === 'sculpt_down' ? 0xef4444 : (currentToolType === 'erase_area' ? 0xe11d48 : 0x06b6d4));
+  } else if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area' || currentToolType === 'generate_island' || currentToolType === 'extrude') {
+    const color = currentToolType === 'sculpt_up' ? 0x22c55e : 
+                  (currentToolType === 'sculpt_down' ? 0xef4444 : 
+                  (currentToolType === 'erase_area' ? 0xe11d48 : 
+                  (currentToolType === 'extrude' ? 0xf97316 : 0x06b6d4)));
     geom = new THREE.CylinderGeometry(brushRadius, brushRadius, 0.4, 24);
     mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.35 });
     previewMesh = new THREE.Mesh(geom, mat);
@@ -361,7 +370,7 @@ function updatePreviewPosition() {
     else if (currentToolType === 'spawn_crab') offset = 0.075;
     else if (currentToolType === 'spawn_fish') offset = 0.1;
     else if (currentToolType === 'spawn_seagull') offset = 0.3;
-    else if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area' || currentToolType === 'generate_island') offset = 0.2;
+    else if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area' || currentToolType === 'generate_island' || currentToolType === 'extrude') offset = 0.2;
 
     previewMesh.position.set(hitPoint.x, hitPoint.y + offset, hitPoint.z);
     previewMesh.rotation.y = rotationY;
@@ -457,6 +466,111 @@ function applySculpt(hitPoint) {
       }
     });
     editorObjects = objectsToKeep;
+  }
+}
+
+// Start the extrusion process (records base column densities in a cylinder)
+function startExtrude(hitPoint, radius) {
+  extrudeCenter.copy(hitPoint);
+  extrudeSavedDensities = {};
+  
+  const spacing = world.spacing;
+  const gcx = hitPoint.x / spacing;
+  const gcz = hitPoint.z / spacing;
+  const gRadius = radius / spacing;
+
+  const minX = Math.max(0, Math.floor(gcx - gRadius));
+  const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gRadius));
+  const minZ = Math.max(0, Math.floor(gcz - gRadius));
+  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gRadius));
+
+  for (let x = minX; x <= maxX; x++) {
+    for (let z = minZ; z <= maxZ; z++) {
+      const dx = x - gcx;
+      const dz = z - gcz;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      if (dist < gRadius) {
+        for (let y = 0; y < world.sizeY; y++) {
+          const key = `${x},${y},${z}`;
+          extrudeSavedDensities[key] = getDensity(x, y, z);
+        }
+      }
+    }
+  }
+}
+
+// Dynamically updates terrain mesh with deltaY offset as the user drags their mouse
+function updateExtrude(deltaY, radius) {
+  const spacing = world.spacing;
+  const gcx = extrudeCenter.x / spacing;
+  const gcz = extrudeCenter.z / spacing;
+  const gRadius = radius / spacing;
+
+  const minX = Math.max(0, Math.floor(gcx - gRadius));
+  const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gRadius));
+  const minZ = Math.max(0, Math.floor(gcz - gRadius));
+  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gRadius));
+
+  let modified = false;
+
+  for (let x = minX; x <= maxX; x++) {
+    for (let z = minZ; z <= maxZ; z++) {
+      const dx = x - gcx;
+      const dz = z - gcz;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      if (dist < gRadius) {
+        const falloff = 1.0 - dist / gRadius;
+        const change = deltaY * falloff;
+
+        for (let y = 0; y < world.sizeY; y++) {
+          const key = `${x},${y},${z}`;
+          const originalD = extrudeSavedDensities[key];
+          if (originalD !== undefined) {
+            let newDens = originalD + change;
+            
+            // Elevate empty/water voxels to a starting baseline Y if we lift them
+            if (deltaY > 0 && originalD < -3.5) {
+              const targetD = -1.5 + change;
+              newDens = Math.max(newDens, targetD);
+            }
+
+            setDensity(x, y, z, newDens);
+            modified = true;
+          }
+        }
+      }
+    }
+  }
+
+  if (modified) {
+    buildMarchingCubesMesh();
+  }
+}
+
+// Commits the finalized drag-extrusion densities to carvedVoxels
+function commitExtrude(radius) {
+  const spacing = world.spacing;
+  const gcx = extrudeCenter.x / spacing;
+  const gcz = extrudeCenter.z / spacing;
+  const gRadius = radius / spacing;
+
+  const minX = Math.max(0, Math.floor(gcx - gRadius));
+  const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gRadius));
+  const minZ = Math.max(0, Math.floor(gcz - gRadius));
+  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gRadius));
+
+  for (let x = minX; x <= maxX; x++) {
+    for (let z = minZ; z <= maxZ; z++) {
+      const dx = x - gcx;
+      const dz = z - gcz;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      if (dist < gRadius) {
+        for (let y = 0; y < world.sizeY; y++) {
+          const key = `${x},${y},${z}`;
+          world.carvedVoxels[key] = getDensity(x, y, z);
+        }
+      }
+    }
   }
 }
 
@@ -798,7 +912,7 @@ function deleteObject() {
   }
 }
 
-// Track mouse positioning and continuous drag-sculpting
+// Track mouse positioning, continuous drag-sculpting, and vertical drag-extrusion
 function onMouseMove(event) {
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -814,10 +928,13 @@ function onMouseMove(event) {
         applySculpt(hitPoint);
       }
     }
+  } else if (isExtruding) {
+    const deltaY = (event.clientY - extrudeStartMouseY) * -0.2;
+    updateExtrude(deltaY, brushRadius);
   }
 }
 
-// Start sculpting drag session or place object on left click
+// Start sculpting/extruding drag session or place object on left click
 function onPointerDown(event) {
   // Only trigger if clicking inside the main viewport (not over HUD sidebar)
   if (event.clientX < 340 && event.clientY > 110) return; // Ignore clicks inside sidebar
@@ -837,6 +954,17 @@ function onPointerDown(event) {
         const hitPoint = intersects[0].point;
         lastSculptPoint.copy(hitPoint);
         applySculpt(hitPoint);
+      }
+    } else if (currentToolType === 'extrude') {
+      isExtruding = true;
+      extrudeStartMouseY = event.clientY;
+      controls.enabled = false; // Disable camera OrbitControls
+      
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObject(world.terrainMesh);
+      if (intersects.length > 0) {
+        const hitPoint = intersects[0].point;
+        startExtrude(hitPoint, brushRadius);
       }
     } else {
       placeObject();
@@ -858,12 +986,20 @@ function onPointerUp(event) {
   if (isSculpting) {
     isSculpting = false;
     controls.enabled = true; // Re-enable camera rotation
+  } else if (isExtruding) {
+    commitExtrude(brushRadius);
+    isExtruding = false;
+    controls.enabled = true; // Re-enable camera rotation
   }
 }
 
 function onPointerLeave(event) {
   if (isSculpting) {
     isSculpting = false;
+    controls.enabled = true; // Re-enable camera rotation
+  } else if (isExtruding) {
+    commitExtrude(brushRadius);
+    isExtruding = false;
     controls.enabled = true; // Re-enable camera rotation
   }
 }
