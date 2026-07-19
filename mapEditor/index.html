@@ -64,13 +64,38 @@
       </div>
     </div>
 
-    <!-- Brush Size & Procedural Island Spawner Controls -->
-    <div class="brush-size-control" style="margin-top: 10px; display: flex; flex-direction: column; gap: 4px;">
-      <label for="brush-size-slider" style="font-size: 12px; color: rgba(255,255,255,0.6); display: flex; justify-content: space-between;">
-        <span>Dimensione Pennello (Raggio)</span>
-        <span id="brush-size-value">10m</span>
-      </label>
-      <input type="range" id="brush-size-slider" min="2" max="30" value="10" step="1" style="width: 100%; cursor: pointer;">
+    <!-- Brush Configuration -->
+    <div class="brush-config" style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+      <span style="font-size: 13px; font-weight: 600; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+        ⚙️ Configurazione Area
+      </span>
+
+      <!-- Shape Selection buttons -->
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-size: 11px; color: rgba(255,255,255,0.5);">Forma dell'Area</label>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn btn-secondary active" id="btn-shape-circle" style="flex: 1; padding: 6px; font-size: 12px; justify-content: center;">⭕ Cerchio</button>
+          <button class="btn btn-secondary" id="btn-shape-square" style="flex: 1; padding: 6px; font-size: 12px; justify-content: center;">⬛ Quadrato</button>
+        </div>
+      </div>
+
+      <!-- Width Slider (X Axis) -->
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label for="brush-width-slider" style="font-size: 12px; color: rgba(255,255,255,0.6); display: flex; justify-content: space-between;">
+          <span id="label-brush-width">Larghezza (Raggio X)</span>
+          <span id="brush-width-value">10m</span>
+        </label>
+        <input type="range" id="brush-width-slider" min="2" max="35" value="10" step="1" style="width: 100%; cursor: pointer;">
+      </div>
+
+      <!-- Length Slider (Z Axis) -->
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label for="brush-length-slider" style="font-size: 12px; color: rgba(255,255,255,0.6); display: flex; justify-content: space-between;">
+          <span id="label-brush-length">Lunghezza (Raggio Z)</span>
+          <span id="brush-length-value">10m</span>
+        </label>
+        <input type="range" id="brush-length-slider" min="2" max="35" value="10" step="1" style="width: 100%; cursor: pointer;">
+      </div>
     </div>
 
     <div class="island-gen-control" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;">

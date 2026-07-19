@@ -30,7 +30,9 @@ let playerSpawnMarker = null; // Single player spawn marker
 let previewMesh = null; // Ghost preview mesh
 
 // Sculpting Brush State
-let brushRadius = 10.0;
+let brushWidth = 10.0;
+let brushLength = 10.0;
+let brushShape = 'circle'; // 'circle' or 'square'
 let isSculpting = false;
 const lastSculptPoint = new THREE.Vector3();
 
@@ -225,13 +227,46 @@ function setupUI() {
     });
   });
 
-  // Brush size slider binding
-  const slider = document.getElementById('brush-size-slider');
-  const valueLabel = document.getElementById('brush-size-value');
-  if (slider && valueLabel) {
-    slider.addEventListener('input', (e) => {
-      brushRadius = parseFloat(e.target.value);
-      valueLabel.textContent = `${brushRadius}m`;
+  // Shape selection buttons binding
+  const btnShapeCircle = document.getElementById('btn-shape-circle');
+  const btnShapeSquare = document.getElementById('btn-shape-square');
+  if (btnShapeCircle && btnShapeSquare) {
+    btnShapeCircle.addEventListener('click', () => {
+      brushShape = 'circle';
+      btnShapeCircle.classList.add('active');
+      btnShapeSquare.classList.remove('active');
+      document.getElementById('label-brush-width').textContent = "Larghezza (Raggio X)";
+      document.getElementById('label-brush-length').textContent = "Lunghezza (Raggio Z)";
+      updatePreviewMesh();
+    });
+    btnShapeSquare.addEventListener('click', () => {
+      brushShape = 'square';
+      btnShapeSquare.classList.add('active');
+      btnShapeCircle.classList.remove('active');
+      document.getElementById('label-brush-width').textContent = "Larghezza (Semi-lato X)";
+      document.getElementById('label-brush-length').textContent = "Lunghezza (Semi-lato Z)";
+      updatePreviewMesh();
+    });
+  }
+
+  // Brush width slider binding
+  const sliderWidth = document.getElementById('brush-width-slider');
+  const valueLabelWidth = document.getElementById('brush-width-value');
+  if (sliderWidth && valueLabelWidth) {
+    sliderWidth.addEventListener('input', (e) => {
+      brushWidth = parseFloat(e.target.value);
+      valueLabelWidth.textContent = `${brushWidth}m`;
+      updatePreviewMesh();
+    });
+  }
+
+  // Brush length slider binding
+  const sliderLength = document.getElementById('brush-length-slider');
+  const valueLabelLength = document.getElementById('brush-length-value');
+  if (sliderLength && valueLabelLength) {
+    sliderLength.addEventListener('input', (e) => {
+      brushLength = parseFloat(e.target.value);
+      valueLabelLength.textContent = `${brushLength}m`;
       updatePreviewMesh();
     });
   }
@@ -356,9 +391,17 @@ function updatePreviewMesh() {
                   (currentToolType === 'sculpt_down' ? 0xef4444 : 
                   (currentToolType === 'erase_area' ? 0xe11d48 : 
                   (currentToolType === 'extrude' ? 0xf97316 : 0x06b6d4)));
-    geom = new THREE.CylinderGeometry(brushRadius, brushRadius, 0.4, 24);
-    mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.35 });
-    previewMesh = new THREE.Mesh(geom, mat);
+    if (brushShape === 'circle') {
+      geom = new THREE.CylinderGeometry(1.0, 1.0, 0.4, 24);
+      mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.35 });
+      previewMesh = new THREE.Mesh(geom, mat);
+      previewMesh.scale.set(brushWidth, 1.0, brushLength);
+    } else {
+      geom = new THREE.BoxGeometry(2.0, 0.4, 2.0); // Box with 2.0 side length represents -1.0 to 1.0 semi-lato
+      mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.35 });
+      previewMesh = new THREE.Mesh(geom, mat);
+      previewMesh.scale.set(brushWidth, 1.0, brushLength);
+    }
     previewMesh.position.y = 0.2;
   }
 
@@ -438,19 +481,23 @@ function updateSidebarSelection() {
 }
 
 // Sculpt Voxel Terrain or Erase area
-function sculptTerrain(hitPoint, radius, valueChange, eraseMode = false) {
+function sculptTerrain(hitPoint, valueChange, eraseMode = false) {
   const spacing = world.spacing;
   const gx = hitPoint.x / spacing;
   const gy = hitPoint.y / spacing;
   const gz = hitPoint.z / spacing;
-  const gRadius = radius / spacing;
+  
+  const gWidth = brushWidth / spacing;
+  const gLength = brushLength / spacing;
+  // Use vertical radius proportional to the average horizontal size
+  const gHeight = Math.max(gWidth, gLength);
 
-  const minX = Math.max(0, Math.floor(gx - gRadius));
-  const maxX = Math.min(world.sizeX - 1, Math.ceil(gx + gRadius));
-  const minY = Math.max(0, Math.floor(gy - gRadius));
-  const maxY = Math.min(world.sizeY - 1, Math.ceil(gy + gRadius));
-  const minZ = Math.max(0, Math.floor(gz - gRadius));
-  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gz + gRadius));
+  const minX = Math.max(0, Math.floor(gx - gWidth));
+  const maxX = Math.min(world.sizeX - 1, Math.ceil(gx + gWidth));
+  const minY = Math.max(0, Math.floor(gy - gHeight));
+  const maxY = Math.min(world.sizeY - 1, Math.ceil(gy + gHeight));
+  const minZ = Math.max(0, Math.floor(gz - gLength));
+  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gz + gLength));
 
   let modified = false;
 
@@ -460,9 +507,33 @@ function sculptTerrain(hitPoint, radius, valueChange, eraseMode = false) {
         const dx = x - gx;
         const dy = y - gy;
         const dz = z - gz;
-        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
-        if (dist < gRadius) {
+        let inside = false;
+        let falloff = 0;
+
+        if (brushShape === 'circle') {
+          // Ellipsoidal brush
+          const rx = dx / gWidth;
+          const ry = dy / gHeight;
+          const rz = dz / gLength;
+          const distRatioSq = rx*rx + ry*ry + rz*rz;
+          if (distRatioSq < 1.0) {
+            inside = true;
+            falloff = 1.0 - Math.sqrt(distRatioSq);
+          }
+        } else {
+          // Cuboidal brush
+          const rx = Math.abs(dx) / gWidth;
+          const ry = Math.abs(dy) / gHeight;
+          const rz = Math.abs(dz) / gLength;
+          if (rx < 1.0 && ry < 1.0 && rz < 1.0) {
+            inside = true;
+            // Product of linear falloffs
+            falloff = (1.0 - rx) * (1.0 - ry) * (1.0 - rz);
+          }
+        }
+
+        if (inside) {
           let newDens;
           if (eraseMode) {
             newDens = -5.0; // Clear completely to negative/vacuum density
@@ -471,7 +542,7 @@ function sculptTerrain(hitPoint, radius, valueChange, eraseMode = false) {
             if (valueChange > 0 && currentD < -3.5) {
               currentD = -1.5; // Elevate baseline so the first click makes land pop up immediately
             }
-            const change = valueChange * (1.0 - dist / gRadius);
+            const change = valueChange * falloff;
             newDens = currentD + change;
           }
           
@@ -489,22 +560,31 @@ function sculptTerrain(hitPoint, radius, valueChange, eraseMode = false) {
   }
 }
 
-// Dynamic terrain sculpting trigger using the current brushRadius
+// Dynamic terrain sculpting trigger using the current brush configuration
 function applySculpt(hitPoint) {
   if (currentToolType === 'sculpt_up') {
-    sculptTerrain(hitPoint, brushRadius, 1.8, false);
+    sculptTerrain(hitPoint, 1.8, false);
   } else if (currentToolType === 'sculpt_down') {
-    sculptTerrain(hitPoint, brushRadius, -1.8, false);
+    sculptTerrain(hitPoint, -1.8, false);
   } else if (currentToolType === 'erase_area') {
-    sculptTerrain(hitPoint, brushRadius, 0.0, true);
+    sculptTerrain(hitPoint, 0.0, true);
     
-    // Remove scenery objects within brushRadius
+    // Remove scenery objects within brush bounds
     const objectsToKeep = [];
     editorObjects.forEach(obj => {
       const dx = obj.x - hitPoint.x;
       const dz = obj.z - hitPoint.z;
-      const dist = Math.sqrt(dx*dx + dz*dz);
-      if (dist < brushRadius) {
+      
+      let inside = false;
+      if (brushShape === 'circle') {
+        const rx = dx / brushWidth;
+        const rz = dz / brushLength;
+        inside = (rx*rx + rz*rz) < 1.0;
+      } else {
+        inside = Math.abs(dx) < brushWidth && Math.abs(dz) < brushLength;
+      }
+
+      if (inside) {
         scene.remove(obj.mesh);
         if (obj.mesh === playerSpawnMarker) playerSpawnMarker = null;
       } else {
@@ -515,27 +595,36 @@ function applySculpt(hitPoint) {
   }
 }
 
-// Start the extrusion process (records original surface heights inside a cylinder)
-function startExtrude(hitPoint, radius) {
+// Start the extrusion process (records original surface heights inside shape bounds)
+function startExtrude(hitPoint) {
   extrudeCenter.copy(hitPoint);
   extrudeSavedHeights = {};
   
   const spacing = world.spacing;
   const gcx = hitPoint.x / spacing;
   const gcz = hitPoint.z / spacing;
-  const gRadius = radius / spacing;
+  
+  const gWidth = brushWidth / spacing;
+  const gLength = brushLength / spacing;
 
-  const minX = Math.max(0, Math.floor(gcx - gRadius));
-  const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gRadius));
-  const minZ = Math.max(0, Math.floor(gcz - gRadius));
-  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gRadius));
+  const minX = Math.max(0, Math.floor(gcx - gWidth));
+  const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gWidth));
+  const minZ = Math.max(0, Math.floor(gcz - gLength));
+  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gLength));
 
   for (let x = minX; x <= maxX; x++) {
     for (let z = minZ; z <= maxZ; z++) {
       const dx = x - gcx;
       const dz = z - gcz;
-      const dist = Math.sqrt(dx*dx + dz*dz);
-      if (dist < gRadius) {
+      
+      let inside = false;
+      if (brushShape === 'circle') {
+        inside = (dx*dx/(gWidth*gWidth) + dz*dz/(gLength*gLength)) < 1.0;
+      } else {
+        inside = Math.abs(dx) < gWidth && Math.abs(dz) < gLength;
+      }
+
+      if (inside) {
         // Find the original solid height of this column by scanning from top to bottom
         let surfaceY = 0.0;
         for (let y = world.sizeY - 1; y >= 0; y--) {
@@ -558,16 +647,18 @@ function startExtrude(hitPoint, radius) {
 }
 
 // Dynamically updates terrain mesh like pulling up a tablecloth (smooth cosine-squared falloff)
-function updateExtrude(deltaY, radius) {
+function updateExtrude(deltaY) {
   const spacing = world.spacing;
   const gcx = extrudeCenter.x / spacing;
   const gcz = extrudeCenter.z / spacing;
-  const gRadius = radius / spacing;
+  
+  const gWidth = brushWidth / spacing;
+  const gLength = brushLength / spacing;
 
-  const minX = Math.max(0, Math.floor(gcx - gRadius));
-  const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gRadius));
-  const minZ = Math.max(0, Math.floor(gcz - gRadius));
-  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gRadius));
+  const minX = Math.max(0, Math.floor(gcx - gWidth));
+  const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gWidth));
+  const minZ = Math.max(0, Math.floor(gcz - gLength));
+  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gLength));
 
   let modified = false;
 
@@ -578,11 +669,20 @@ function updateExtrude(deltaY, radius) {
       if (origH !== undefined) {
         const dx = x - gcx;
         const dz = z - gcz;
-        const dist = Math.sqrt(dx*dx + dz*dz);
-        const t = dist / gRadius;
         
-        // Cosine-squared (Hanning) curve provides flat tangents at center & edges
-        const falloff = Math.pow(Math.cos(t * Math.PI / 2), 2);
+        let falloff = 0;
+        if (brushShape === 'circle') {
+          const rx = dx / gWidth;
+          const rz = dz / gLength;
+          const t = Math.sqrt(rx*rx + rz*rz);
+          falloff = Math.pow(Math.cos(Math.min(1.0, t) * Math.PI / 2), 2);
+        } else {
+          const rx = Math.abs(dx) / gWidth;
+          const rz = Math.abs(dz) / gLength;
+          falloff = Math.pow(Math.cos(Math.min(1.0, rx) * Math.PI / 2), 2) * 
+                    Math.pow(Math.cos(Math.min(1.0, rz) * Math.PI / 2), 2);
+        }
+
         const changeInGrid = (deltaY / spacing) * falloff;
         const newH = origH + changeInGrid;
 
@@ -602,23 +702,32 @@ function updateExtrude(deltaY, radius) {
 }
 
 // Commits the finalized drag-extrusion densities to carvedVoxels
-function commitExtrude(radius) {
+function commitExtrude() {
   const spacing = world.spacing;
   const gcx = extrudeCenter.x / spacing;
   const gcz = extrudeCenter.z / spacing;
-  const gRadius = radius / spacing;
+  
+  const gWidth = brushWidth / spacing;
+  const gLength = brushLength / spacing;
 
-  const minX = Math.max(0, Math.floor(gcx - gRadius));
-  const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gRadius));
-  const minZ = Math.max(0, Math.floor(gcz - gRadius));
-  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gRadius));
+  const minX = Math.max(0, Math.floor(gcx - gWidth));
+  const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gWidth));
+  const minZ = Math.max(0, Math.floor(gcz - gLength));
+  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gLength));
 
   for (let x = minX; x <= maxX; x++) {
     for (let z = minZ; z <= maxZ; z++) {
       const dx = x - gcx;
       const dz = z - gcz;
-      const dist = Math.sqrt(dx*dx + dz*dz);
-      if (dist < gRadius) {
+      
+      let inside = false;
+      if (brushShape === 'circle') {
+        inside = (dx*dx/(gWidth*gWidth) + dz*dz/(gLength*gLength)) < 1.0;
+      } else {
+        inside = Math.abs(dx) < gWidth && Math.abs(dz) < gLength;
+      }
+
+      if (inside) {
         for (let y = 0; y < world.sizeY; y++) {
           const key = `${x},${y},${z}`;
           world.carvedVoxels[key] = getDensity(x, y, z);
@@ -846,7 +955,7 @@ function placeObject() {
     // Procedural Island Spawning Brush
     if (currentToolType === 'generate_island') {
       const genre = document.getElementById('island-genre-select').value;
-      generateProceduralIsland(hitPoint, brushRadius, genre);
+      generateProceduralIsland(hitPoint, Math.max(brushWidth, brushLength), genre);
       return;
     }
 
@@ -982,7 +1091,7 @@ function onMouseMove(event) {
     }
   } else if (isExtruding) {
     const deltaY = (event.clientY - extrudeStartMouseY) * -0.2;
-    updateExtrude(deltaY, brushRadius);
+    updateExtrude(deltaY);
   }
 }
 
@@ -1014,7 +1123,7 @@ function onPointerDown(event) {
       const intersect = getTerrainIntersection();
       if (intersect) {
         const hitPoint = intersect.point;
-        startExtrude(hitPoint, brushRadius);
+        startExtrude(hitPoint);
       }
     } else {
       placeObject();
@@ -1037,7 +1146,7 @@ function onPointerUp(event) {
     isSculpting = false;
     controls.enabled = true; // Re-enable camera rotation
   } else if (isExtruding) {
-    commitExtrude(brushRadius);
+    commitExtrude();
     isExtruding = false;
     controls.enabled = true; // Re-enable camera rotation
   }
@@ -1048,7 +1157,7 @@ function onPointerLeave(event) {
     isSculpting = false;
     controls.enabled = true; // Re-enable camera rotation
   } else if (isExtruding) {
-    commitExtrude(brushRadius);
+    commitExtrude();
     isExtruding = false;
     controls.enabled = true; // Re-enable camera rotation
   }
