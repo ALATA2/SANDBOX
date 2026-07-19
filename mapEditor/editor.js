@@ -1224,13 +1224,8 @@ function importMapJSON(mapData) {
 
 // Reset map to default state
 function resetMap() {
-  editorObjects.forEach(obj => scene.remove(obj.mesh));
-  editorObjects = [];
-  if (playerSpawnMarker) {
-    scene.remove(playerSpawnMarker);
-    playerSpawnMarker = null;
-  }
   localStorage.removeItem('custom_map_data');
+  location.reload(); // Reload page to load fresh default virgin map
 }
 
 // Prevent browser context menu on right click
