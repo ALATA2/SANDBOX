@@ -15,7 +15,8 @@ import {
   createBerryBushMesh, 
   createCanePlant, 
   createFlowerMesh, 
-  createStarfishMesh 
+  createStarfishMesh,
+  smoothNoise2D
 } from '../js/world.js';
 import { getSurfaceHeightNear } from '../js/physics.js';
 
@@ -26,6 +27,11 @@ let rotationY = 0; // Current placement rotation
 let editorObjects = []; // Array of placed editor object metadata
 let playerSpawnMarker = null; // Single player spawn marker
 let previewMesh = null; // Ghost preview mesh
+
+// Sculpting Brush State
+let brushRadius = 10.0;
+let isSculpting = false;
+const lastSculptPoint = new THREE.Vector3();
 
 // Raycasting & Mouse
 const raycaster = new THREE.Raycaster();
@@ -93,6 +99,8 @@ function initEditor() {
   window.addEventListener('resize', onWindowResize);
   renderer.domElement.addEventListener('mousemove', onMouseMove);
   renderer.domElement.addEventListener('pointerdown', onPointerDown);
+  window.addEventListener('pointerup', onPointerUp);
+  renderer.domElement.addEventListener('pointerleave', onPointerLeave);
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
 
@@ -210,6 +218,17 @@ function setupUI() {
     });
   });
 
+  // Brush size slider binding
+  const slider = document.getElementById('brush-size-slider');
+  const valueLabel = document.getElementById('brush-size-value');
+  if (slider && valueLabel) {
+    slider.addEventListener('input', (e) => {
+      brushRadius = parseFloat(e.target.value);
+      valueLabel.textContent = `${brushRadius}m`;
+      updatePreviewMesh();
+    });
+  }
+
   // Action Buttons
   document.getElementById('btn-play').onclick = playTestMap;
   document.getElementById('btn-export').onclick = exportMapJSON;
@@ -302,9 +321,9 @@ function updatePreviewMesh() {
     mat = new THREE.MeshBasicMaterial({ color: 0xf8fafc, transparent: true, opacity });
     previewMesh = new THREE.Mesh(geom, mat);
     previewMesh.position.y = 0.3;
-  } else if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area') {
-    const color = currentToolType === 'sculpt_up' ? 0x22c55e : (currentToolType === 'sculpt_down' ? 0xef4444 : 0xe11d48);
-    geom = new THREE.CylinderGeometry(10.0, 10.0, 0.4, 24);
+  } else if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area' || currentToolType === 'generate_island') {
+    const color = currentToolType === 'sculpt_up' ? 0x22c55e : (currentToolType === 'sculpt_down' ? 0xef4444 : (currentToolType === 'erase_area' ? 0xe11d48 : 0x06b6d4));
+    geom = new THREE.CylinderGeometry(brushRadius, brushRadius, 0.4, 24);
     mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.35 });
     previewMesh = new THREE.Mesh(geom, mat);
     previewMesh.position.y = 0.2;
@@ -342,7 +361,7 @@ function updatePreviewPosition() {
     else if (currentToolType === 'spawn_crab') offset = 0.075;
     else if (currentToolType === 'spawn_fish') offset = 0.1;
     else if (currentToolType === 'spawn_seagull') offset = 0.3;
-    else if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area') offset = 0.2;
+    else if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area' || currentToolType === 'generate_island') offset = 0.2;
 
     previewMesh.position.set(hitPoint.x, hitPoint.y + offset, hitPoint.z);
     previewMesh.rotation.y = rotationY;
@@ -393,8 +412,12 @@ function sculptTerrain(hitPoint, radius, valueChange, eraseMode = false) {
           if (eraseMode) {
             newDens = -5.0; // Clear completely to negative/vacuum density
           } else {
+            let currentD = getDensity(x, y, z);
+            if (valueChange > 0 && currentD < -3.5) {
+              currentD = -1.5; // Elevate baseline so the first click makes land pop up immediately
+            }
             const change = valueChange * (1.0 - dist / gRadius);
-            newDens = getDensity(x, y, z) + change;
+            newDens = currentD + change;
           }
           
           setDensity(x, y, z, newDens);
@@ -408,6 +431,199 @@ function sculptTerrain(hitPoint, radius, valueChange, eraseMode = false) {
 
   if (modified) {
     buildMarchingCubesMesh();
+  }
+}
+
+// Dynamic terrain sculpting trigger using the current brushRadius
+function applySculpt(hitPoint) {
+  if (currentToolType === 'sculpt_up') {
+    sculptTerrain(hitPoint, brushRadius, 1.8, false);
+  } else if (currentToolType === 'sculpt_down') {
+    sculptTerrain(hitPoint, brushRadius, -1.8, false);
+  } else if (currentToolType === 'erase_area') {
+    sculptTerrain(hitPoint, brushRadius, 0.0, true);
+    
+    // Remove scenery objects within brushRadius
+    const objectsToKeep = [];
+    editorObjects.forEach(obj => {
+      const dx = obj.x - hitPoint.x;
+      const dz = obj.z - hitPoint.z;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      if (dist < brushRadius) {
+        scene.remove(obj.mesh);
+        if (obj.mesh === playerSpawnMarker) playerSpawnMarker = null;
+      } else {
+        objectsToKeep.push(obj);
+      }
+    });
+    editorObjects = objectsToKeep;
+  }
+}
+
+// Spawns a registered scenery object in the editor
+function spawnObjectInEditor(type, wx, wy, wz) {
+  let visualMesh;
+  let offset = 0;
+  
+  if (type === 'pine') {
+    visualMesh = createPineTree();
+  } else if (type === 'palm') {
+    visualMesh = createPalmTree();
+    offset = -0.1;
+  } else if (type === 'land_rock') {
+    visualMesh = createLandRockMesh();
+  } else if (type === 'marine_rock') {
+    visualMesh = createMarineRockMesh();
+  } else if (type === 'ore') {
+    visualMesh = createOreDepositMesh();
+    offset = -0.2;
+  } else if (type === 'berry_bush') {
+    visualMesh = createBerryBushMesh();
+  } else if (type === 'cane') {
+    visualMesh = createCanePlant();
+  } else if (type === 'flower') {
+    visualMesh = createFlowerMesh();
+  } else if (type === 'starfish') {
+    visualMesh = createStarfishMesh();
+  }
+
+  if (visualMesh) {
+    const rotY = Math.random() * Math.PI * 2;
+    visualMesh.position.set(wx, wy + offset, wz);
+    visualMesh.rotation.y = rotY;
+    scene.add(visualMesh);
+
+    const objMeta = {
+      type: type,
+      x: wx,
+      y: wy + offset,
+      z: wz,
+      rotationY: rotY,
+      scale: 1.0,
+      mesh: visualMesh
+    };
+    editorObjects.push(objMeta);
+  }
+}
+
+// Procedural Island Height Generator inside selected brush circle
+function generateProceduralIsland(hitPoint, radius, genre) {
+  const spacing = world.spacing;
+  const gcx = hitPoint.x / spacing;
+  const gcz = hitPoint.z / spacing;
+  const gRadius = radius / spacing;
+
+  const minX = Math.max(0, Math.floor(gcx - gRadius));
+  const maxX = Math.min(world.sizeX - 1, Math.ceil(gcx + gRadius));
+  const minZ = Math.max(0, Math.floor(gcz - gRadius));
+  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz + gRadius));
+
+  let modified = false;
+
+  for (let x = minX; x <= maxX; x++) {
+    for (let z = minZ; z <= maxZ; z++) {
+      const dx = x - gcx;
+      const dz = z - gcz;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      const t = dist / gRadius;
+
+      if (t <= 1.0) {
+        let h = -20.0; // default deep seabed under the island area
+
+        if (genre === 'atollo') {
+          // Sandy ring at 70% radius
+          const ringCenter = gRadius * 0.7;
+          const ringWidth = gRadius * 0.25;
+          const distToRing = Math.abs(dist - ringCenter);
+          if (distToRing < ringWidth) {
+            const rt = distToRing / ringWidth;
+            h = (1.6 + Math.random() * 0.8) * Math.cos(rt * Math.PI / 2);
+          }
+        } else if (genre === 'collinare') {
+          // Grassy dome with FBM noise hills
+          const hBase = (4.0 + Math.random() * 2.0) * Math.cos(t * Math.PI / 2);
+          const noiseH = (smoothNoise2D(x * 0.2, z * 0.2) + 0.5 * smoothNoise2D(x * 0.4, z * 0.4)) * 2.5;
+          h = Math.max(-2.0, hBase + noiseH);
+        } else if (genre === 'vulcanica') {
+          // Volcano cone with crater
+          const rimRadius = gRadius * 0.4;
+          if (dist < rimRadius) {
+            const craterT = dist / rimRadius;
+            const rimH = (12.0 + Math.random() * 3.0) * Math.cos((rimRadius / gRadius) * Math.PI / 2);
+            h = 4.0 + (rimH - 4.0) * craterT * craterT; // crater dips to sea level Y=4.0
+          } else {
+            h = (12.0 + Math.random() * 3.0) * Math.cos(t * Math.PI / 2);
+          }
+        }
+
+        // Set density for all heights in voxel column
+        for (let y = 0; y < world.sizeY; y++) {
+          const dens = h - y;
+          setDensity(x, y, z, dens);
+          const key = `${x},${y},${z}`;
+          world.carvedVoxels[key] = dens;
+        }
+        modified = true;
+      }
+    }
+  }
+
+  if (modified) {
+    buildMarchingCubesMesh();
+
+    // Re-check heights after mesh rebuild to scatter objects snap-fit to the new terrain surface
+    setTimeout(() => {
+      scatterProceduralObjects(hitPoint, radius, genre);
+    }, 50);
+  }
+}
+
+// Scatters flora, rocks, and ores based on altitude-locked rules
+function scatterProceduralObjects(hitPoint, radius, genre) {
+  const numSpawns = Math.floor(radius * 0.5); // 5 to 15 spawns
+  for (let i = 0; i < numSpawns; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = Math.random() * radius * 0.85;
+    const wx = hitPoint.x + Math.cos(angle) * dist;
+    const wz = hitPoint.z + Math.sin(angle) * dist;
+    const wy = getSurfaceHeightNear(wx, 25.0, wz);
+
+    if (wy > 4.1) {
+      if (wy <= 5.6) {
+        // Low shore / sandy beach (up to 5.6m): spawn palm tree or starfish
+        const type = Math.random() < 0.8 ? 'palm' : 'starfish';
+        spawnObjectInEditor(type, wx, wy, wz);
+      } else if (wy <= 16.3) {
+        // Meadows (5.6m to 16.3m): spawn wildflowers, berry bushes, pines, or rocks
+        const rand = Math.random();
+        if (rand < 0.35) {
+          spawnObjectInEditor('flower', wx, wy, wz);
+        } else if (rand < 0.55) {
+          spawnObjectInEditor('pine', wx, wy, wz);
+        } else if (rand < 0.75) {
+          spawnObjectInEditor('berry_bush', wx, wy, wz);
+        } else if (rand < 0.9) {
+          spawnObjectInEditor('land_rock', wx, wy, wz);
+        }
+      } else if (wy <= 21.7) {
+        // Forest (16.3m to 21.7m): spawn pines and land rocks
+        const rand = Math.random();
+        if (rand < 0.65) {
+          spawnObjectInEditor('pine', wx, wy, wz);
+        } else if (rand < 0.85) {
+          spawnObjectInEditor('land_rock', wx, wy, wz);
+        } else {
+          spawnObjectInEditor('berry_bush', wx, wy, wz);
+        }
+      } else {
+        // High mountain (above 21.7m): no trees allowed! Only rocks and gold ores
+        if (Math.random() < 0.65) {
+          spawnObjectInEditor('land_rock', wx, wy, wz);
+        } else {
+          spawnObjectInEditor('ore', wx, wy, wz);
+        }
+      }
+    }
   }
 }
 
@@ -456,29 +672,14 @@ function placeObject() {
 
     // Sculpt or Erase Terrain/Scenery Brush
     if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area') {
-      if (currentToolType === 'sculpt_up') {
-        sculptTerrain(hitPoint, 10.0, 1.8, false);
-      } else if (currentToolType === 'sculpt_down') {
-        sculptTerrain(hitPoint, 10.0, -1.8, false);
-      } else if (currentToolType === 'erase_area') {
-        // Sculpt down/flatten terrain density completely
-        sculptTerrain(hitPoint, 10.0, 0.0, true);
-        
-        // Remove scenery objects within the 10.0m radius
-        const objectsToKeep = [];
-        editorObjects.forEach(obj => {
-          const dx = obj.x - hitPoint.x;
-          const dz = obj.z - hitPoint.z;
-          const dist = Math.sqrt(dx*dx + dz*dz);
-          if (dist < 10.0) {
-            scene.remove(obj.mesh);
-            if (obj.mesh === playerSpawnMarker) playerSpawnMarker = null;
-          } else {
-            objectsToKeep.push(obj);
-          }
-        });
-        editorObjects = objectsToKeep;
-      }
+      applySculpt(hitPoint);
+      return;
+    }
+
+    // Procedural Island Spawning Brush
+    if (currentToolType === 'generate_island') {
+      const genre = document.getElementById('island-genre-select').value;
+      generateProceduralIsland(hitPoint, brushRadius, genre);
       return;
     }
 
@@ -597,13 +798,26 @@ function deleteObject() {
   }
 }
 
-// Track mouse positioning
+// Track mouse positioning and continuous drag-sculpting
 function onMouseMove(event) {
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  if (isSculpting) {
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObject(world.terrainMesh);
+    if (intersects.length > 0) {
+      const hitPoint = intersects[0].point;
+      const dist = hitPoint.distanceTo(lastSculptPoint);
+      if (dist > 1.6) { // Only sculpt if moved at least 1.6m (1 voxel spacing)
+        lastSculptPoint.copy(hitPoint);
+        applySculpt(hitPoint);
+      }
+    }
+  }
 }
 
-// Place on left click, delete on right click
+// Start sculpting drag session or place object on left click
 function onPointerDown(event) {
   // Only trigger if clicking inside the main viewport (not over HUD sidebar)
   if (event.clientX < 340 && event.clientY > 110) return; // Ignore clicks inside sidebar
@@ -611,7 +825,22 @@ function onPointerDown(event) {
 
   if (event.button === 0) { // Left Click
     if (event.ctrlKey) return; // Allow panning with ctrl+click without placing
-    placeObject();
+    
+    // Check if we are starting a sculpting drag session
+    if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area') {
+      isSculpting = true;
+      controls.enabled = false; // Disable camera OrbitControls
+      
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObject(world.terrainMesh);
+      if (intersects.length > 0) {
+        const hitPoint = intersects[0].point;
+        lastSculptPoint.copy(hitPoint);
+        applySculpt(hitPoint);
+      }
+    } else {
+      placeObject();
+    }
   } else if (event.button === 2) { // Right Click
     if (currentToolType !== null) {
       // Cancel active selection / enter move mode
@@ -622,6 +851,20 @@ function onPointerDown(event) {
       // Free hands: delete object
       deleteObject();
     }
+  }
+}
+
+function onPointerUp(event) {
+  if (isSculpting) {
+    isSculpting = false;
+    controls.enabled = true; // Re-enable camera rotation
+  }
+}
+
+function onPointerLeave(event) {
+  if (isSculpting) {
+    isSculpting = false;
+    controls.enabled = true; // Re-enable camera rotation
   }
 }
 

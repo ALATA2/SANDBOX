@@ -11,6 +11,8 @@ import { updateFoliageWind } from './wind.js';
 export const LAKE_CENTER_X = 89.6;
 export const LAKE_CENTER_Z = 89.6;
 
+export const ENABLE_ISLANDS = false;
+
 // World Configuration
 export const world = {
   sizeX: 170,
@@ -132,7 +134,7 @@ function hash2D(x, z) {
   return h < 0 ? h + 1 : h;
 }
 
-function smoothNoise2D(x, z) {
+export function smoothNoise2D(x, z) {
   const xi = Math.floor(x);
   const zi = Math.floor(z);
   const xf = x - xi;
@@ -167,6 +169,7 @@ const lerp = (a, b, t) => a + t * (b - a);
 
 // Centralized helper to calculate procedural starting island voxel height
 function calculateIslandHeightVoxel(x, z) {
+  if (!ENABLE_ISLANDS) return -20.0;
   const cx = 90; // Shifted from 60 to 90 to prevent volcano from clipping the (0, 0) grid border
   const cz = 90;
 
@@ -289,41 +292,63 @@ export function getVertexVirtualDepth(vx, vy, vz) {
 function getVertexColorForDepth(vx, vy, vz) {
   const depth = getVertexVirtualDepth(vx, vy, vz);
 
-  // 1. Calculate surface biome color based on absolute altitude (vy) using sunset image palette
-  let surfaceColor = [0.44, 0.58, 0.18]; // Default olive green grass
+  // 1. Calculate surface biome color based on absolute altitude (vy) using scaled layers
+  let surfaceColor = [0.38, 0.56, 0.16]; // Default grass green
   
-  if (vy <= 4.8) {
+  if (vy <= 4.0) {
+    if (!ENABLE_ISLANDS && vy < -5.0) {
+      // Deep seabed (Dark teal/grey marine color)
+      const t = Math.min(1.0, (-5.0 - vy) / 45.0); // 0 at -5m, 1 at -50m
+      surfaceColor = [
+        0.90 + t * (0.20 - 0.90),
+        0.77 + t * (0.32 - 0.77),
+        0.58 + t * (0.35 - 0.58)
+      ];
+    } else {
+      surfaceColor = [0.90, 0.77, 0.58]; // Sandy seabed
+    }
+  } else if (vy <= 4.3) {
     // Sand beach (Peach gold sand)
     surfaceColor = [0.90, 0.77, 0.58];
-  } else if (vy <= 6.2) {
-    // Transition from Sand to Grass
-    const t = (vy - 4.8) / (6.2 - 4.8);
+  } else if (vy <= 5.6) {
+    // Transition from beach sand to brown soil
+    const t = (vy - 4.3) / (5.6 - 4.3);
     surfaceColor = [
-      0.90 + t * (0.44 - 0.90),
-      0.77 + t * (0.58 - 0.77),
-      0.58 + t * (0.18 - 0.58)
+      0.90 + t * (0.54 - 0.90),
+      0.77 + t * (0.38 - 0.77),
+      0.58 + t * (0.25 - 0.58)
     ];
-  } else if (vy <= 18.0) {
-    // Grass/Meadow (Olive green grass)
-    surfaceColor = [0.44, 0.58, 0.18];
-  } else if (vy <= 24.0) {
-    // Transition from Grass to Rock (Warm peach-red rock)
-    const t = (vy - 18.0) / (24.0 - 18.0);
+  } else if (vy <= 16.3) {
+    // Grass/Meadow (Vibrant grass green)
+    const t = (vy - 5.6) / (16.3 - 5.6);
     surfaceColor = [
-      0.44 + t * (0.72 - 0.44),
-      0.58 + t * (0.50 - 0.58),
-      0.18 + t * (0.44 - 0.18)
+      0.54 + t * (0.38 - 0.54),
+      0.38 + t * (0.56 - 0.38),
+      0.25 + t * (0.16 - 0.25)
     ];
-  } else if (vy <= 365.0) {
-    // Rocky slopes (Warm peach-red rock)
-    surfaceColor = [0.72, 0.50, 0.44];
+  } else if (vy <= 21.7) {
+    // Forest / Pine understory (Darker forest green)
+    const t = (vy - 16.3) / (21.7 - 16.3);
+    surfaceColor = [
+      0.38 + t * (0.22 - 0.38),
+      0.56 + t * (0.40 - 0.56),
+      0.16 + t * (0.20 - 0.16)
+    ];
+  } else if (vy <= 330.0) {
+    // Rocky slopes (Bare granite grey rock)
+    const t = (vy - 21.7) / (330.0 - 21.7);
+    surfaceColor = [
+      0.22 + t * (0.45 - 0.22),
+      0.40 + t * (0.48 - 0.40),
+      0.20 + t * (0.48 - 0.20)
+    ];
   } else {
-    // Transition to Snow Peak (above Y=365.0)
-    const t = Math.min(1.0, (vy - 365.0) / 10.0);
+    // Transition to Snow Peak (above Y=330.0)
+    const t = Math.min(1.0, (vy - 330.0) / 10.0);
     surfaceColor = [
-      0.72 + t * (0.98 - 0.72),
-      0.50 + t * (0.98 - 0.50),
-      0.44 + t * (1.0 - 0.44)
+      0.45 + t * (0.98 - 0.45),
+      0.48 + t * (0.98 - 0.48),
+      0.48 + t * (1.0 - 0.48)
     ];
   }
 
@@ -1597,6 +1622,44 @@ function spawnScenery() {
   const cx = world.sizeX / 2;
   const cz = world.sizeZ / 2;
 
+  // If islands are disabled, only spawn the ocean water plane and early return
+  if (!ENABLE_ISLANDS) {
+    updateWaterGrid();
+
+    const size = (WATER_CELLS_X + 1) * (WATER_CELLS_Z + 1);
+    world.waterHeights = new Float32Array(size);
+    world.waterGroundHeights = new Float32Array(size);
+    world.waterActiveVertices = new Uint8Array(size);
+    for (let gx = 0; gx <= WATER_CELLS_X; gx++) {
+      const vx = WATER_START_X + gx * spacing;
+      for (let gz = 0; gz <= WATER_CELLS_Z; gz++) {
+        const vz = WATER_START_Z + gz * spacing;
+        const idx = gx * (WATER_CELLS_Z + 1) + gz;
+        const active = isVertexActive(gx, gz);
+        world.waterActiveVertices[idx] = active ? 1 : 0;
+        const groundY = getSurfaceHeightNear(vx, 5.0, vz);
+        world.waterGroundHeights[idx] = groundY;
+        world.waterHeights[idx] = active ? 4.0 : Math.min(4.0, groundY);
+      }
+    }
+
+    const waterGeometry = buildWaterGeometry();
+    const waterMaterial = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.06,
+      metalness: 0.15,
+      transparent: true,
+      opacity: 0.90,
+      flatShading: true,
+      side: THREE.DoubleSide,
+      emissive: new THREE.Color(0x09202e)
+    });
+    world.waterMesh = new THREE.Mesh(waterGeometry, waterMaterial);
+    world.waterMesh.position.set(0, 4.0, 0);
+    game.scene.add(world.waterMesh);
+    return;
+  }
+
   // 1. Crystal Water Plane with Depth Color Gradients
   updateWaterGrid();
 
@@ -2525,7 +2588,9 @@ export function initWorld() {
   generateDensityGrid();
   buildMarchingCubesMesh();
   spawnScenery();
-  spawnFeedbackBoard();
+  if (ENABLE_ISLANDS) {
+    spawnFeedbackBoard();
+  }
   spawnSeabed();
   spawnClouds();
 }
@@ -3110,6 +3175,28 @@ export function getSeabedHeight(x, z) {
   const spacing = world.spacing;
   const gx = x / spacing;
   const gz = z / spacing;
+
+  if (!ENABLE_ISLANDS) {
+    // Natural irregular seabed similar to Mediterranean/real oceans
+    const macroNoise = fbmNoise2D(x * 0.00015, z * 0.00015) / 1.75; // Normalize to approx [0, 1]
+    const shelfNoise = fbmNoise2D(x * 0.0005, z * 0.0005) / 1.75;   // Normalize to approx [0, 1]
+    const ridgeNoise = fbmNoise2D(x * 0.002, z * 0.002) / 1.75;     // Normalize to approx [0, 1]
+    
+    // Base depth is around -55m, macroNoise creates basins ranging from -75m to -20m
+    let baseHeight = -55.0 + macroNoise * 35.0; 
+    
+    // Continental shelf: if shelfNoise is high, we transition to a shallow shelf (-15m to -25m)
+    if (shelfNoise > 0.4) {
+      const t = (shelfNoise - 0.4) / 0.6;
+      const smoothT = Math.sin(t * Math.PI / 2); // smooth transition
+      baseHeight = THREE.MathUtils.lerp(baseHeight, -20.0 + ridgeNoise * 10.0, smoothT);
+    } else {
+      // Add detailed ridges and trenches in the deep areas
+      baseHeight += ridgeNoise * 15.0 - 7.5;
+    }
+    
+    return baseHeight;
+  }
 
   let height = -70.0;
 

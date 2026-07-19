@@ -60,6 +60,35 @@
       </div>
     </div>
 
+    <!-- Brush Size & Procedural Island Spawner Controls -->
+    <div class="brush-size-control" style="margin-top: 10px; display: flex; flex-direction: column; gap: 4px;">
+      <label for="brush-size-slider" style="font-size: 12px; color: rgba(255,255,255,0.6); display: flex; justify-content: space-between;">
+        <span>Dimensione Pennello (Raggio)</span>
+        <span id="brush-size-value">10m</span>
+      </label>
+      <input type="range" id="brush-size-slider" min="2" max="30" value="10" step="1" style="width: 100%; cursor: pointer;">
+    </div>
+
+    <div class="island-gen-control" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;">
+      <span style="font-size: 13px; font-weight: 600; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+        🪄 Generatore Isole
+      </span>
+      
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label for="island-genre-select" style="font-size: 11px; color: rgba(255,255,255,0.5);">Genere di Isola</label>
+        <select id="island-genre-select" style="background: rgba(15,23,42,0.85); color: #fff; border: 1px solid rgba(255,255,255,0.15); padding: 6px 10px; border-radius: 8px; font-family: inherit; font-size: 13px; cursor: pointer; outline: none;">
+          <option value="collinare">Isola Collinare 🌲</option>
+          <option value="atollo">Atollo Sabbioso 🌴</option>
+          <option value="vulcanica">Isola Vulcanica 🌋</option>
+        </select>
+      </div>
+
+      <div class="grid-item" data-type="generate_island" style="width: 100%; margin-top: 4px; padding: 10px 0; background: rgba(56,189,248,0.15); border: 1px solid #38bdf8;" title="Clicca sul mare per generare un'isola procedurale">
+        <span class="grid-item-icon">🏝️</span>
+        <span class="grid-item-label" style="font-weight: 600;">Genera Isola</span>
+      </div>
+    </div>
+
     <h3>Design Tools 🌴</h3>
     <div class="tab-selector">
       <button class="tab-btn active" id="tab-objects">Objects</button>

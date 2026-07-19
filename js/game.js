@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { initControls, updateControls, joystickValues, triggerMobileJump } from './controls.js';
-import { initWorld, updateWorld, world, getSurfaceHeightNear, checkInWater, getWaterHeightAt, scrollWorld, loadCustomMap, LAKE_CENTER_X, LAKE_CENTER_Z } from './world.js';
+import { initWorld, updateWorld, world, getSurfaceHeightNear, checkInWater, getWaterHeightAt, scrollWorld, loadCustomMap, LAKE_CENTER_X, LAKE_CENTER_Z, ENABLE_ISLANDS } from './world.js';
 import { initPlayer, updatePlayer, triggerToolSwing, player } from './player.js';
 import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard, activeDebris } from './interact.js';
 import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute, setSubmergedAudio, startAmbientSounds, stopAmbientSounds, playWoodChop } from './audio.js';
@@ -322,17 +322,19 @@ async function init() {
   }
 
   if (!loadedCustom) {
-    // Spawn Arturo the Rooster
-    game.roosterMesh = createRooster();
-    const roosterSpawnY = getSurfaceHeightNear(84, 15, 84);
-    game.roosterMesh.position.set(84, roosterSpawnY, 84);
-    game.scene.add(game.roosterMesh);
+    if (ENABLE_ISLANDS) {
+      // Spawn Arturo the Rooster
+      game.roosterMesh = createRooster();
+      const roosterSpawnY = getSurfaceHeightNear(84, 15, 84);
+      game.roosterMesh.position.set(84, roosterSpawnY, 84);
+      game.scene.add(game.roosterMesh);
 
-    // Spawn Rosita the Hen
-    game.henMesh = createHen();
-    const henSpawnY = getSurfaceHeightNear(81, 15, 81);
-    game.henMesh.position.set(81, henSpawnY, 81);
-    game.scene.add(game.henMesh);
+      // Spawn Rosita the Hen
+      game.henMesh = createHen();
+      const henSpawnY = getSurfaceHeightNear(81, 15, 81);
+      game.henMesh.position.set(81, henSpawnY, 81);
+      game.scene.add(game.henMesh);
+    }
 
     // Spawn additional island life (crabs, fishes, seagulls)
     spawnFauna();
@@ -1916,31 +1918,33 @@ function spawnFauna() {
   const mapLength = world.sizeZ * spacing;
   
   // 1. Spawn Crabs on the sandy shore (Height Y between 4.05 and 5.6)
-  let spawnedCrabs = 0;
-  let attempts = 0;
-  while (spawnedCrabs < 5 && attempts < 150) {
-    attempts++;
-    const rx = Math.random() * (mapWidth - 10) + 5;
-    const rz = Math.random() * (mapLength - 10) + 5;
-    const ry = getSurfaceHeightNear(rx, 15, rz);
-    
-    if (ry >= 4.05 && ry <= 5.6) {
-      const crab = createCrab();
-      crab.position.set(rx, ry, rz);
+  if (ENABLE_ISLANDS) {
+    let spawnedCrabs = 0;
+    let attempts = 0;
+    while (spawnedCrabs < 5 && attempts < 150) {
+      attempts++;
+      const rx = Math.random() * (mapWidth - 10) + 5;
+      const rz = Math.random() * (mapLength - 10) + 5;
+      const ry = getSurfaceHeightNear(rx, 15, rz);
       
-      crab.state = 'idle';
-      crab.timer = 1.0 + Math.random() * 2.0;
-      crab.target = new THREE.Vector3(rx, ry, rz);
-      
-      game.scene.add(crab);
-      game.crabs.push(crab);
-      spawnedCrabs++;
+      if (ry >= 4.05 && ry <= 5.6) {
+        const crab = createCrab();
+        crab.position.set(rx, ry, rz);
+        
+        crab.state = 'idle';
+        crab.timer = 1.0 + Math.random() * 2.0;
+        crab.target = new THREE.Vector3(rx, ry, rz);
+        
+        game.scene.add(crab);
+        game.crabs.push(crab);
+        spawnedCrabs++;
+      }
     }
   }
   
   // 2. Spawn Fish submerged in water (Surface terrain Y < 3.7)
   let spawnedFish = 0;
-  attempts = 0;
+  let attempts = 0;
   while (spawnedFish < 8 && attempts < 200) {
     attempts++;
     const rx = Math.random() * (mapWidth - 6) + 3;
@@ -1966,82 +1970,83 @@ function spawnFauna() {
     }
   }
 
-  // 2b. Spawn 4-5 Fish inside the mountain lake
-  const lakeFishCount = 4 + Math.floor(Math.random() * 2); // 4 or 5
-  for (let i = 0; i < lakeFishCount; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const dist = Math.random() * 18.0; // keep it inside the lake (radius 24.0)
-    const rx = LAKE_CENTER_X + Math.cos(angle) * dist;
-    const rz = LAKE_CENTER_Z + Math.sin(angle) * dist;
+  if (ENABLE_ISLANDS) {
+    // 2b. Spawn 4-5 Fish inside the mountain lake
+    const lakeFishCount = 4 + Math.floor(Math.random() * 2); // 4 or 5
+    for (let i = 0; i < lakeFishCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Math.random() * 18.0; // keep it inside the lake (radius 24.0)
+      const rx = LAKE_CENTER_X + Math.cos(angle) * dist;
+      const rz = LAKE_CENTER_Z + Math.sin(angle) * dist;
+      
+      const fish = createFish();
+      const ry = 15.0 + Math.random() * 1.5; // Under lake water level (17.6)
+      fish.position.set(rx, ry, rz);
+      
+      fish.velocity = new THREE.Vector3(
+        (Math.random() - 0.5) * 1.2,
+        (Math.random() - 0.5) * 0.3,
+        (Math.random() - 0.5) * 1.2
+      );
+      fish.swimTimer = 2.0 + Math.random() * 3.0;
+      fish.targetY = ry;
+      
+      game.scene.add(fish);
+      game.fishes.push(fish);
+    }
+
+    // 2c. Spawn a Dead Seagull with crawling worms on the lake shore (Southeastern side)
+    const deadGullX = LAKE_CENTER_X + 16.0;
+    const deadGullZ = LAKE_CENTER_Z + 9.0;
+    const deadGullY = getSurfaceHeightNear(deadGullX, 15, deadGullZ);
     
-    const fish = createFish();
-    const ry = 15.0 + Math.random() * 1.5; // Under lake water level (17.6)
-    fish.position.set(rx, ry, rz);
-    fish.isLakeFish = true;
+    const deadSeagull = createSeagull();
+    deadSeagull.name = "dead_seagull";
+    deadSeagull.position.set(deadGullX, deadGullY + 0.05, deadGullZ);
+    deadSeagull.rotation.x = Math.PI - 0.1; // Upside down
+    deadSeagull.rotation.z = 0.4;          // Tilted slightly
+    deadSeagull.rotation.y = Math.random() * Math.PI * 2;
     
-    fish.velocity = new THREE.Vector3(
-      (Math.random() - 0.5) * 1.2,
-      (Math.random() - 0.5) * 0.3,
-      (Math.random() - 0.5) * 1.2
-    );
-    fish.swimTimer = 2.0 + Math.random() * 3.0;
-    fish.targetY = ry;
-    
-    game.scene.add(fish);
-    game.fishes.push(fish);
-  }
+    // Pivot the wings down to look limp/dead
+    if (deadSeagull.leftWing && deadSeagull.rightWing) {
+      deadSeagull.leftWing.rotation.z = 0.65;
+      deadSeagull.rightWing.rotation.z = -0.65;
+    }
+    game.scene.add(deadSeagull);
 
-  // 2c. Spawn a Dead Seagull with crawling worms on the lake shore (Southeastern side)
-  const deadGullX = LAKE_CENTER_X + 16.0;
-  const deadGullZ = LAKE_CENTER_Z + 9.0;
-  const deadGullY = getSurfaceHeightNear(deadGullX, 15, deadGullZ);
-  
-  const deadSeagull = createSeagull();
-  deadSeagull.name = "dead_seagull";
-  deadSeagull.position.set(deadGullX, deadGullY + 0.05, deadGullZ);
-  deadSeagull.rotation.x = Math.PI - 0.1; // Upside down
-  deadSeagull.rotation.z = 0.4;          // Tilted slightly
-  deadSeagull.rotation.y = Math.random() * Math.PI * 2;
-  
-  // Pivot the wings down to look limp/dead
-  if (deadSeagull.leftWing && deadSeagull.rightWing) {
-    deadSeagull.leftWing.rotation.z = 0.65;
-    deadSeagull.rightWing.rotation.z = -0.65;
-  }
-  game.scene.add(deadSeagull);
+    // Spawn 4 crawling worms near the dead seagull
+    const wormPositions = [
+      { dx: 0.18, dz: -0.05 },
+      { dx: -0.15, dz: 0.12 },
+      { dx: 0.05, dz: 0.05, onGull: true },
+      { dx: -0.05, dz: -0.14 }
+    ];
 
-  // Spawn 4 crawling worms near the dead seagull
-  const wormPositions = [
-    { dx: 0.18, dz: -0.05 },
-    { dx: -0.15, dz: 0.12 },
-    { dx: 0.05, dz: 0.05, onGull: true },
-    { dx: -0.05, dz: -0.14 }
-  ];
+    wormPositions.forEach((pos, idx) => {
+      const wx = deadGullX + pos.dx;
+      const wz = deadGullZ + pos.dz;
+      const baseWy = getSurfaceHeightNear(wx, 15, wz);
+      const wy = pos.onGull ? baseWy + 0.08 : baseWy;
 
-  wormPositions.forEach((pos, idx) => {
-    const wx = deadGullX + pos.dx;
-    const wz = deadGullZ + pos.dz;
-    const baseWy = getSurfaceHeightNear(wx, 15, wz);
-    const wy = pos.onGull ? baseWy + 0.08 : baseWy;
+      const worm = createWorm();
+      worm.position.set(wx, wy + 0.015, wz);
+      worm.rotation.y = Math.random() * Math.PI * 2;
+      worm.rotation.z = (Math.random() - 0.5) * 0.15;
+      worm.rotation.x = (Math.random() - 0.5) * 0.15;
 
-    const worm = createWorm();
-    worm.position.set(wx, wy + 0.015, wz);
-    worm.rotation.y = Math.random() * Math.PI * 2;
-    worm.rotation.z = (Math.random() - 0.5) * 0.15;
-    worm.rotation.x = (Math.random() - 0.5) * 0.15;
+      game.scene.add(worm);
+      game.worms.push(worm);
 
-    game.scene.add(worm);
-    game.worms.push(worm);
-
-    // Add to activeDebris so the player can highlight and collect them by pressing E
-    activeDebris.push({
-      mesh: worm,
-      velocity: new THREE.Vector3(0, 0, 0),
-      type: 'worm',
-      onGround: true,
-      lifeTime: 999999
+      // Add to activeDebris so the player can highlight and collect them by pressing E
+      activeDebris.push({
+        mesh: worm,
+        velocity: new THREE.Vector3(0, 0, 0),
+        type: 'worm',
+        onGround: true,
+        lifeTime: 999999
+      });
     });
-  });
+  }
   
   // 3. Spawn Seagulls in the sky (Y = 11 to 16)
   for (let i = 0; i < 4; i++) {
