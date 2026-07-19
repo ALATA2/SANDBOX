@@ -1319,14 +1319,26 @@ function onPointerDown(event) {
         applySculpt(hitPoint);
       }
     } else if (currentToolType === 'extrude') {
-      isExtruding = true;
-      extrudeStartMouseY = event.clientY;
-      controls.enabled = false; // Disable camera OrbitControls
-      
-      const intersect = getTerrainIntersection();
-      if (intersect) {
-        const hitPoint = intersect.point;
-        startExtrude(hitPoint);
+      if (selectToolMode === 'add' || selectToolMode === 'sub') {
+        isSculpting = true;
+        controls.enabled = false; // Disable camera OrbitControls
+        
+        const intersect = getTerrainIntersection();
+        if (intersect) {
+          const hitPoint = intersect.point;
+          lastSculptPoint.copy(hitPoint);
+          applySculpt(hitPoint);
+        }
+      } else {
+        isExtruding = true;
+        extrudeStartMouseY = event.clientY;
+        controls.enabled = false; // Disable camera OrbitControls
+        
+        const intersect = getTerrainIntersection();
+        if (intersect) {
+          const hitPoint = intersect.point;
+          startExtrude(hitPoint);
+        }
       }
     } else {
       placeObject();
