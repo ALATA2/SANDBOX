@@ -623,7 +623,7 @@ export function scrollWorld(direction) {
 }
 
 // Create the island density grid
-function generateDensityGrid() {
+export function generateDensityGrid() {
   const size = world.sizeX * world.sizeY * world.sizeZ;
   world.density = new Float32Array(size);
 
