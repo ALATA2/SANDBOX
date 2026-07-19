@@ -894,6 +894,7 @@ function commitExtrude() {
     }
   }
 }
+}
 
 // Rebuilds 3D indicator planes for each selected grid column to show active mask
 function updateSelectionVisualizer() {
