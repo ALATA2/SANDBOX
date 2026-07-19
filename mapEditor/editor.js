@@ -347,18 +347,37 @@ function updatePreviewMesh() {
     }
   });
 
-  scene.add(previewMesh);
+// Raycasts onto terrainMesh, falling back to a virtual sea level plane if geometry is empty
+function getTerrainIntersection() {
+  raycaster.setFromCamera(mouse, camera);
+  
+  // 1. Try to intersect the actual terrain mesh
+  const intersects = raycaster.intersectObject(world.terrainMesh);
+  if (intersects.length > 0) {
+    return intersects[0];
+  }
+  
+  // 2. Fallback: intersect a horizontal plane at sea level (Y = 4.0)
+  const seaPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -4.0);
+  const intersectPoint = new THREE.Vector3();
+  if (raycaster.ray.intersectPlane(seaPlane, intersectPoint)) {
+    const sizeLimit = world.sizeX * world.spacing;
+    if (intersectPoint.x >= 0 && intersectPoint.x <= sizeLimit && intersectPoint.z >= 0 && intersectPoint.z <= sizeLimit) {
+      return { point: intersectPoint };
+    }
+  }
+  
+  return null;
 }
 
 // Raycast onto the terrain to set preview position
 function updatePreviewPosition() {
   if (!previewMesh) return;
 
-  raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObject(world.terrainMesh);
+  const intersect = getTerrainIntersection();
 
-  if (intersects.length > 0) {
-    const hitPoint = intersects[0].point;
+  if (intersect) {
+    const hitPoint = intersect.point;
     
     // Offset the mesh height depending on the type
     let offset = 0;
@@ -778,11 +797,10 @@ function placeObject() {
     return;
   }
 
-  raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObject(world.terrainMesh);
+  const intersect = getTerrainIntersection();
 
-  if (intersects.length > 0) {
-    const hitPoint = intersects[0].point;
+  if (intersect) {
+    const hitPoint = intersect.point;
 
     // Sculpt or Erase Terrain/Scenery Brush
     if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area') {
@@ -918,10 +936,9 @@ function onMouseMove(event) {
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
   if (isSculpting) {
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObject(world.terrainMesh);
-    if (intersects.length > 0) {
-      const hitPoint = intersects[0].point;
+    const intersect = getTerrainIntersection();
+    if (intersect) {
+      const hitPoint = intersect.point;
       const dist = hitPoint.distanceTo(lastSculptPoint);
       if (dist > 1.6) { // Only sculpt if moved at least 1.6m (1 voxel spacing)
         lastSculptPoint.copy(hitPoint);
@@ -948,10 +965,9 @@ function onPointerDown(event) {
       isSculpting = true;
       controls.enabled = false; // Disable camera OrbitControls
       
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObject(world.terrainMesh);
-      if (intersects.length > 0) {
-        const hitPoint = intersects[0].point;
+      const intersect = getTerrainIntersection();
+      if (intersect) {
+        const hitPoint = intersect.point;
         lastSculptPoint.copy(hitPoint);
         applySculpt(hitPoint);
       }
@@ -960,10 +976,9 @@ function onPointerDown(event) {
       extrudeStartMouseY = event.clientY;
       controls.enabled = false; // Disable camera OrbitControls
       
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObject(world.terrainMesh);
-      if (intersects.length > 0) {
-        const hitPoint = intersects[0].point;
+      const intersect = getTerrainIntersection();
+      if (intersect) {
+        const hitPoint = intersect.point;
         startExtrude(hitPoint, brushRadius);
       }
     } else {
