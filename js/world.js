@@ -22,6 +22,7 @@ export const world = {
   currentVirtualDepth: 0,
   carvedVoxels: {},
   density: null, // Flat Float32Array
+  seaLevel: 4.0,
   terrainMesh: null,
   waterMesh: null,
   lakeMesh: null, // 3D Mountain Lake Mesh
@@ -96,15 +97,15 @@ export function getWaterHeightAt(vx, vz) {
     return world.lakeLevel !== undefined ? world.lakeLevel : 32.0;
   }
 
-  if (!world.waterHeights) return 4.0;
+  if (!world.waterHeights) return world.seaLevel;
   const spacing = world.spacing;
   const gx = Math.round((vx - WATER_START_X) / spacing);
   const gz = Math.round((vz - WATER_START_Z) / spacing);
   if (gx < 0 || gx > WATER_CELLS_X || gz < 0 || gz > WATER_CELLS_Z) {
-    return 4.0;
+    return world.seaLevel;
   }
   const idx = gx * (WATER_CELLS_Z + 1) + gz;
-  return world.waterHeights[idx] !== undefined ? world.waterHeights[idx] : 4.0;
+  return world.waterHeights[idx] !== undefined ? world.waterHeights[idx] : world.seaLevel;
 }
 
 // Indexing helper for 3D array flattened
@@ -1639,7 +1640,7 @@ function spawnScenery() {
         world.waterActiveVertices[idx] = active ? 1 : 0;
         const groundY = getSurfaceHeightNear(vx, 5.0, vz);
         world.waterGroundHeights[idx] = groundY;
-        world.waterHeights[idx] = active ? 4.0 : Math.min(4.0, groundY);
+        world.waterHeights[idx] = active ? world.seaLevel : Math.min(world.seaLevel, groundY);
       }
     }
 
@@ -1655,7 +1656,7 @@ function spawnScenery() {
       emissive: new THREE.Color(0x09202e)
     });
     world.waterMesh = new THREE.Mesh(waterGeometry, waterMaterial);
-    world.waterMesh.position.set(0, 4.0, 0);
+    world.waterMesh.position.set(0, world.seaLevel, 0);
     game.scene.add(world.waterMesh);
     return;
   }
@@ -1677,7 +1678,7 @@ function spawnScenery() {
       world.waterActiveVertices[idx] = active ? 1 : 0;
       const groundY = getSurfaceHeightNear(vx, 5.0, vz);
       world.waterGroundHeights[idx] = groundY;
-      world.waterHeights[idx] = active ? 4.0 : Math.min(4.0, groundY);
+      world.waterHeights[idx] = active ? world.seaLevel : Math.min(world.seaLevel, groundY);
     }
   }
 
@@ -1694,7 +1695,7 @@ function spawnScenery() {
     emissive: new THREE.Color(0x09202e) // Subtle glow so the water looks luminous and alive
   });
   world.waterMesh = new THREE.Mesh(waterGeometry, waterMaterial);
-  world.waterMesh.position.set(0, 4.0, 0); // Directly at coordinate origin, Y=4.0 height (no rotation needed)
+  world.waterMesh.position.set(0, world.seaLevel, 0); // Directly at coordinate origin, Y=seaLevel height (no rotation needed)
   game.scene.add(world.waterMesh);
 
   // 1b. Mountain Lake Plane
@@ -3751,6 +3752,16 @@ export function loadCustomMap(mapData) {
     world.carvedVoxels = mapData.carvedVoxels;
   } else {
     world.carvedVoxels = {};
+  }
+
+  // Restore sea level
+  if (mapData.seaLevel !== undefined) {
+    world.seaLevel = mapData.seaLevel;
+  } else {
+    world.seaLevel = 4.0;
+  }
+  if (world.waterMesh) {
+    world.waterMesh.position.y = world.seaLevel;
   }
 
   // Set spawn point

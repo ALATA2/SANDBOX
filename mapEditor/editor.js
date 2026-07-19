@@ -7,6 +7,7 @@ import {
   getDensity,
   setDensity,
   buildMarchingCubesMesh,
+  generateDensityGrid,
   createPalmTree, 
   createPineTree, 
   createLandRockMesh, 
@@ -37,7 +38,7 @@ const lastSculptPoint = new THREE.Vector3();
 let isExtruding = false;
 const extrudeCenter = new THREE.Vector3();
 let extrudeStartMouseY = 0;
-let extrudeSavedDensities = {};
+let extrudeSavedHeights = {};
 
 // Raycasting & Mouse
 const raycaster = new THREE.Raycaster();
@@ -262,6 +263,29 @@ function setupUI() {
       resetMap();
     }
   };
+
+  // Sea Level Toggle and Slider bindings
+  const seaToggle = document.getElementById('sea-level-toggle');
+  if (seaToggle) {
+    seaToggle.addEventListener('change', (e) => {
+      if (world.waterMesh) {
+        world.waterMesh.visible = e.target.checked;
+      }
+    });
+  }
+
+  const seaSlider = document.getElementById('sea-level-slider');
+  const seaValueLabel = document.getElementById('sea-level-value');
+  if (seaSlider && seaValueLabel) {
+    seaSlider.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      world.seaLevel = val;
+      seaValueLabel.textContent = `${val.toFixed(1)}m`;
+      if (world.waterMesh) {
+        world.waterMesh.position.y = val;
+      }
+    });
+  }
 }
 
 // Create appropriate 3D mesh for the ghost preview
@@ -491,10 +515,10 @@ function applySculpt(hitPoint) {
   }
 }
 
-// Start the extrusion process (records base column densities in a cylinder)
+// Start the extrusion process (records original surface heights inside a cylinder)
 function startExtrude(hitPoint, radius) {
   extrudeCenter.copy(hitPoint);
-  extrudeSavedDensities = {};
+  extrudeSavedHeights = {};
   
   const spacing = world.spacing;
   const gcx = hitPoint.x / spacing;
@@ -512,16 +536,28 @@ function startExtrude(hitPoint, radius) {
       const dz = z - gcz;
       const dist = Math.sqrt(dx*dx + dz*dz);
       if (dist < gRadius) {
-        for (let y = 0; y < world.sizeY; y++) {
-          const key = `${x},${y},${z}`;
-          extrudeSavedDensities[key] = getDensity(x, y, z);
+        // Find the original solid height of this column by scanning from top to bottom
+        let surfaceY = 0.0;
+        for (let y = world.sizeY - 1; y >= 0; y--) {
+          if (getDensity(x, y, z) >= -1.5) {
+            surfaceY = y;
+            break;
+          }
         }
+        
+        // If entirely empty/submerged, estimate starting height from density at Y=0
+        if (surfaceY === 0.0) {
+          surfaceY = Math.max(-20.0, getDensity(x, 0, z));
+        }
+
+        const key = `${x},${z}`;
+        extrudeSavedHeights[key] = surfaceY;
       }
     }
   }
 }
 
-// Dynamically updates terrain mesh with deltaY offset as the user drags their mouse
+// Dynamically updates terrain mesh like pulling up a tablecloth (smooth cosine-squared falloff)
 function updateExtrude(deltaY, radius) {
   const spacing = world.spacing;
   const gcx = extrudeCenter.x / spacing;
@@ -537,29 +573,25 @@ function updateExtrude(deltaY, radius) {
 
   for (let x = minX; x <= maxX; x++) {
     for (let z = minZ; z <= maxZ; z++) {
-      const dx = x - gcx;
-      const dz = z - gcz;
-      const dist = Math.sqrt(dx*dx + dz*dz);
-      if (dist < gRadius) {
-        const falloff = 1.0 - dist / gRadius;
-        const change = deltaY * falloff;
+      const key = `${x},${z}`;
+      const origH = extrudeSavedHeights[key];
+      if (origH !== undefined) {
+        const dx = x - gcx;
+        const dz = z - gcz;
+        const dist = Math.sqrt(dx*dx + dz*dz);
+        const t = dist / gRadius;
+        
+        // Cosine-squared (Hanning) curve provides flat tangents at center & edges
+        const falloff = Math.pow(Math.cos(t * Math.PI / 2), 2);
+        const changeInGrid = (deltaY / spacing) * falloff;
+        const newH = origH + changeInGrid;
 
+        // Rebuild density column cleanly: positive under newH, negative above
         for (let y = 0; y < world.sizeY; y++) {
-          const key = `${x},${y},${z}`;
-          const originalD = extrudeSavedDensities[key];
-          if (originalD !== undefined) {
-            let newDens = originalD + change;
-            
-            // Elevate empty/water voxels to a starting baseline Y if we lift them
-            if (deltaY > 0 && originalD < -3.5) {
-              const targetD = -1.5 + change;
-              newDens = Math.max(newDens, targetD);
-            }
-
-            setDensity(x, y, z, newDens);
-            modified = true;
-          }
+          const dens = newH - y;
+          setDensity(x, y, z, dens);
         }
+        modified = true;
       }
     }
   }
@@ -1125,8 +1157,9 @@ function serializeMapData() {
   return {
     version: "v0.080",
     playerSpawn: playerSpawn,
-    carvedVoxels: {}, // In future expand to terrain carving
-    objects: objectsMeta
+    carvedVoxels: world.carvedVoxels || {},
+    objects: objectsMeta,
+    seaLevel: world.seaLevel !== undefined ? world.seaLevel : 4.0
   };
 }
 
@@ -1237,6 +1270,29 @@ function importMapJSON(mapData) {
       scale: 1.0,
       mesh: visualMesh
     });
+  }
+
+  // Restore carved voxels
+  if (mapData.carvedVoxels) {
+    world.carvedVoxels = mapData.carvedVoxels;
+  } else {
+    world.carvedVoxels = {};
+  }
+  generateDensityGrid();
+  buildMarchingCubesMesh();
+
+  // Restore sea level
+  if (mapData.seaLevel !== undefined) {
+    world.seaLevel = mapData.seaLevel;
+    const seaSlider = document.getElementById('sea-level-slider');
+    const seaValueLabel = document.getElementById('sea-level-value');
+    if (seaSlider && seaValueLabel) {
+      seaSlider.value = mapData.seaLevel;
+      seaValueLabel.textContent = `${mapData.seaLevel.toFixed(1)}m`;
+    }
+    if (world.waterMesh) {
+      world.waterMesh.position.y = mapData.seaLevel;
+    }
   }
 }
 
