@@ -347,6 +347,9 @@ function updatePreviewMesh() {
     }
   });
 
+  scene.add(previewMesh);
+}
+
 // Raycasts onto terrainMesh, falling back to a virtual sea level plane if geometry is empty
 function getTerrainIntersection() {
   raycaster.setFromCamera(mouse, camera);
