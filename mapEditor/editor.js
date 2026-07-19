@@ -477,8 +477,8 @@ function getTerrainIntersection() {
     return intersects[0];
   }
   
-  // 2. Fallback: intersect a horizontal plane at sea level (Y = 4.0)
-  const seaPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -4.0);
+  // 2. Fallback: intersect a horizontal plane at sea level
+  const seaPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -world.seaLevel);
   const intersectPoint = new THREE.Vector3();
   if (raycaster.ray.intersectPlane(seaPlane, intersectPoint)) {
     const sizeLimit = world.sizeX * world.spacing;
@@ -930,9 +930,12 @@ function updateSelectionVisualizer() {
       }
     }
 
+    // Render on top of the water or land, whichever is higher
+    const displayY = Math.max(surfaceY, world.seaLevel);
+
     const mesh = new THREE.Mesh(geom, mat);
     // Align plane horizontally, slightly elevated to prevent z-fighting
-    mesh.position.set(x * spacing, surfaceY + 0.15, z * spacing);
+    mesh.position.set(x * spacing, displayY + 0.15, z * spacing);
     selectionVisualizerGroup.add(mesh);
   });
 }
