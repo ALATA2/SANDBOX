@@ -15,10 +15,12 @@ export const ENABLE_ISLANDS = false;
 
 // World Configuration
 export const world = {
-  sizeX: 170,
+  sizeX: 300,
   sizeY: 48, // Increased vertical size to 48 (76.8m) to support doubled volcano height
-  sizeZ: 170,
+  sizeZ: 300,
   spacing: 1.6,
+  gridOffsetX: 0,
+  gridOffsetZ: 0,
   currentVirtualDepth: 0,
   carvedVoxels: {},
   density: null, // Flat Float32Array
@@ -113,20 +115,44 @@ function getGridIndex(x, y, z) {
   return x * world.sizeY * world.sizeZ + y * world.sizeZ + z;
 }
 
-// Get density with bounds checking
+// Get density with bounds checking and dynamic absolute coordinate mapping
 export function getDensity(x, y, z) {
   x = Math.max(0, Math.min(Math.round(x), world.sizeX - 1));
   y = Math.max(0, Math.min(Math.round(y), world.sizeY - 1));
   z = Math.max(0, Math.min(Math.round(z), world.sizeZ - 1));
-  return world.density[getGridIndex(x, y, z)];
+
+  const absX = x + (world.gridOffsetX || 0);
+  const absZ = z + (world.gridOffsetZ || 0);
+  const key = `${absX},${y},${absZ}`;
+
+  if (world.carvedVoxels[key] !== undefined) {
+    return world.carvedVoxels[key];
+  }
+
+  // Fallback to default starting heights in the world
+  const spacing = world.spacing;
+  const wx = absX * spacing;
+  const wz = absZ * spacing;
+  const islandH = calculateIslandHeightVoxel(absX, absZ) * spacing;
+  const baseH = ENABLE_ISLANDS ? islandH : getSeabedHeight(wx, wz);
+  return baseH - (y * spacing);
 }
 
-// Set density with bounds checking
+// Set density with bounds checking and absolute coordinate mapping
 export function setDensity(x, y, z, value) {
   x = Math.max(0, Math.min(Math.round(x), world.sizeX - 1));
   y = Math.max(0, Math.min(Math.round(y), world.sizeY - 1));
   z = Math.max(0, Math.min(Math.round(z), world.sizeZ - 1));
-  world.density[getGridIndex(x, y, z)] = value;
+
+  const absX = x + (world.gridOffsetX || 0);
+  const absZ = z + (world.gridOffsetZ || 0);
+  const key = `${absX},${y},${absZ}`;
+  world.carvedVoxels[key] = value;
+
+  const idx = getGridIndex(x, y, z);
+  if (world.density && idx < world.density.length) {
+    world.density[idx] = value;
+  }
 }
 
 // 2D Noise Implementation
@@ -170,9 +196,9 @@ const lerp = (a, b, t) => a + t * (b - a);
 
 // Centralized helper to calculate procedural starting island voxel height
 function calculateIslandHeightVoxel(x, z) {
-  if (!ENABLE_ISLANDS) return 1.8;
-  const cx = 90; // Shifted from 60 to 90 to prevent volcano from clipping the (0, 0) grid border
-  const cz = 90;
+  if (!ENABLE_ISLANDS) return -20.0;
+  const cx = world.sizeX / 2;
+  const cz = world.sizeZ / 2;
 
   const dx = x - cx;
   const dz = z - cz;
@@ -274,8 +300,10 @@ function calculateIslandHeightVoxel(x, z) {
 // Calculate original uncarved terrain height at coordinates (vx, vz)
 export function getOriginalHeight(vx, vz) {
   const spacing = world.spacing;
-  const gx = vx / spacing;
-  const gz = vz / spacing;
+  const absVx = vx + (world.gridOffsetX || 0) * spacing;
+  const absVz = vz + (world.gridOffsetZ || 0) * spacing;
+  const gx = absVx / spacing;
+  const gz = absVz / spacing;
   return calculateIslandHeightVoxel(gx, gz) * spacing;
 }
 
@@ -816,6 +844,51 @@ export function buildMarchingCubesMesh() {
     world.terrainMesh.receiveShadow = true;
     world.terrainMesh.castShadow = true;
     game.scene.add(world.terrainMesh);
+  }
+
+  // Always position the terrainMesh according to its absolute world grid offset
+  if (world.terrainMesh) {
+    world.terrainMesh.position.set(
+      (world.gridOffsetX || 0) * spacing,
+      0,
+      (world.gridOffsetZ || 0) * spacing
+    );
+  }
+}
+
+// Shift the active voxel grid window to center around absolute world coordinates (centerWx, centerWz)
+export function shiftGridWindow(centerWx, centerWz) {
+  const spacing = world.spacing;
+  const targetOffsetX = Math.round(centerWx / spacing - world.sizeX / 2);
+  const targetOffsetZ = Math.round(centerWz / spacing - world.sizeZ / 2);
+
+  if (targetOffsetX !== world.gridOffsetX || targetOffsetZ !== world.gridOffsetZ) {
+    world.gridOffsetX = targetOffsetX;
+    world.gridOffsetZ = targetOffsetZ;
+
+    // Reposition the terrain mesh in the 3D scene
+    if (world.terrainMesh) {
+      world.terrainMesh.position.set(
+        world.gridOffsetX * spacing,
+        0,
+        world.gridOffsetZ * spacing
+      );
+    }
+
+    // Reload the local density grid array from the global carvedVoxels and noise functions
+    if (world.density) {
+      for (let x = 0; x < world.sizeX; x++) {
+        for (let y = 0; y < world.sizeY; y++) {
+          for (let z = 0; z < world.sizeZ; z++) {
+            const idx = x * world.sizeY * world.sizeZ + y * world.sizeZ + z;
+            world.density[idx] = getDensity(x, y, z);
+          }
+        }
+      }
+    }
+
+    // Rebuild the smooth marching cubes mesh geometry
+    buildMarchingCubesMesh();
   }
 }
 
@@ -3200,6 +3273,7 @@ export function getSeabedHeight(x, z) {
   }
 
   let height = -70.0;
+  const centerCoord = (world.sizeX * world.spacing) / 2;
 
   // 1. If inside the starting island grid area, get the exact voxel island height
   if (gx >= 0 && gx < world.sizeX && gz >= 0 && gz < world.sizeZ) {
@@ -3207,7 +3281,7 @@ export function getSeabedHeight(x, z) {
     height = islandH;
   } else {
     // 2. Outside the starting island grid, slope down smoothly to -70m
-    const dStart = Math.sqrt((x - 144.0) * (x - 144.0) + (z - 144.0) * (z - 144.0));
+    const dStart = Math.sqrt((x - centerCoord) * (x - centerCoord) + (z - centerCoord) * (z - centerCoord));
     const islandRadius = 84.48;
     const transitionWidth = 120.0;
     if (dStart < islandRadius + transitionWidth) {
@@ -3234,16 +3308,16 @@ export function getSeabedHeight(x, z) {
   height = THREE.MathUtils.lerp(height, hVolc, wVolc);
   
   // Add procedural ocean floor ridges and valleys outside the starting island area
-  const dStart = Math.sqrt((x - 144.0) * (x - 144.0) + (z - 144.0) * (z - 144.0));
+  const dStart = Math.sqrt((x - centerCoord) * (x - centerCoord) + (z - centerCoord) * (z - centerCoord));
   const wStart = Math.max(0, Math.min(1.0, 1.0 - (dStart / 150.0)));
   const floorNoise = fbmNoise2D(x * 0.001, z * 0.001) * 20.0 - 10.0;
   
   const noiseScale = (1.0 - wStart) * (1.0 - wLight) * (1.0 - wVolc);
   height += floorNoise * noiseScale;
   
-  // Add a custom emerging non-diggable seabed reef peak at (188.0, 144.0)
-  const reefDx = x - 188.0;
-  const reefDz = z - 144.0;
+  // Add a custom emerging non-diggable seabed reef peak at (centerCoord + 44.0, centerCoord)
+  const reefDx = x - (centerCoord + 44.0);
+  const reefDz = z - centerCoord;
   const reefDist = Math.sqrt(reefDx*reefDx + reefDz*reefDz);
   if (reefDist < 30.0) {
     const t = 1.0 - reefDist / 30.0;
@@ -3263,20 +3337,21 @@ function spawnSeabed() {
   const pos = geom.attributes.position;
   const colors = [];
   
+  const centerCoord = (world.sizeX * world.spacing) / 2;
   for (let i = 0; i < pos.count; i++) {
     const vx = pos.getX(i);
     const vz = pos.getZ(i);
     
-    // Warp coordinates to cluster vertices near the starting island (centered around 144.0, 144.0)
+    // Warp coordinates to cluster vertices near the starting island (centered around centerCoord)
     // Maps range [-8000, 8000] relative to the center and compresses it using power-based scaling (1.7)
-    const tx = (vx - 144.0) / 8000.0;
-    const tz = (vz - 144.0) / 8000.0;
+    const tx = (vx - centerCoord) / 8000.0;
+    const tz = (vz - centerCoord) / 8000.0;
     
     const warpedTx = Math.sign(tx) * Math.pow(Math.abs(tx), 1.7);
     const warpedTz = Math.sign(tz) * Math.pow(Math.abs(tz), 1.7);
     
-    const wx = 144.0 + warpedTx * 8000.0;
-    const wz = 144.0 + warpedTz * 8000.0;
+    const wx = centerCoord + warpedTx * 8000.0;
+    const wz = centerCoord + warpedTz * 8000.0;
     
     pos.setX(i, wx);
     pos.setZ(i, wz);

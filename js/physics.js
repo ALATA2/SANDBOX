@@ -2,19 +2,23 @@ import { world, getSeabedHeight, LAKE_CENTER_X, LAKE_CENTER_Z } from './world.js
 
 // Bilinear density interpolation at a specific grid height (y)
 export function getDensity2DInterpolated(gx, y, gz) {
+  // Map absolute grid coordinates to local grid coordinates using world offsets
+  const localGx = gx - (world.gridOffsetX || 0);
+  const localGz = gz - (world.gridOffsetZ || 0);
+
   // If coordinates are out of grid bounds, treat it as air (-1.0)
-  if (gx < 0 || gx >= world.sizeX || gz < 0 || gz >= world.sizeZ) {
+  if (localGx < 0 || localGx >= world.sizeX || localGz < 0 || localGz >= world.sizeZ) {
     return -1.0;
   }
 
-  const x0 = Math.floor(gx);
-  const z0 = Math.floor(gz);
+  const x0 = Math.floor(localGx);
+  const z0 = Math.floor(localGz);
 
   const x1 = Math.min(x0 + 1, world.sizeX - 1);
   const z1 = Math.min(z0 + 1, world.sizeZ - 1);
 
-  const tx = gx - x0;
-  const tz = gz - z0;
+  const tx = localGx - x0;
+  const tz = localGz - z0;
 
   const d00 = world.density[x0 * world.sizeY * world.sizeZ + y * world.sizeZ + z0] || 0;
   const d10 = world.density[x1 * world.sizeY * world.sizeZ + y * world.sizeZ + z0] || 0;
@@ -34,24 +38,28 @@ export function getDensityInterpolated(px, py, pz) {
   const gy = py / spacing;
   const gz = pz / spacing;
 
+  // Map absolute grid coordinates to local grid coordinates using world offsets
+  const localGx = gx - (world.gridOffsetX || 0);
+  const localGz = gz - (world.gridOffsetZ || 0);
+
   // If coordinates are out of grid bounds, treat it as air (-1.0)
-  if (gx < 0 || gx >= world.sizeX || 
+  if (localGx < 0 || localGx >= world.sizeX || 
       gy < 0 || gy >= world.sizeY || 
-      gz < 0 || gz >= world.sizeZ) {
+      localGz < 0 || localGz >= world.sizeZ) {
     return -1.0;
   }
 
-  const x0 = Math.floor(gx);
+  const x0 = Math.floor(localGx);
   const y0 = Math.floor(gy);
-  const z0 = Math.floor(gz);
+  const z0 = Math.floor(localGz);
 
   const x1 = Math.min(x0 + 1, world.sizeX - 1);
   const y1 = Math.min(y0 + 1, world.sizeY - 1);
   const z1 = Math.min(z0 + 1, world.sizeZ - 1);
 
-  const tx = gx - x0;
+  const tx = localGx - x0;
   const ty = gy - y0;
-  const tz = gz - z0;
+  const tz = localGz - z0;
 
   // Get densities at 8 corners using exact array indices
   const d000 = world.density[x0 * world.sizeY * world.sizeZ + y0 * world.sizeZ + z0] || 0;
@@ -82,8 +90,9 @@ export function checkCollision(px, py, pz) {
   const gz = pz / spacing;
   
   // Prevent player from falling below the seabed floor (or 0.2m bedrock under the island)
-  const floorY = getSeabedHeight(px, pz);
-  const limitY = (gx >= 0 && gx < world.sizeX && gz >= 0 && gz < world.sizeZ) ? Math.min(0.2, floorY) : floorY;
+  const localGx = gx - (world.gridOffsetX || 0);
+  const localGz = gz - (world.gridOffsetZ || 0);
+  const limitY = (localGx >= 0 && localGx < world.sizeX && localGz >= 0 && localGz < world.sizeZ) ? Math.min(0.2, floorY) : floorY;
   if (py < limitY) {
     return true;
   }
@@ -166,7 +175,10 @@ export function getSurfaceHeightNear(px, py, pz) {
   }
   const gz = pz / spacing;
 
-  if (gx < 0 || gx >= world.sizeX || gz < 0 || gz >= world.sizeZ) {
+  const localGx = gx - (world.gridOffsetX || 0);
+  const localGz = gz - (world.gridOffsetZ || 0);
+
+  if (localGx < 0 || localGx >= world.sizeX || localGz < 0 || localGz >= world.sizeZ) {
     return sHeight; // Return procedural seabed height outside main island grid
   }
 

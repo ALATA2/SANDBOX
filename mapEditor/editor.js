@@ -8,6 +8,7 @@ import {
   setDensity,
   buildMarchingCubesMesh,
   generateDensityGrid,
+  shiftGridWindow,
   createPalmTree, 
   createPineTree, 
   createLandRockMesh, 
@@ -107,18 +108,6 @@ function initEditor() {
 
   // 5. Initialize the Voxel Terrain
   initWorld();
-
-  // Bounding Box visual helper to outline the active sculpting canvas bounds
-  const spacing = world.spacing;
-  const terrainBounds = new THREE.Box3(
-    new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(world.sizeX * spacing, world.sizeY * spacing, world.sizeZ * spacing)
-  );
-  const boundsHelper = new THREE.Box3Helper(terrainBounds, 0x00ffff);
-  boundsHelper.material.transparent = true;
-  boundsHelper.material.opacity = 0.85;
-  scene.add(boundsHelper);
-
   // 6. Setup Preview Mesh
   updatePreviewMesh();
 
@@ -219,6 +208,9 @@ function animate() {
   }
   
   controls.update();
+
+  // Dynamically shift the active voxel canvas window to center around the camera focus/target
+  shiftGridWindow(controls.target.x, controls.target.z);
   
   // Position the preview mesh on terrain
   updatePreviewPosition();
