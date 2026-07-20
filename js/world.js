@@ -125,17 +125,7 @@ export function getDensity(x, y, z) {
   const absZ = z + (world.gridOffsetZ || 0);
   const key = `${absX},${y},${absZ}`;
 
-  if (world.carvedVoxels[key] !== undefined) {
-    return world.carvedVoxels[key];
-  }
-
-  // Fallback to default starting heights in the world
-  const spacing = world.spacing;
-  const wx = absX * spacing;
-  const wz = absZ * spacing;
-  const islandH = calculateIslandHeightVoxel(absX, absZ) * spacing;
-  const baseH = ENABLE_ISLANDS ? islandH : getSeabedHeight(wx, wz);
-  return baseH - (y * spacing);
+  return world.carvedVoxels[key] !== undefined ? world.carvedVoxels[key] : -2.0;
 }
 
 // Set density with bounds checking and absolute coordinate mapping
@@ -147,7 +137,12 @@ export function setDensity(x, y, z, value) {
   const absX = x + (world.gridOffsetX || 0);
   const absZ = z + (world.gridOffsetZ || 0);
   const key = `${absX},${y},${absZ}`;
-  world.carvedVoxels[key] = value;
+  
+  if (value <= -2.0) {
+    delete world.carvedVoxels[key];
+  } else {
+    world.carvedVoxels[key] = value;
+  }
 
   const idx = getGridIndex(x, y, z);
   if (world.density && idx < world.density.length) {
@@ -875,14 +870,21 @@ export function shiftGridWindow(centerWx, centerWz) {
       );
     }
 
-    // Reload the local density grid array from the global carvedVoxels and noise functions
+    // Reload local density grid array from global carvedVoxels in O(carved) instead of O(sizeX*sizeY*sizeZ)
     if (world.density) {
-      for (let x = 0; x < world.sizeX; x++) {
-        for (let y = 0; y < world.sizeY; y++) {
-          for (let z = 0; z < world.sizeZ; z++) {
-            const idx = x * world.sizeY * world.sizeZ + y * world.sizeZ + z;
-            world.density[idx] = getDensity(x, y, z);
-          }
+      world.density.fill(-2.0); // Fast native reset
+      for (const key in world.carvedVoxels) {
+        const parts = key.split(',');
+        const absX = parseInt(parts[0], 10);
+        const y = parseInt(parts[1], 10);
+        const absZ = parseInt(parts[2], 10);
+
+        const x = absX - world.gridOffsetX;
+        const z = absZ - world.gridOffsetZ;
+
+        if (x >= 0 && x < world.sizeX && z >= 0 && z < world.sizeZ) {
+          const idx = x * world.sizeY * world.sizeZ + y * world.sizeZ + z;
+          world.density[idx] = world.carvedVoxels[key];
         }
       }
     }
