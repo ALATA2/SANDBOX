@@ -170,7 +170,7 @@ const lerp = (a, b, t) => a + t * (b - a);
 
 // Centralized helper to calculate procedural starting island voxel height
 function calculateIslandHeightVoxel(x, z) {
-  if (!ENABLE_ISLANDS) return -20.0;
+  if (!ENABLE_ISLANDS) return 1.8;
   const cx = 90; // Shifted from 60 to 90 to prevent volcano from clipping the (0, 0) grid border
   const cz = 90;
 
