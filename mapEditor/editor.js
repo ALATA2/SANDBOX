@@ -114,9 +114,9 @@ function initEditor() {
     new THREE.Vector3(0, 0, 0),
     new THREE.Vector3(world.sizeX * spacing, world.sizeY * spacing, world.sizeZ * spacing)
   );
-  const boundsHelper = new THREE.Box3Helper(terrainBounds, 0x06b6d4);
+  const boundsHelper = new THREE.Box3Helper(terrainBounds, 0x00ffff);
   boundsHelper.material.transparent = true;
-  boundsHelper.material.opacity = 0.3;
+  boundsHelper.material.opacity = 0.85;
   scene.add(boundsHelper);
 
   // 6. Setup Preview Mesh
