@@ -45,7 +45,7 @@
   <!-- Left Sidebar Panel -->
   <div id="sidebar" class="hud-panel">
     <h3>Terrain Tools ⛰️</h3>
-    <div class="object-grid" style="margin-bottom: 12px; grid-template-columns: repeat(4, 1fr);">
+    <div class="object-grid" style="margin-bottom: 12px; grid-template-columns: repeat(3, 1fr);">
       <div class="grid-item" data-type="sculpt_up" title="Alza il terreno (tira in su)">
         <span class="grid-item-icon">🔺</span>
         <span class="grid-item-label">Tira Su</span>
@@ -57,6 +57,14 @@
       <div class="grid-item" data-type="extrude" title="Clicca e trascina in verticale per sollevare o abbassare l'area">
         <span class="grid-item-icon">↕️</span>
         <span class="grid-item-label">Estrudi</span>
+      </div>
+      <div class="grid-item" data-type="sculpt_smooth" title="Smussa i bordi e attenua le pendenze">
+        <span class="grid-item-icon">🌊</span>
+        <span class="grid-item-label">Smussa</span>
+      </div>
+      <div class="grid-item" data-type="sculpt_flatten" title="Appiattisce il terreno all'altezza di partenza">
+        <span class="grid-item-icon">🏢</span>
+        <span class="grid-item-label">Livella</span>
       </div>
       <div class="grid-item" data-type="erase_area" title="Cancella oggetti ed appiattisce il terreno">
         <span class="grid-item-icon">🧹</span>
@@ -95,6 +103,14 @@
           <span id="brush-length-value">10m</span>
         </label>
         <input type="range" id="brush-length-slider" min="2" max="35" value="10" step="1" style="width: 100%; cursor: pointer;">
+      </div>
+
+      <!-- Rough Extrude Option -->
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+        <input type="checkbox" id="rough-extrude-checkbox" style="cursor: pointer; width: 15px; height: 15px;">
+        <label for="rough-extrude-checkbox" style="font-size: 12px; color: rgba(255,255,255,0.75); cursor: pointer; user-select: none;">
+          ⛰️ Estrusione Ruvida (Rumore)
+        </label>
       </div>
     </div>
 

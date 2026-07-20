@@ -17,7 +17,8 @@ import {
   createCanePlant, 
   createFlowerMesh, 
   createStarfishMesh,
-  smoothNoise2D
+  smoothNoise2D,
+  fbmNoise2D
 } from '../js/world.js';
 import { getSurfaceHeightNear } from '../js/physics.js';
 
@@ -35,6 +36,7 @@ let brushLength = 10.0;
 let brushShape = 'circle'; // 'circle' or 'square'
 let isSculpting = false;
 const lastSculptPoint = new THREE.Vector3();
+let flattenTargetHeight = null; // Altitude target for flattening brush
 
 // Extrusion Tool State
 let isExtruding = false;
@@ -436,11 +438,13 @@ function updatePreviewMesh() {
     mat = new THREE.MeshBasicMaterial({ color: 0xf8fafc, transparent: true, opacity });
     previewMesh = new THREE.Mesh(geom, mat);
     previewMesh.position.y = 0.3;
-  } else if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area' || currentToolType === 'generate_island' || currentToolType === 'extrude') {
+  } else if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'sculpt_smooth' || currentToolType === 'sculpt_flatten' || currentToolType === 'erase_area' || currentToolType === 'generate_island' || currentToolType === 'extrude') {
     const color = currentToolType === 'sculpt_up' ? 0x22c55e : 
                   (currentToolType === 'sculpt_down' ? 0xef4444 : 
+                  (currentToolType === 'sculpt_smooth' ? 0x06b6d4 : 
+                  (currentToolType === 'sculpt_flatten' ? 0xa855f7 : 
                   (currentToolType === 'erase_area' ? 0xe11d48 : 
-                  (currentToolType === 'extrude' ? 0xf97316 : 0x06b6d4)));
+                  (currentToolType === 'extrude' ? 0xf97316 : 0x06b6d4)))));
     if (brushShape === 'circle') {
       geom = new THREE.CylinderGeometry(1.0, 1.0, 0.4, 24);
       mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.35 });
@@ -660,12 +664,159 @@ function applySelectionBrush(hitPoint) {
   }
 }
 
+// Smooth/Blur voxel densities inside brush bounds to round off sharp ridges and spikes
+function smoothTerrain(hitPoint) {
+  const spacing = world.spacing;
+  const gx = hitPoint.x / spacing;
+  const gy = hitPoint.y / spacing;
+  const gz = hitPoint.z / spacing;
+  
+  const gWidth = brushWidth / spacing;
+  const gLength = brushLength / spacing;
+  const gHeight = Math.max(gWidth, gLength);
+
+  const minX = Math.max(0, Math.floor(gx - gWidth));
+  const maxX = Math.min(world.sizeX - 1, Math.ceil(gx + gWidth));
+  const minY = Math.max(0, Math.floor(gy - gHeight));
+  const maxY = Math.min(world.sizeY - 1, Math.ceil(gy + gHeight));
+  const minZ = Math.max(0, Math.floor(gz - gLength));
+  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gz + gLength));
+
+  let modified = false;
+
+  // Pre-calculate neighbor offsets (6 cardinal neighbors)
+  const neighbors = [
+    [1, 0, 0], [-1, 0, 0],
+    [0, 1, 0], [0, -1, 0],
+    [0, 0, 1], [0, 0, -1]
+  ];
+
+  for (let x = minX; x <= maxX; x++) {
+    for (let y = minY; y <= maxY; y++) {
+      for (let z = minZ; z <= maxZ; z++) {
+        const dx = x - gx;
+        const dy = y - gy;
+        const dz = z - gz;
+
+        let inside = false;
+        if (brushShape === 'circle') {
+          inside = (dx*dx/(gWidth*gWidth) + dy*dy/(gHeight*gHeight) + dz*dz/(gLength*gLength)) < 1.0;
+        } else {
+          inside = Math.abs(dx) < gWidth && Math.abs(dy) < gHeight && Math.abs(dz) < gLength;
+        }
+
+        if (inside) {
+          // Average neighbors
+          let sum = 0;
+          let count = 0;
+          for (let i = 0; i < 6; i++) {
+            const nx = x + neighbors[i][0];
+            const ny = y + neighbors[i][1];
+            const nz = z + neighbors[i][2];
+            if (nx >= 0 && nx < world.sizeX && ny >= 0 && ny < world.sizeY && nz >= 0 && nz < world.sizeZ) {
+              sum += getDensity(nx, ny, nz);
+              count++;
+            }
+          }
+
+          if (count > 0) {
+            const avg = sum / count;
+            const currentD = getDensity(x, y, z);
+            const newD = currentD * 0.75 + avg * 0.25;
+
+            if (Math.abs(newD - currentD) > 0.005) {
+              setDensity(x, y, z, newD);
+              const voxelKey = `${x},${y},${z}`;
+              world.carvedVoxels[voxelKey] = newD;
+              modified = true;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (modified) {
+    buildMarchingCubesMesh();
+  }
+}
+
+// Plateau / flatten terrain to flattenTargetHeight within brush bounds
+function flattenTerrain(hitPoint) {
+  if (flattenTargetHeight === null) return;
+
+  const spacing = world.spacing;
+  const gx = hitPoint.x / spacing;
+  const gz = hitPoint.z / spacing;
+  
+  const gWidth = brushWidth / spacing;
+  const gLength = brushLength / spacing;
+  const targetGridY = flattenTargetHeight / spacing;
+
+  const minX = Math.max(0, Math.floor(gx - gWidth));
+  const maxX = Math.min(world.sizeX - 1, Math.ceil(gx + gWidth));
+  const minZ = Math.max(0, Math.floor(gz - gLength));
+  const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gcz = gz + gLength)); // Prevent typo, just maxZ limit
+
+  let modified = false;
+
+  for (let x = minX; x <= maxX; x++) {
+    for (let z = minZ; z <= maxZ; z++) {
+      const dx = x - gx;
+      const dz = z - gz;
+
+      let inside = false;
+      let falloff = 0;
+      if (brushShape === 'circle') {
+        const rx = dx / gWidth;
+        const rz = dz / gLength;
+        const t = Math.sqrt(rx*rx + rz*rz);
+        if (t < 1.0) {
+          inside = true;
+          falloff = Math.pow(Math.cos(t * Math.PI / 2), 2);
+        }
+      } else {
+        const rx = Math.abs(dx) / gWidth;
+        const rz = Math.abs(dz) / gLength;
+        if (rx < 1.0 && rz < 1.0) {
+          inside = true;
+          falloff = Math.pow(Math.cos(rx * Math.PI / 2), 2) * Math.pow(Math.cos(rz * Math.PI / 2), 2);
+        }
+      }
+
+      if (inside) {
+        // Flatten entire column to meet targetGridY with falloff blending
+        for (let y = 0; y < world.sizeY; y++) {
+          const targetD = targetGridY - y;
+          const currentD = getDensity(x, y, z);
+          const newD = currentD + (targetD - currentD) * falloff;
+
+          if (Math.abs(newD - currentD) > 0.005) {
+            setDensity(x, y, z, newD);
+            const voxelKey = `${x},${y},${z}`;
+            world.carvedVoxels[voxelKey] = newD;
+            modified = true;
+          }
+        }
+      }
+    }
+  }
+
+  if (modified) {
+    buildMarchingCubesMesh();
+  }
+}
+
 // Dynamic terrain sculpting trigger using the current brush configuration
 function applySculpt(hitPoint) {
   if (currentToolType === 'sculpt_up') {
     sculptTerrain(hitPoint, 1.8, false);
   } else if (currentToolType === 'sculpt_down') {
     sculptTerrain(hitPoint, -1.8, false);
+  } else if (currentToolType === 'sculpt_smooth') {
+    smoothTerrain(hitPoint);
+  } else if (currentToolType === 'sculpt_flatten') {
+    flattenTerrain(hitPoint);
   } else if (currentToolType === 'erase_area') {
     sculptTerrain(hitPoint, 0.0, true);
     
@@ -773,6 +924,7 @@ function startExtrude(hitPoint) {
 function updateExtrude(deltaY) {
   const spacing = world.spacing;
   let modified = false;
+  const isRough = document.getElementById('rough-extrude-checkbox')?.checked;
 
   if (selectedColumns.size > 0 && selectToolMode === 'extrude') {
     // Selection mask mode: extrude all selected columns uniformly
@@ -782,7 +934,11 @@ function updateExtrude(deltaY) {
         const parts = key.split(',');
         const x = parseInt(parts[0]);
         const z = parseInt(parts[1]);
-        const changeInGrid = deltaY / spacing;
+        let changeInGrid = deltaY / spacing;
+        if (isRough) {
+          const noiseFactor = 0.4 + 1.2 * fbmNoise2D(x * 0.15, z * 0.15);
+          changeInGrid *= noiseFactor;
+        }
         const newH = origH + changeInGrid;
 
         for (let y = 0; y < world.sizeY; y++) {
@@ -825,7 +981,11 @@ function updateExtrude(deltaY) {
                       Math.pow(Math.cos(Math.min(1.0, rz) * Math.PI / 2), 2);
           }
 
-          const changeInGrid = (deltaY / spacing) * falloff;
+          let changeInGrid = (deltaY / spacing) * falloff;
+          if (isRough) {
+            const noiseFactor = 0.4 + 1.2 * fbmNoise2D(x * 0.15, z * 0.15);
+            changeInGrid *= noiseFactor;
+          }
           const newH = origH + changeInGrid;
 
           // Rebuild density column cleanly: positive under newH, negative above
@@ -1308,13 +1468,16 @@ function onPointerDown(event) {
     if (event.ctrlKey) return; // Allow panning with ctrl+click without placing
     
     // Check if we are starting a sculpting drag session
-    if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area') {
+    if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'sculpt_smooth' || currentToolType === 'sculpt_flatten' || currentToolType === 'erase_area') {
       isSculpting = true;
       controls.enabled = false; // Disable camera OrbitControls
       
       const intersect = getTerrainIntersection();
       if (intersect) {
         const hitPoint = intersect.point;
+        if (currentToolType === 'sculpt_flatten') {
+          flattenTargetHeight = hitPoint.y;
+        }
         lastSculptPoint.copy(hitPoint);
         applySculpt(hitPoint);
       }

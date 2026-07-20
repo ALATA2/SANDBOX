@@ -154,7 +154,7 @@ export function smoothNoise2D(x, z) {
   return x1 + v * (x2 - x1);
 }
 
-function fbmNoise2D(x, z) {
+export function fbmNoise2D(x, z) {
   let value = 0;
   let amplitude = 1.0;
   let frequency = 1.0;
