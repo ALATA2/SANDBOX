@@ -21,6 +21,7 @@ export const world = {
   spacing: 1.6,
   gridOffsetX: 0,
   gridOffsetZ: 0,
+  gridOffsetY: -40.0,
   currentVirtualDepth: 0,
   carvedVoxels: {},
   density: null, // Flat Float32Array
@@ -125,7 +126,19 @@ export function getDensity(x, y, z) {
   const absZ = z + (world.gridOffsetZ || 0);
   const key = `${absX},${y},${absZ}`;
 
-  return world.carvedVoxels[key] !== undefined ? world.carvedVoxels[key] : -2.0;
+  if (world.carvedVoxels[key] !== undefined) {
+    return world.carvedVoxels[key];
+  }
+
+  // Fallback to default starting heights in the world shifted by gridOffsetY
+  const spacing = world.spacing;
+  const wx = absX * spacing;
+  const wz = absZ * spacing;
+  const wy = y * spacing + (world.gridOffsetY || 0);
+  const islandH = calculateIslandHeightVoxel(absX, absZ) * spacing;
+  const baseH = ENABLE_ISLANDS ? islandH : getSeabedHeight(wx, wz);
+  
+  return baseH - wy;
 }
 
 // Set density with bounds checking and absolute coordinate mapping
@@ -647,47 +660,50 @@ export function scrollWorld(direction) {
   buildMarchingCubesMesh();
 }
 
-// Create the island density grid
 export function generateDensityGrid() {
   const size = world.sizeX * world.sizeY * world.sizeZ;
   world.density = new Float32Array(size);
-
-  if (!ENABLE_ISLANDS) {
-    world.density.fill(-2.0); // Flat empty sand seabed starting point
-    return;
-  }
 
   world.initializing = true;
 
   const cx = world.sizeX / 2;
   const cz = world.sizeZ / 2;
+  const spacing = world.spacing;
 
   for (let x = 0; x < world.sizeX; x++) {
     for (let z = 0; z < world.sizeZ; z++) {
-      const islandHeight = calculateIslandHeightVoxel(x, z);
+      const absX = x + (world.gridOffsetX || 0);
+      const absZ = z + (world.gridOffsetZ || 0);
+      const wx = absX * spacing;
+      const wz = absZ * spacing;
+
+      const islandHeight = calculateIslandHeightVoxel(absX, absZ) * spacing;
+      const baseH = ENABLE_ISLANDS ? islandHeight : getSeabedHeight(wx, wz);
 
       for (let y = 0; y < world.sizeY; y++) {
-        // Flat island base with hills
-        let dens = islandHeight - y;
+        const wy = y * spacing + (world.gridOffsetY || 0);
+        let dens = baseH - wy;
 
-        // Create a cave/tunnel structure near the center
-        // A simple 3D mathematical carve: subtract density inside a cylinder/sphere tunnel
-        const tunnelRadius = 2.2;
-        const tx = cx;
-        const ty = 4.5;
-        const tz = cz;
-        // Horizontal tunnel pointing in Z direction
-        const distToTunnelAxis = Math.sqrt(Math.pow(x - tx, 2) + Math.pow(y - ty, 2));
-        if (distToTunnelAxis < tunnelRadius && z > (cz - 30) && z < (cz + 30)) {
-          const carveAmount = (1.0 - distToTunnelAxis / tunnelRadius) * 2.5;
-          dens -= carveAmount;
-        }
+        if (ENABLE_ISLANDS) {
+          // Create a cave/tunnel structure near the center
+          // A simple 3D mathematical carve: subtract density inside a cylinder/sphere tunnel
+          const tunnelRadius = 2.2;
+          const tx = cx;
+          const ty = 4.5;
+          const tz = cz;
+          // Horizontal tunnel pointing in Z direction
+          const distToTunnelAxis = Math.sqrt(Math.pow(x - tx, 2) + Math.pow(y - ty, 2));
+          if (distToTunnelAxis < tunnelRadius && z > (cz - 30) && z < (cz + 30)) {
+            const carveAmount = (1.0 - distToTunnelAxis / tunnelRadius) * 2.5;
+            dens -= carveAmount;
+          }
 
-        // Taper density smoothly to air at the grid borders to avoid 90-degree cliff drops under the water
-        const borderDist = Math.min(x, Math.min(world.sizeX - 1 - x, Math.min(z, world.sizeZ - 1 - z)));
-        if (borderDist < 5) {
-          const factor = borderDist / 5.0; // 0.0 at border, 1.0 at 5 cells away
-          dens = (dens + 2.0) * factor - 2.0; // Smoothly pull down to strictly negative air value (-2.0)
+          // Taper density smoothly to air at the grid borders to avoid 90-degree cliff drops under the water
+          const borderDist = Math.min(x, Math.min(world.sizeX - 1 - x, Math.min(z, world.sizeZ - 1 - z)));
+          if (borderDist < 5) {
+            const factor = borderDist / 5.0; // 0.0 at border, 1.0 at 5 cells away
+            dens = (dens + 2.0) * factor - 2.0; // Smoothly pull down to strictly negative air value (-2.0)
+          }
         }
 
         setDensity(x, y, z, dens);
@@ -881,9 +897,27 @@ export function shiftGridWindow(centerWx, centerWz) {
       );
     }
 
-    // Reload local density grid array from global carvedVoxels in O(carved) instead of O(sizeX*sizeY*sizeZ)
+    // Reload local density grid array from global carvedVoxels and dynamic seabed base
     if (world.density) {
-      world.density.fill(-2.0); // Fast native reset
+      for (let x = 0; x < world.sizeX; x++) {
+        for (let z = 0; z < world.sizeZ; z++) {
+          const absX = x + world.gridOffsetX;
+          const absZ = z + world.gridOffsetZ;
+          const wx = absX * spacing;
+          const wz = absZ * spacing;
+
+          const islandHeight = calculateIslandHeightVoxel(absX, absZ) * spacing;
+          const baseH = ENABLE_ISLANDS ? islandHeight : getSeabedHeight(wx, wz);
+
+          for (let y = 0; y < world.sizeY; y++) {
+            const wy = y * spacing + (world.gridOffsetY || 0);
+            const idx = x * world.sizeY * world.sizeZ + y * world.sizeZ + z;
+            world.density[idx] = baseH - wy;
+          }
+        }
+      }
+
+      // Overwrite with custom carved/sculpted voxels
       for (const key in world.carvedVoxels) {
         const parts = key.split(',');
         const absX = parseInt(parts[0], 10);
@@ -910,7 +944,7 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
   // Convert world coordinates to grid index
   const spacing = world.spacing;
   const gx = hitPoint.x / spacing;
-  const gy = hitPoint.y / spacing;
+  const gy = (hitPoint.y - (world.gridOffsetY || 0)) / spacing;
   const gz = hitPoint.z / spacing;
 
   const gRadius = radius / spacing;
@@ -2832,6 +2866,12 @@ function updateVolcanoDrainage(delta) {
 
 // Update World Animation (e.g. lighthouse rotation, cloud drift)
 export function updateWorld(delta) {
+  // Shift the active voxel grid window to center around the player character
+  if (game.controls && game.controls.getObject) {
+    const playerPos = game.controls.getObject().position;
+    shiftGridWindow(playerPos.x, playerPos.z);
+  }
+
   // Update Volcano Lake Drainage
   updateVolcanoDrainage(delta);
 
@@ -3277,6 +3317,17 @@ export function getSeabedHeight(x, z) {
       const t = (shelfNoise - 0.4) / 0.6;
       const smoothT = Math.sin(t * Math.PI / 2); // smooth transition
       baseHeight = THREE.MathUtils.lerp(baseHeight, -20.0 + ridgeNoise * 10.0, smoothT);
+
+      // Random Archipelago: if shelfNoise is very high, spawn beautiful islands
+      if (shelfNoise > 0.55) {
+        const islandNoise = fbmNoise2D(x * 0.008, z * 0.008) / 1.75;
+        const microDetail = fbmNoise2D(x * 0.035, z * 0.035) / 1.75;
+        if (islandNoise > 0.48) {
+          const islandT = (islandNoise - 0.48) / 0.52;
+          const peakHeight = 1.0 + islandT * 26.0 + microDetail * 3.5; // Rises up to 30.5m
+          baseHeight = THREE.MathUtils.lerp(baseHeight, peakHeight, Math.sin(islandT * Math.PI / 2));
+        }
+      }
     } else {
       // Add detailed ridges and trenches in the deep areas
       baseHeight += ridgeNoise * 15.0 - 7.5;

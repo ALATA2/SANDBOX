@@ -488,8 +488,11 @@ function getTerrainIntersection() {
   const seaPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -world.seaLevel);
   const intersectPoint = new THREE.Vector3();
   if (raycaster.ray.intersectPlane(seaPlane, intersectPoint)) {
-    const sizeLimit = world.sizeX * world.spacing;
-    if (intersectPoint.x >= 0 && intersectPoint.x <= sizeLimit && intersectPoint.z >= 0 && intersectPoint.z <= sizeLimit) {
+    const minX = (world.gridOffsetX || 0) * world.spacing;
+    const maxX = minX + world.sizeX * world.spacing;
+    const minZ = (world.gridOffsetZ || 0) * world.spacing;
+    const maxZ = minZ + world.sizeZ * world.spacing;
+    if (intersectPoint.x >= minX && intersectPoint.x <= maxX && intersectPoint.z >= minZ && intersectPoint.z <= maxZ) {
       return { point: intersectPoint };
     }
   }
@@ -540,9 +543,9 @@ function updateSidebarSelection() {
 // Sculpt Voxel Terrain or Erase area
 function sculptTerrain(hitPoint, valueChange, eraseMode = false) {
   const spacing = world.spacing;
-  const gx = hitPoint.x / spacing;
-  const gy = hitPoint.y / spacing;
-  const gz = hitPoint.z / spacing;
+  const gx = hitPoint.x / spacing - (world.gridOffsetX || 0);
+  const gy = (hitPoint.y - (world.gridOffsetY || 0)) / spacing;
+  const gz = hitPoint.z / spacing - (world.gridOffsetZ || 0);
   
   const gWidth = brushWidth / spacing;
   const gLength = brushLength / spacing;
@@ -620,8 +623,8 @@ function sculptTerrain(hitPoint, valueChange, eraseMode = false) {
 // Paints or erases selection columns in a grid under the current brush configuration
 function applySelectionBrush(hitPoint) {
   const spacing = world.spacing;
-  const gcx = hitPoint.x / spacing;
-  const gcz = hitPoint.z / spacing;
+  const gcx = hitPoint.x / spacing - (world.gridOffsetX || 0);
+  const gcz = hitPoint.z / spacing - (world.gridOffsetZ || 0);
   
   const gWidth = brushWidth / spacing;
   const gLength = brushLength / spacing;
@@ -646,7 +649,9 @@ function applySelectionBrush(hitPoint) {
       }
 
       if (inside) {
-        const key = `${x},${z}`;
+        const absX = x + (world.gridOffsetX || 0);
+        const absZ = z + (world.gridOffsetZ || 0);
+        const key = `${absX},${absZ}`;
         if (selectToolMode === 'add') {
           if (!selectedColumns.has(key)) {
             selectedColumns.add(key);
@@ -670,9 +675,9 @@ function applySelectionBrush(hitPoint) {
 // Smooth/Blur voxel densities inside brush bounds to round off sharp ridges and spikes
 function smoothTerrain(hitPoint) {
   const spacing = world.spacing;
-  const gx = hitPoint.x / spacing;
-  const gy = hitPoint.y / spacing;
-  const gz = hitPoint.z / spacing;
+  const gx = hitPoint.x / spacing - (world.gridOffsetX || 0);
+  const gy = (hitPoint.y - (world.gridOffsetY || 0)) / spacing;
+  const gz = hitPoint.z / spacing - (world.gridOffsetZ || 0);
   
   const gWidth = brushWidth / spacing;
   const gLength = brushLength / spacing;
@@ -749,12 +754,12 @@ function flattenTerrain(hitPoint) {
   if (flattenTargetHeight === null) return;
 
   const spacing = world.spacing;
-  const gx = hitPoint.x / spacing;
-  const gz = hitPoint.z / spacing;
+  const gx = hitPoint.x / spacing - (world.gridOffsetX || 0);
+  const gz = hitPoint.z / spacing - (world.gridOffsetZ || 0);
   
   const gWidth = brushWidth / spacing;
   const gLength = brushLength / spacing;
-  const targetGridY = flattenTargetHeight / spacing;
+  const targetGridY = (flattenTargetHeight - (world.gridOffsetY || 0)) / spacing;
 
   const minX = Math.max(0, Math.floor(gx - gWidth));
   const maxX = Math.min(world.sizeX - 1, Math.ceil(gx + gWidth));
@@ -864,8 +869,11 @@ function startExtrude(hitPoint) {
     // Selection mask mode: Record heights of all selected columns
     selectedColumns.forEach(key => {
       const parts = key.split(',');
-      const x = parseInt(parts[0]);
-      const z = parseInt(parts[1]);
+      const absX = parseInt(parts[0], 10);
+      const absZ = parseInt(parts[1], 10);
+      
+      const x = absX - (world.gridOffsetX || 0);
+      const z = absZ - (world.gridOffsetZ || 0);
       
       let surfaceY = 0.0;
       for (let y = world.sizeY - 1; y >= 0; y--) {
@@ -881,8 +889,8 @@ function startExtrude(hitPoint) {
     });
   } else {
     // Standard tablecloth mode
-    const gcx = hitPoint.x / spacing;
-    const gcz = hitPoint.z / spacing;
+    const gcx = hitPoint.x / spacing - (world.gridOffsetX || 0);
+    const gcz = hitPoint.z / spacing - (world.gridOffsetZ || 0);
     
     const gWidth = brushWidth / spacing;
     const gLength = brushLength / spacing;
@@ -935,11 +943,14 @@ function updateExtrude(deltaY) {
       const origH = extrudeSavedHeights[key];
       if (origH !== undefined) {
         const parts = key.split(',');
-        const x = parseInt(parts[0]);
-        const z = parseInt(parts[1]);
+        const absX = parseInt(parts[0], 10);
+        const absZ = parseInt(parts[1], 10);
+        
+        const x = absX - (world.gridOffsetX || 0);
+        const z = absZ - (world.gridOffsetZ || 0);
         let changeInGrid = deltaY / spacing;
         if (isRough) {
-          const noiseFactor = 0.4 + 1.2 * fbmNoise2D(x * 0.15, z * 0.15);
+          const noiseFactor = 0.4 + 1.2 * fbmNoise2D(absX * 0.15, absZ * 0.15);
           changeInGrid *= noiseFactor;
         }
         const newH = origH + changeInGrid;
@@ -952,8 +963,8 @@ function updateExtrude(deltaY) {
     });
   } else {
     // Standard tablecloth mode
-    const gcx = extrudeCenter.x / spacing;
-    const gcz = extrudeCenter.z / spacing;
+    const gcx = extrudeCenter.x / spacing - (world.gridOffsetX || 0);
+    const gcz = extrudeCenter.z / spacing - (world.gridOffsetZ || 0);
     
     const gWidth = brushWidth / spacing;
     const gLength = brushLength / spacing;
@@ -1152,8 +1163,8 @@ function spawnObjectInEditor(type, wx, wy, wz) {
 // Procedural Island Height Generator inside selected brush circle
 function generateProceduralIsland(hitPoint, radius, genre) {
   const spacing = world.spacing;
-  const gcx = hitPoint.x / spacing;
-  const gcz = hitPoint.z / spacing;
+  const gcx = hitPoint.x / spacing - (world.gridOffsetX || 0);
+  const gcz = hitPoint.z / spacing - (world.gridOffsetZ || 0);
   const gRadius = radius / spacing;
 
   const minX = Math.max(0, Math.floor(gcx - gRadius));
