@@ -139,7 +139,9 @@ export function setDensity(x, y, z, value) {
   const key = `${absX},${y},${absZ}`;
   
   if (value <= -2.0) {
-    delete world.carvedVoxels[key];
+    if (!world.initializing) {
+      delete world.carvedVoxels[key];
+    }
   } else {
     world.carvedVoxels[key] = value;
   }
@@ -650,6 +652,13 @@ export function generateDensityGrid() {
   const size = world.sizeX * world.sizeY * world.sizeZ;
   world.density = new Float32Array(size);
 
+  if (!ENABLE_ISLANDS) {
+    world.density.fill(-2.0); // Flat empty sand seabed starting point
+    return;
+  }
+
+  world.initializing = true;
+
   const cx = world.sizeX / 2;
   const cz = world.sizeZ / 2;
 
@@ -685,6 +694,8 @@ export function generateDensityGrid() {
       }
     }
   }
+
+  world.initializing = false;
 }
 
 // Convert density grid to standard low-poly Mesh using Marching Cubes
@@ -715,7 +726,7 @@ export function buildMarchingCubesMesh() {
         const d = new Float32Array(8);
         for (let i = 0; i < 8; i++) {
           const off = cornerOffsets[i];
-          d[i] = getDensity(x + off[0], y + off[1], z + off[2]);
+          d[i] = world.density[getGridIndex(x + off[0], y + off[1], z + off[2])];
         }
 
         // 2. Classify cell corners to find case index (0-255)
