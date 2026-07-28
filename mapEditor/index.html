@@ -44,117 +44,7 @@
 
   <!-- Left Sidebar Panel -->
   <div id="sidebar" class="hud-panel">
-    <h3>Terrain Tools ⛰️</h3>
-    <div class="object-grid" style="margin-bottom: 12px; grid-template-columns: repeat(3, 1fr);">
-      <div class="grid-item" data-type="sculpt_up" title="Alza il terreno (tira in su)">
-        <span class="grid-item-icon">🔺</span>
-        <span class="grid-item-label">Tira Su</span>
-      </div>
-      <div class="grid-item" data-type="sculpt_down" title="Abbassa il terreno (spingi in giù)">
-        <span class="grid-item-icon">🔻</span>
-        <span class="grid-item-label">Spingi Giù</span>
-      </div>
-      <div class="grid-item" data-type="extrude" title="Clicca e trascina in verticale per sollevare o abbassare l'area">
-        <span class="grid-item-icon">↕️</span>
-        <span class="grid-item-label">Estrudi</span>
-      </div>
-      <div class="grid-item" data-type="sculpt_smooth" title="Smussa i bordi e attenua le pendenze">
-        <span class="grid-item-icon">🌊</span>
-        <span class="grid-item-label">Smussa</span>
-      </div>
-      <div class="grid-item" data-type="sculpt_flatten" title="Appiattisce il terreno all'altezza di partenza">
-        <span class="grid-item-icon">🏢</span>
-        <span class="grid-item-label">Livella</span>
-      </div>
-      <div class="grid-item" data-type="erase_area" title="Cancella oggetti ed appiattisce il terreno">
-        <span class="grid-item-icon">🧹</span>
-        <span class="grid-item-label">Cancella</span>
-      </div>
-    </div>
-
-    <!-- Brush Configuration -->
-    <div class="brush-config" style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
-      <span style="font-size: 13px; font-weight: 600; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
-        ⚙️ Configurazione Area
-      </span>
-
-      <!-- Shape Selection buttons -->
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label style="font-size: 11px; color: rgba(255,255,255,0.5);">Forma dell'Area</label>
-        <div style="display: flex; gap: 6px;">
-          <button class="btn btn-secondary active" id="btn-shape-circle" style="flex: 1; padding: 6px; font-size: 12px; justify-content: center;">⭕ Cerchio</button>
-          <button class="btn btn-secondary" id="btn-shape-square" style="flex: 1; padding: 6px; font-size: 12px; justify-content: center;">⬛ Quadrato</button>
-        </div>
-      </div>
-
-      <!-- Width Slider (X Axis) -->
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label for="brush-width-slider" style="font-size: 12px; color: rgba(255,255,255,0.6); display: flex; justify-content: space-between;">
-          <span id="label-brush-width">Larghezza (Raggio X)</span>
-          <span id="brush-width-value">10m</span>
-        </label>
-        <input type="range" id="brush-width-slider" min="2" max="35" value="10" step="1" style="width: 100%; cursor: pointer;">
-      </div>
-
-      <!-- Length Slider (Z Axis) -->
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label for="brush-length-slider" style="font-size: 12px; color: rgba(255,255,255,0.6); display: flex; justify-content: space-between;">
-          <span id="label-brush-length">Lunghezza (Raggio Z)</span>
-          <span id="brush-length-value">10m</span>
-        </label>
-        <input type="range" id="brush-length-slider" min="2" max="35" value="10" step="1" style="width: 100%; cursor: pointer;">
-      </div>
-
-      <!-- Rough Extrude Option -->
-      <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
-        <input type="checkbox" id="rough-extrude-checkbox" style="cursor: pointer; width: 15px; height: 15px;">
-        <label for="rough-extrude-checkbox" style="font-size: 12px; color: rgba(255,255,255,0.75); cursor: pointer; user-select: none;">
-          ⛰️ Estrusione Ruvida (Rumore)
-        </label>
-      </div>
-    </div>
-
-    <!-- Selection Extrude Options (Visible only when Extrude tool is selected) -->
-    <div id="selection-extrude-panel" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; display: none; flex-direction: column; gap: 8px;">
-      <span style="font-size: 13px; font-weight: 600; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
-        🎨 Selezione Maschera Area
-      </span>
-      
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label style="font-size: 11px; color: rgba(255,255,255,0.5);">Azione Pennello Selezione</label>
-        <div style="display: flex; flex-direction: column; gap: 6px;">
-          <div style="display: flex; gap: 6px;">
-            <button class="btn btn-secondary active" id="btn-select-add" style="flex: 1; padding: 6px; font-size: 11px; justify-content: center;">🖌️ Seleziona</button>
-            <button class="btn btn-secondary" id="btn-select-sub" style="flex: 1; padding: 6px; font-size: 11px; justify-content: center;">🧽 Deseleziona</button>
-          </div>
-          <button class="btn btn-secondary" id="btn-select-drag" style="padding: 6px; font-size: 11px; justify-content: center;">↕️ Estrudi Maschera</button>
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 6px;">
-        <button class="btn btn-danger" id="btn-select-clear" style="flex: 1; padding: 6px; font-size: 11px; justify-content: center;">🗑️ Svuota Maschera</button>
-      </div>
-    </div>
-
-    <div class="island-gen-control" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;">
-      <span style="font-size: 13px; font-weight: 600; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
-        🪄 Generatore Isole
-      </span>
-      
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label for="island-genre-select" style="font-size: 11px; color: rgba(255,255,255,0.5);">Genere di Isola</label>
-        <select id="island-genre-select" style="background: rgba(15,23,42,0.85); color: #fff; border: 1px solid rgba(255,255,255,0.15); padding: 6px 10px; border-radius: 8px; font-family: inherit; font-size: 13px; cursor: pointer; outline: none;">
-          <option value="collinare">Isola Collinare 🌲</option>
-          <option value="atollo">Atollo Sabbioso 🌴</option>
-          <option value="vulcanica">Isola Vulcanica 🌋</option>
-        </select>
-      </div>
-
-      <div class="grid-item" data-type="generate_island" style="width: 100%; margin-top: 4px; padding: 10px 0; background: rgba(56,189,248,0.15); border: 1px solid #38bdf8;" title="Clicca sul mare per generare un'isola procedurale">
-        <span class="grid-item-icon">🏝️</span>
-        <span class="grid-item-label" style="font-weight: 600;">Genera Isola</span>
-      </div>
-    </div>
+    <!-- Design Panel containing modular placement tools -->
 
     <!-- Sea Level Settings -->
     <div class="sea-level-control" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;">
@@ -252,10 +142,8 @@
     <!-- Quick Instructions -->
     <div class="instructions">
       <strong>Comandi:</strong><br>
-      • <strong>Tira Su / Giù</strong>: Clicca e trascina per dipingere terra<br>
-      • <strong>Estrudi (↕️)</strong>: Clicca e <strong>trascina in verticale</strong> (su/giù) per alzare/abbassare l'intera area<br>
-      • <strong>Genera Isola (🏝️)</strong>: Clicca sul mare per spawnare un'isola procedurale<br>
-      • <strong>Tasto Destro</strong>: Cancella oggetto o deseleziona strumento<br>
+      • <strong>Click Sinistro</strong>: Posiziona l'oggetto selezionato sul terreno<br>
+      • <strong>Tasto Destro</strong>: Rimuovi oggetto sotto il cursore<br>
       • <strong>Tasto R</strong>: Ruota l'oggetto prima di posizionarlo<br>
       • <strong>Shift + WASD</strong>: Vola più veloce con la telecamera
     </div>

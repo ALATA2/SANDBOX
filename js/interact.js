@@ -842,16 +842,29 @@ function performMiningRaycast() {
       const deformDepth = player.energy < 10 ? 0.6 : 1.2;
       deformTerrainLowPoly(hitPoint, deformRadius, deformDepth);
 
-      // Force raw_silicon drop for this seabed island experiment!
-      spawnDebris(hitPoint, hitNormal, 'raw_silicon');
-      let spawned = true;
+      // Determine what material to drop based on local chemistry composition!
+      const comp = getBlockChemicalComposition(hitPoint.x, virtualDepth, hitPoint.z);
+      let debrisType = 'stone';
+      let highestVal = 0.0;
+      
+      const mapping = {
+        'Si': 'raw_silicon',
+        'Cu': 'raw_copper',
+        'Ti': 'raw_titanium',
+        'U': 'uranium'
+      };
 
-      if (!spawned) {
-        if (player.energy >= 10 || Math.random() > 0.5) {
-          spawnDebris(hitPoint, hitNormal, 'stone');
-        } else {
-          showHudMessage(player.currentLang === 'it' ? "Troppo stanco per scavare pietre!" : "Too tired to harvest stone!");
+      for (const el in mapping) {
+        if (comp[el] && comp[el] > highestVal && comp[el] > 12.0) {
+          highestVal = comp[el];
+          debrisType = mapping[el];
         }
+      }
+
+      if (player.energy >= 10 || Math.random() > 0.5) {
+        spawnDebris(hitPoint, hitNormal, debrisType);
+      } else {
+        showHudMessage(player.currentLang === 'it' ? "Troppo stanco per scavare!" : "Too tired to mine!");
       }
     }
   }

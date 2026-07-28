@@ -138,7 +138,23 @@ export function getDensity(x, y, z) {
   const islandH = calculateIslandHeightVoxel(absX, absZ) * spacing;
   const baseH = ENABLE_ISLANDS ? islandH : getSeabedHeight(wx, wz);
   
-  return baseH - wy;
+  let dens = baseH - wy;
+
+  // Subterranean 3D Caves (only under the surface, at least 3m deep, and y > 2)
+  if (dens >= 0.0) {
+    const depthBelowSurface = baseH - wy;
+    if (depthBelowSurface > 3.0 && y > 2) {
+      const nx = wx * 0.08;
+      const ny = wy * 0.15;
+      const nz = wz * 0.08;
+      const caveNoise = simpleNoise3D(nx, ny, nz);
+      if (Math.abs(caveNoise - 0.43) < 0.045) {
+        dens = -1.5; // Carve out the cave
+      }
+    }
+  }
+
+  return dens;
 }
 
 // Set density with bounds checking and absolute coordinate mapping
@@ -151,12 +167,16 @@ export function setDensity(x, y, z, value) {
   const absZ = z + (world.gridOffsetZ || 0);
   const key = `${absX},${y},${absZ}`;
   
-  if (value <= -2.0) {
-    if (!world.initializing) {
+  if (world.initializing && world.carvedVoxels[key] !== undefined) {
+    value = world.carvedVoxels[key];
+  }
+
+  if (!world.initializing) {
+    if (value <= -2.0) {
       delete world.carvedVoxels[key];
+    } else {
+      world.carvedVoxels[key] = value;
     }
-  } else {
-    world.carvedVoxels[key] = value;
   }
 
   const idx = getGridIndex(x, y, z);
@@ -684,6 +704,20 @@ export function generateDensityGrid() {
         const wy = y * spacing + (world.gridOffsetY || 0);
         let dens = baseH - wy;
 
+        // Subterranean 3D Caves (only under the surface, at least 3m deep, and y > 2)
+        if (dens >= 0.0) {
+          const depthBelowSurface = baseH - wy;
+          if (depthBelowSurface > 3.0 && y > 2) {
+            const nx = wx * 0.08;
+            const ny = wy * 0.15;
+            const nz = wz * 0.08;
+            const caveNoise = simpleNoise3D(nx, ny, nz);
+            if (Math.abs(caveNoise - 0.43) < 0.045) {
+              dens = -1.5; // Carve out the cave
+            }
+          }
+        }
+
         if (ENABLE_ISLANDS) {
           // Create a cave/tunnel structure near the center
           // A simple 3D mathematical carve: subtract density inside a cylinder/sphere tunnel
@@ -912,7 +946,23 @@ export function shiftGridWindow(centerWx, centerWz) {
           for (let y = 0; y < world.sizeY; y++) {
             const wy = y * spacing + (world.gridOffsetY || 0);
             const idx = x * world.sizeY * world.sizeZ + y * world.sizeZ + z;
-            world.density[idx] = baseH - wy;
+            let dens = baseH - wy;
+
+            // Subterranean 3D Caves (only under the surface, at least 3m deep, and y > 2)
+            if (dens >= 0.0) {
+              const depthBelowSurface = baseH - wy;
+              if (depthBelowSurface > 3.0 && y > 2) {
+                const nx = wx * 0.08;
+                const ny = wy * 0.15;
+                const nz = wz * 0.08;
+                const caveNoise = simpleNoise3D(nx, ny, nz);
+                if (Math.abs(caveNoise - 0.43) < 0.045) {
+                  dens = -1.5; // Carve out the cave
+                }
+              }
+            }
+
+            world.density[idx] = dens;
           }
         }
       }
@@ -943,9 +993,9 @@ export function shiftGridWindow(centerWx, centerWz) {
 export function deformTerrainLowPoly(hitPoint, radius, depth) {
   // Convert world coordinates to grid index
   const spacing = world.spacing;
-  const gx = hitPoint.x / spacing;
+  const gx = (hitPoint.x / spacing) - (world.gridOffsetX || 0);
   const gy = (hitPoint.y - (world.gridOffsetY || 0)) / spacing;
-  const gz = hitPoint.z / spacing;
+  const gz = (hitPoint.z / spacing) - (world.gridOffsetZ || 0);
 
   const gRadius = radius / spacing;
 
@@ -995,11 +1045,6 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
           const reduction = depth * (1.0 - dist / gRadius);
           const newDens = currentDens - reduction;
           setDensity(x, y, z, newDens);
-
-          // Save to carved voxels
-          const virtualY = y + ((world.currentVirtualDepth || 0) / 3);
-          const key = `${x},${virtualY},${z}`;
-          world.carvedVoxels[key] = newDens;
 
           modified = true;
         }
