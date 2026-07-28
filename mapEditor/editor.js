@@ -339,7 +339,7 @@ function updatePreviewMesh() {
     mat = new THREE.MeshBasicMaterial({ color: 0xf8fafc, transparent: true, opacity });
     previewMesh = new THREE.Mesh(geom, mat);
     previewMesh.position.y = 0.3;
-
+  }
 
   // Fade out material hierarchy for previews
   previewMesh.traverse(child => {
