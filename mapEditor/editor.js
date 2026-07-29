@@ -99,7 +99,7 @@ function initEditor() {
   game.scene = scene;
 
   camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.5, 5000);
-  camera.position.set(120, 80, 120);
+  camera.position.set(360, 80, 360);
 
   // 2. Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -113,11 +113,13 @@ function initEditor() {
 
   // 3. OrbitControls
   controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(240, 8.0, 240);
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
   controls.maxPolarAngle = Math.PI / 2 - 0.01; // Don't go below ground
   controls.minDistance = 5;
   controls.maxDistance = 1000;
+  controls.update();
 
   // 4. Lights
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);

@@ -1772,14 +1772,36 @@ function spawnClouds() {
     });
     
     // Position cloud high in the sky
-    const cx = Math.random() * 400 - 200 + 80;
+    const cx = Math.random() * 400 - 200 + 240;
     const cy = Math.random() * 20 + 55; // 55 to 75 meters high
-    const cz = Math.random() * 400 - 200 + 80;
+    const cz = Math.random() * 400 - 200 + 240;
     
     cloudGroup.position.set(cx, cy, cz);
     game.scene.add(cloudGroup);
     world.clouds.push(cloudGroup);
   }
+}
+
+// Helper to determine if a point is close to any potential islands to optimize water mesh generation
+function isNearAnyIsland(vx, vz) {
+  // Center starting island
+  const distToCenter = Math.sqrt((vx - 240.0) * (vx - 240.0) + (vz - 240.0) * (vz - 240.0));
+  if (distToCenter < 280.0) return true;
+  
+  if (ENABLE_ISLANDS) {
+    // Volcanic Island at (-1800, 1500)
+    const distVolcano = Math.sqrt((vx - (-1800)) * (vx - (-1800)) + (vz - 1500) * (vz - 1500));
+    if (distVolcano < 220.0) return true;
+    
+    // Lighthouse Island at (1500, -2000)
+    const distLighthouse = Math.sqrt((vx - 1500) * (vx - 1500) + (vz - (-2000)) * (vz - (-2000)));
+    if (distLighthouse < 180.0) return true;
+  } else {
+    // Under procedural seabed, check shelf noise
+    const shelf = fbmNoise2D(vx * 0.0005, vz * 0.0005) / 1.75;
+    if (shelf > 0.4) return true;
+  }
+  return false;
 }
 
 // Spawns static low-poly island assets
@@ -1803,7 +1825,8 @@ function spawnScenery() {
         const idx = gx * (WATER_CELLS_Z + 1) + gz;
         const active = isVertexActive(gx, gz);
         world.waterActiveVertices[idx] = active ? 1 : 0;
-        const groundY = getSurfaceHeightNear(vx, 5.0, vz);
+        
+        const groundY = isNearAnyIsland(vx, vz) ? getSurfaceHeightNear(vx, 5.0, vz) : -50.0;
         world.waterGroundHeights[idx] = groundY;
         world.waterHeights[idx] = active ? world.seaLevel : Math.min(world.seaLevel, groundY);
       }
@@ -1841,7 +1864,8 @@ function spawnScenery() {
       const idx = gx * (WATER_CELLS_Z + 1) + gz;
       const active = isVertexActive(gx, gz);
       world.waterActiveVertices[idx] = active ? 1 : 0;
-      const groundY = getSurfaceHeightNear(vx, 5.0, vz);
+      
+      const groundY = isNearAnyIsland(vx, vz) ? getSurfaceHeightNear(vx, 5.0, vz) : -50.0;
       world.waterGroundHeights[idx] = groundY;
       world.waterHeights[idx] = active ? world.seaLevel : Math.min(world.seaLevel, groundY);
     }
