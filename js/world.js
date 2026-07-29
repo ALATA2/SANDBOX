@@ -3377,6 +3377,24 @@ export function getSeabedHeight(x, z) {
       // Add detailed ridges and trenches in the deep areas
       baseHeight += ridgeNoise * 15.0 - 7.5;
     }
+
+    // Guarantee a beautiful procedurally generated starting island right at the origin area (under the clouds)
+    const centerCoord = 240.0; // Center of starting 300x300 grid window
+    const distToCenter = Math.sqrt((x - centerCoord) * (x - centerCoord) + (z - centerCoord) * (z - centerCoord));
+    const startingIslandRadius = 150.0;
+
+    if (distToCenter < startingIslandRadius) {
+      const t = distToCenter / startingIslandRadius;
+      const smoothT = Math.cos(t * Math.PI) * 0.5 + 0.5; // Cosine bell curve
+
+      const islandNoise = fbmNoise2D(x * 0.015, z * 0.015) / 1.75;
+      const detailNoise = fbmNoise2D(x * 0.05, z * 0.05) / 1.75;
+
+      // Hilly island peaking at ~18m above sea level (sea level is 4.0m)
+      const baseIslandHeight = -2.0 + islandNoise * 20.0 + detailNoise * 3.0; 
+
+      baseHeight = THREE.MathUtils.lerp(baseHeight, baseIslandHeight, smoothT);
+    }
     
     return baseHeight;
   }
