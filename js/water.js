@@ -1,8 +1,14 @@
 import { world, getWaterHeightAt, WATER_CELLS_X, WATER_CELLS_Z } from './world.js';
 import { game } from './game.js';
 
+let waterUpdateTimer = 0;
 export function updateWaterHeights(delta) {
   if (!world.waterHeights || !world.waterGroundHeights || !world.waterActiveVertices) return;
+  
+  waterUpdateTimer += delta;
+  if (waterUpdateTimer < 0.1) return;
+  waterUpdateTimer = 0;
+
   for (let gx = 0; gx <= WATER_CELLS_X; gx++) {
     const idxOffset = gx * (WATER_CELLS_Z + 1);
     for (let gz = 0; gz <= WATER_CELLS_Z; gz++) {
@@ -14,8 +20,8 @@ export function updateWaterHeights(delta) {
       const targetY = active ? 4.0 : Math.min(4.0, groundY);
       const currentY = world.waterHeights[idx];
       
-      // Interpolate water height towards target with a fill rate of 3.0 (fills in ~1.5s)
-      world.waterHeights[idx] = currentY + (targetY - currentY) * 3.0 * delta;
+      // Interpolate water height towards target
+      world.waterHeights[idx] = currentY + (targetY - currentY) * 0.3;
     }
   }
 }

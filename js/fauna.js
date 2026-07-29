@@ -1,10 +1,21 @@
 import * as THREE from 'three';
 import { game } from './game.js';
-import { world, LAKE_CENTER_X, LAKE_CENTER_Z } from './world.js';
+import { world, LAKE_CENTER_X, LAKE_CENTER_Z, getSeabedHeight } from './world.js';
 import { getSurfaceHeightNear } from './physics.js';
 
 const tempFishVec1 = new THREE.Vector3();
 const tempSwimDir = new THREE.Vector3();
+
+// Throttled height updates for crabs (once every 80ms instead of every frame)
+function updateCrabHeight(crab, delta) {
+  if (!crab.lastHeightUpdate) crab.lastHeightUpdate = 0;
+  crab.lastHeightUpdate += delta;
+  if (crab.lastHeightUpdate > 0.08 || crab.targetHeight === undefined) {
+    crab.targetHeight = getSurfaceHeightNear(crab.position.x, 15, crab.position.z);
+    crab.lastHeightUpdate = 0;
+  }
+  crab.position.y = crab.targetHeight;
+}
 
 export function updateFaunaAI(delta) {
   const time = game.time;
@@ -46,14 +57,14 @@ export function updateFaunaAI(delta) {
         
         crab.position.x = Math.max(3, Math.min(mapWidth - 3, crab.position.x));
         crab.position.z = Math.max(3, Math.min(mapLength - 3, crab.position.z));
-        crab.position.y = getSurfaceHeightNear(crab.position.x, 15, crab.position.z);
+        updateCrabHeight(crab, delta);
         
         if (crab.position.y < 4.0 || crab.position.y > 6.0) {
           const toCenter = new THREE.Vector3(mapWidth / 2, 4.2, mapLength / 2).sub(crab.position);
           toCenter.y = 0;
           toCenter.normalize();
           crab.position.addScaledVector(toCenter, speed * delta);
-          crab.position.y = getSurfaceHeightNear(crab.position.x, 15, crab.position.z);
+          updateCrabHeight(crab, delta);
         }
       } else {
         if (crab.state === 'fleeing') {
@@ -102,7 +113,7 @@ export function updateFaunaAI(delta) {
             dir.normalize();
             const speed = 0.6;
             crab.position.addScaledVector(dir, speed * delta);
-            crab.position.y = getSurfaceHeightNear(crab.position.x, 15, crab.position.z);
+            updateCrabHeight(crab, delta);
             
             const targetAngle = Math.atan2(dir.x, dir.z);
             crab.rotation.y = targetAngle;
@@ -159,7 +170,7 @@ export function updateFaunaAI(delta) {
           fish.swimTimer = 2.0;
         }
       } else {
-        const terrainY = getSurfaceHeightNear(fish.position.x, 15, fish.position.z);
+        const terrainY = getSeabedHeight(fish.position.x, fish.position.z);
         if (terrainY > 3.8 || fish.position.x < 2 || fish.position.x > mapWidth - 2 || fish.position.z < 2 || fish.position.z > mapLength - 2) {
           const toCenter = tempFishVec1.set(mapWidth / 2, fish.position.y, mapLength / 2).sub(fish.position);
           toCenter.y = 0;
