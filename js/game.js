@@ -377,7 +377,11 @@ async function init() {
         
         if (firstStart) {
           if (game.controls && game.controls.getObject) {
-            game.controls.getObject().position.set(240, 25, 240);
+            if (world.playerSpawnPoint) {
+              game.controls.getObject().position.copy(world.playerSpawnPoint);
+            } else {
+              game.controls.getObject().position.set(240, 25, 240);
+            }
           }
           firstStart = false;
         }
@@ -445,7 +449,11 @@ async function init() {
       
       if (firstStart) {
         if (game.controls && game.controls.getObject) {
-          game.controls.getObject().position.set(240, 25, 240);
+          if (world.playerSpawnPoint) {
+            game.controls.getObject().position.copy(world.playerSpawnPoint);
+          } else {
+            game.controls.getObject().position.set(240, 25, 240);
+          }
         }
         firstStart = false;
       }
