@@ -330,10 +330,8 @@ function calculateIslandHeightVoxel(x, z) {
 // Calculate original uncarved terrain height at coordinates (vx, vz)
 export function getOriginalHeight(vx, vz) {
   const spacing = world.spacing;
-  const absVx = vx + (world.gridOffsetX || 0) * spacing;
-  const absVz = vz + (world.gridOffsetZ || 0) * spacing;
-  const gx = absVx / spacing;
-  const gz = absVz / spacing;
+  const gx = vx / spacing;
+  const gz = vz / spacing;
   return calculateIslandHeightVoxel(gx, gz) * spacing;
 }
 
@@ -1249,7 +1247,7 @@ export function buildWaterGeometry() {
 
       let depth = 4.0;
       if (!isOuter) {
-        const groundY = getSurfaceHeightNear(vx, 5.0, vz);
+        const groundY = getSeabedHeight(vx, vz);
         depth = Math.max(0, 4.0 - groundY);
 
         // Smoothly blend depth to 4.0 (deep ocean) near the boundaries to integrate with the outer ocean
