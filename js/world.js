@@ -15,9 +15,9 @@ export const ENABLE_ISLANDS = false;
 
 // World Configuration
 export const world = {
-  sizeX: 300,
+  sizeX: 160,
   sizeY: 48, // Increased vertical size to 48 (76.8m) to support doubled volcano height
-  sizeZ: 300,
+  sizeZ: 160,
   spacing: 1.6,
   gridOffsetX: 0,
   gridOffsetZ: 0,
@@ -227,8 +227,8 @@ const lerp = (a, b, t) => a + t * (b - a);
 // Centralized helper to calculate procedural starting island voxel height
 function calculateIslandHeightVoxel(x, z) {
   if (!ENABLE_ISLANDS) return -20.0;
-  const cx = world.sizeX / 2;
-  const cz = world.sizeZ / 2;
+  const cx = 150;
+  const cz = 150;
 
   const dx = x - cx;
   const dz = z - cz;
@@ -327,27 +327,61 @@ function calculateIslandHeightVoxel(x, z) {
   return Math.min(world.sizeY - 2.5, islandHeight);
 }
 
-// Calculate original uncarved terrain height at coordinates (vx, vz)
-export function getOriginalHeight(vx, vz) {
+let localOriginalHeights = null;
+export function updateOriginalHeightsCache() {
+  const sizeX = world.sizeX;
+  const sizeZ = world.sizeZ;
   const spacing = world.spacing;
-  const gx = vx / spacing;
-  const gz = vz / spacing;
-  return calculateIslandHeightVoxel(gx, gz) * spacing;
+  const offX = world.gridOffsetX || 0;
+  const offZ = world.gridOffsetZ || 0;
+
+  if (!localOriginalHeights || localOriginalHeights.length !== sizeX * sizeZ) {
+    localOriginalHeights = new Float32Array(sizeX * sizeZ);
+  }
+
+  for (let x = 0; x < sizeX; x++) {
+    const absVx = (x + offX) * spacing;
+    const idxOffset = x * sizeZ;
+    for (let z = 0; z < sizeZ; z++) {
+      const absVz = (z + offZ) * spacing;
+      localOriginalHeights[idxOffset + z] = getSeabedHeight(absVx, absVz);
+    }
+  }
+}
+
+// Calculate original uncarved terrain height at coordinates (absVx, absVz)
+export function getOriginalHeight(absVx, absVz) {
+  const spacing = world.spacing;
+  const sizeX = world.sizeX;
+  const sizeZ = world.sizeZ;
+  const offX = world.gridOffsetX || 0;
+  const offZ = world.gridOffsetZ || 0;
+
+  if (!localOriginalHeights) {
+    updateOriginalHeightsCache();
+  }
+
+  const lx = Math.max(0, Math.min(sizeX - 1, Math.round(absVx / spacing) - offX));
+  const lz = Math.max(0, Math.min(sizeZ - 1, Math.round(absVz / spacing) - offZ));
+  return localOriginalHeights[lx * sizeZ + lz];
 }
 
 export function getVirtualDepthAt(y) {
   return Math.max(0, (15 - y) * 3 + (world.currentVirtualDepth || 0));
 }
 
-export function getVertexVirtualDepth(vx, vy, vz) {
-  const H = getOriginalHeight(vx, vz);
+export function getVertexVirtualDepth(absVx, vy, absVz) {
+  const H = getOriginalHeight(absVx, absVz);
   const physicalDepth = H - vy;
   return Math.max(0, physicalDepth * (3.0 / world.spacing) + (world.currentVirtualDepth || 0));
 }
 
 // Compute dynamic vertex color based on depth from original surface
 function getVertexColorForDepth(vx, vy, vz) {
-  const depth = getVertexVirtualDepth(vx, vy, vz);
+  const spacing = world.spacing;
+  const absVx = vx + (world.gridOffsetX || 0) * spacing;
+  const absVz = vz + (world.gridOffsetZ || 0) * spacing;
+  const depth = getVertexVirtualDepth(absVx, vy, absVz);
 
   // 1. Calculate surface biome color based on absolute altitude (vy) using scaled layers
   let surfaceColor = [0.38, 0.56, 0.16]; // Default grass green
@@ -679,6 +713,7 @@ export function scrollWorld(direction) {
 }
 
 export function generateDensityGrid() {
+  updateOriginalHeightsCache();
   const size = world.sizeX * world.sizeY * world.sizeZ;
   world.density = new Float32Array(size);
 
@@ -927,6 +962,8 @@ export function shiftGridWindow(centerWx, centerWz) {
   if (Math.abs(playerGx - currentCenterX) > threshold || Math.abs(playerGz - currentCenterZ) > threshold) {
     world.gridOffsetX = playerGx - Math.round(world.sizeX / 2);
     world.gridOffsetZ = playerGz - Math.round(world.sizeZ / 2);
+
+    updateOriginalHeightsCache();
 
     // Reposition the terrain mesh in the 3D scene
     if (world.terrainMesh) {
@@ -3435,10 +3472,10 @@ export function getSeabedHeight(x, z) {
   }
 
   let height = -70.0;
-  const centerCoord = (world.sizeX * world.spacing) / 2;
+  const centerCoord = 240.0;
 
   // 1. If inside the starting island grid area, get the exact voxel island height
-  if (gx >= 0 && gx < world.sizeX && gz >= 0 && gz < world.sizeZ) {
+  if (gx >= 0 && gx < 300 && gz >= 0 && gz < 300) {
     const islandH = calculateIslandHeightVoxel(gx, gz) * spacing;
     height = islandH;
   } else {
