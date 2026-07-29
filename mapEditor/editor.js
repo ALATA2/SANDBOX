@@ -23,6 +23,43 @@ import {
 } from '../js/world.js';
 import { getSurfaceHeightNear } from '../js/physics.js';
 
+// Helper to create a beautiful low-poly red flag for the player spawn point
+function createPlayerSpawnFlag(opacity = 1.0) {
+  const group = new THREE.Group();
+  
+  // Pole (grey metal pole)
+  const poleGeom = new THREE.CylinderGeometry(0.04, 0.04, 2.0, 8);
+  const poleMat = new THREE.MeshStandardMaterial({
+    color: 0x888888,
+    metalness: 0.6,
+    roughness: 0.3,
+    transparent: opacity < 1.0,
+    opacity: opacity
+  });
+  const pole = new THREE.Mesh(poleGeom, poleMat);
+  pole.position.y = 1.0 - 0.9; // Shift down so bottom rests at y=0 when group is at wy+0.9
+  pole.castShadow = true;
+  pole.receiveShadow = true;
+  group.add(pole);
+
+  // Flag fabric banner (red triangular banner)
+  const bannerGeom = new THREE.BoxGeometry(0.7, 0.45, 0.03);
+  bannerGeom.translate(0.35, 0, 0); // Translate so rotation center is at the pole
+  const bannerMat = new THREE.MeshStandardMaterial({
+    color: 0xef4444, // Red flag
+    roughness: 0.7,
+    transparent: opacity < 1.0,
+    opacity: opacity
+  });
+  const banner = new THREE.Mesh(bannerGeom, bannerMat);
+  banner.position.y = 1.7 - 0.9; // Shift down accordingly
+  banner.castShadow = true;
+  banner.receiveShadow = true;
+  group.add(banner);
+  
+  return group;
+}
+
 // Global Editor State
 let scene, camera, renderer, controls;
 let currentToolType = 'pine'; // Default selected object
@@ -307,10 +344,7 @@ function updatePreviewMesh() {
   } else if (currentToolType === 'starfish') {
     previewMesh = createStarfishMesh();
   } else if (currentToolType === 'player_spawn') {
-    // Player Spawn point visual indicator (Green cylinder)
-    geom = new THREE.CylinderGeometry(0.5, 0.5, 1.8, 16);
-    mat = new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity });
-    previewMesh = new THREE.Mesh(geom, mat);
+    previewMesh = createPlayerSpawnFlag(opacity);
     previewMesh.position.y = 0.9;
   } else if (currentToolType === 'spawn_rooster') {
     // Rooster Arturo indicator (Red Box)
@@ -546,9 +580,7 @@ function placeObject() {
         scene.remove(playerSpawnMarker);
         editorObjects = editorObjects.filter(o => o.type !== 'player_spawn');
       }
-      const geom = new THREE.CylinderGeometry(0.5, 0.5, 1.8, 16);
-      const mat = new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.8 });
-      visualMesh = new THREE.Mesh(geom, mat);
+      visualMesh = createPlayerSpawnFlag(0.85);
       offset = 0.9;
       playerSpawnMarker = visualMesh;
     } else if (type === 'spawn_rooster') {
@@ -854,9 +886,7 @@ function importMapJSON(mapData) {
   // Restore Player Spawn Marker
   if (mapData.playerSpawn) {
     const p = mapData.playerSpawn;
-    const geom = new THREE.CylinderGeometry(0.5, 0.5, 1.8, 16);
-    const mat = new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.8 });
-    const visualMesh = new THREE.Mesh(geom, mat);
+    const visualMesh = createPlayerSpawnFlag(0.85);
     visualMesh.position.set(p.x, p.y, p.z);
     scene.add(visualMesh);
     playerSpawnMarker = visualMesh;
