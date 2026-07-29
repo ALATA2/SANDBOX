@@ -92,6 +92,7 @@ export function checkCollision(px, py, pz) {
   // Prevent player from falling below the seabed floor (or 0.2m bedrock under the island)
   const localGx = gx - (world.gridOffsetX || 0);
   const localGz = gz - (world.gridOffsetZ || 0);
+  const floorY = getSeabedHeight(px, pz);
   const limitY = (localGx >= 0 && localGx < world.sizeX && localGz >= 0 && localGz < world.sizeZ) ? Math.min(0.2, floorY) : floorY;
   if (py < limitY) {
     return true;
