@@ -915,12 +915,20 @@ export function buildMarchingCubesMesh() {
 // Shift the active voxel grid window to center around absolute world coordinates (centerWx, centerWz)
 export function shiftGridWindow(centerWx, centerWz) {
   const spacing = world.spacing;
-  const targetOffsetX = Math.round(centerWx / spacing - world.sizeX / 2);
-  const targetOffsetZ = Math.round(centerWz / spacing - world.sizeZ / 2);
+  const playerGx = Math.round(centerWx / spacing);
+  const playerGz = Math.round(centerWz / spacing);
 
-  if (targetOffsetX !== world.gridOffsetX || targetOffsetZ !== world.gridOffsetZ) {
-    world.gridOffsetX = targetOffsetX;
-    world.gridOffsetZ = targetOffsetZ;
+  if (world.gridOffsetX === undefined) world.gridOffsetX = 0;
+  if (world.gridOffsetZ === undefined) world.gridOffsetZ = 0;
+
+  const currentCenterX = world.gridOffsetX + Math.round(world.sizeX / 2);
+  const currentCenterZ = world.gridOffsetZ + Math.round(world.sizeZ / 2);
+
+  const threshold = 16; // Hysteresis: only shift when player moves more than 16 grid cells (25.6m) away from center
+
+  if (Math.abs(playerGx - currentCenterX) > threshold || Math.abs(playerGz - currentCenterZ) > threshold) {
+    world.gridOffsetX = playerGx - Math.round(world.sizeX / 2);
+    world.gridOffsetZ = playerGz - Math.round(world.sizeZ / 2);
 
     // Reposition the terrain mesh in the 3D scene
     if (world.terrainMesh) {
