@@ -971,27 +971,20 @@ export function buildMarchingCubesMesh() {
     }
   }
 
-  // Create or update BufferGeometry without GC overhead
-  if (!MC_terrainGeometry) {
-    MC_terrainGeometry = new THREE.BufferGeometry();
-    MC_terrainGeometry.setAttribute('position', new THREE.BufferAttribute(MC_sharedPositionArray, 3));
-    MC_terrainGeometry.setAttribute('color', new THREE.BufferAttribute(MC_sharedColorArray, 3));
-  } else {
-    if (MC_terrainGeometry.attributes.position.array !== MC_sharedPositionArray) {
-      MC_terrainGeometry.setAttribute('position', new THREE.BufferAttribute(MC_sharedPositionArray, 3));
-      MC_terrainGeometry.setAttribute('color', new THREE.BufferAttribute(MC_sharedColorArray, 3));
-    }
-  }
+  // Create a new BufferGeometry using a subarray view of the shared Float32Array
+  // to avoid garbage collection and ensure 100% Three.js compatibility.
+  const activePositions = MC_sharedPositionArray.subarray(0, vIdx);
+  const activeColors = MC_sharedColorArray.subarray(0, vIdx);
 
-  MC_terrainGeometry.setDrawRange(0, vIdx / 3);
-  MC_terrainGeometry.attributes.position.needsUpdate = true;
-  MC_terrainGeometry.attributes.color.needsUpdate = true;
-  MC_terrainGeometry.computeVertexNormals();
-  MC_terrainGeometry.computeBoundingSphere();
-  MC_terrainGeometry.computeBoundingBox();
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(activePositions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(activeColors, 3));
+  geometry.computeVertexNormals();
 
   if (world.terrainMesh) {
-    world.terrainMesh.geometry = MC_terrainGeometry;
+    const oldGeom = world.terrainMesh.geometry;
+    world.terrainMesh.geometry = geometry;
+    oldGeom.dispose();
   } else {
     world.material = new THREE.MeshStandardMaterial({
       color: 0xffffff,
@@ -1002,7 +995,7 @@ export function buildMarchingCubesMesh() {
       side: THREE.FrontSide
     });
 
-    world.terrainMesh = new THREE.Mesh(MC_terrainGeometry, world.material);
+    world.terrainMesh = new THREE.Mesh(geometry, world.material);
     world.terrainMesh.receiveShadow = true;
     world.terrainMesh.castShadow = true;
     game.scene.add(world.terrainMesh);
