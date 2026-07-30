@@ -1135,8 +1135,8 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
         const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
         if (dist < gRadius) {
-          console.log(`Inside dist < gRadius for voxel (${x}, ${y}, ${z}) - dist: ${dist.toFixed(3)}`);
           const virtualDepth = getVirtualDepthAt(y);
+          console.log(`Inside dist < gRadius for voxel (${x}, ${y}, ${z}) - dist: ${dist.toFixed(3)}, virtualDepth: ${virtualDepth}, currentVirtualDepth: ${world.currentVirtualDepth}`);
           if (virtualDepth >= 1100) continue; // Bedrock core is indestructible!
 
           // Enforce tool checks: Primitive Pickaxe cannot mine basalt (Layer 5, >= 67m)
