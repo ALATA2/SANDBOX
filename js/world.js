@@ -1136,7 +1136,12 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
 
         if (dist < gRadius) {
           const virtualDepth = getVirtualDepthAt(y);
-          console.log(`Inside dist < gRadius for voxel (${x}, ${y}, ${z}) - dist: ${dist.toFixed(3)}, virtualDepth: ${virtualDepth}, currentVirtualDepth: ${world.currentVirtualDepth}`);
+          const currentDens = getDensity(x, y, z);
+          const reduction = depth * 5.0 * (1.0 - dist / gRadius);
+          const newDens = currentDens - reduction;
+
+          console.log(`Voxel (${x}, ${y}, ${z}) - dist: ${dist.toFixed(3)}, virtualDepth: ${virtualDepth}, currentVirtualDepth: ${world.currentVirtualDepth}, oldDens: ${currentDens.toFixed(2)}, reduction: ${reduction.toFixed(2)}, newDens: ${newDens.toFixed(2)}`);
+
           if (virtualDepth >= 1100) continue; // Bedrock core is indestructible!
 
           // Enforce tool checks: Primitive Pickaxe cannot mine basalt (Layer 5, >= 67m)
@@ -1158,13 +1163,7 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
             if (!hasHeatSuit) continue; // Magma blocks excavation!
           }
 
-          const currentDens = getDensity(x, y, z);
-          // Subtract density (air has negative density). Multiplied by 5.0 to guarantee carving on first swing.
-          const reduction = depth * 5.0 * (1.0 - dist / gRadius);
-          const newDens = currentDens - reduction;
-          console.log(`Modifying voxel (${x}, ${y}, ${z}) - old density: ${currentDens.toFixed(2)}, reduction: ${reduction.toFixed(2)}, new density: ${newDens.toFixed(2)}`);
           setDensity(x, y, z, newDens);
-
           modified = true;
         }
       }
