@@ -118,6 +118,12 @@ function getGridIndex(x, y, z) {
 
 // Get density with bounds checking and dynamic absolute coordinate mapping
 export function getDensity(x, y, z) {
+  // Fast path for in-bounds local grid coordinates
+  if (world.density && x >= 0 && x < world.sizeX && y >= 0 && y < world.sizeY && z >= 0 && z < world.sizeZ) {
+    const idx = x * world.sizeY * world.sizeZ + y * world.sizeZ + z;
+    return world.density[idx];
+  }
+
   x = Math.max(0, Math.min(Math.round(x), world.sizeX - 1));
   y = Math.max(0, Math.min(Math.round(y), world.sizeY - 1));
   z = Math.max(0, Math.min(Math.round(z), world.sizeZ - 1));
@@ -1178,6 +1184,27 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
     buildMarchingCubesMesh();
     console.log(`buildMarchingCubesMesh completed in ${(performance.now() - t0).toFixed(1)}ms`);
     
+    // Update water active grid and dynamic heights
+    updateWaterGrid();
+    
+    // Update precomputed water ground heights only for the affected region
+    if (world.waterGroundHeights) {
+      const minWaterX = Math.max(0, Math.floor((minX * spacing - WATER_START_X) / spacing) - 1);
+      const maxWaterX = Math.min(WATER_CELLS_X, Math.ceil((maxX * spacing - WATER_START_X) / spacing) + 1);
+      const minWaterZ = Math.max(0, Math.floor((minZ * spacing - WATER_START_Z) / spacing) - 1);
+      const maxWaterZ = Math.min(WATER_CELLS_Z, Math.ceil((maxZ * spacing - WATER_START_Z) / spacing) + 1);
+      
+      for (let gx = minWaterX; gx <= maxWaterX; gx++) {
+        const vx = WATER_START_X + gx * spacing;
+        const idxOffset = gx * (WATER_CELLS_Z + 1);
+        for (let gz = minWaterZ; gz <= maxWaterZ; gz++) {
+          const vz = WATER_START_Z + gz * spacing;
+          const idx = idxOffset + gz;
+          world.waterGroundHeights[idx] = getSurfaceHeightNear(vx, 5.0, vz);
+        }
+      }
+    }
+    
     // Snap affected scenery/deposits/boards near hitPoint
     snapSceneryNear(hitPoint, radius);
   }
@@ -1205,8 +1232,8 @@ export function updateWaterGrid() {
   for (let y = 0; y <= maxWaterY; y++) {
     for (let x = 0; x < world.sizeX; x++) {
       for (let z of [0, world.sizeZ - 1]) {
-        if (getDensity(x, y, z) <= 0.15) {
-          const idx = getIdx(x, y, z);
+        const idx = getIdx(x, y, z);
+        if ((world.density[idx] || 0) <= 0.15) {
           visited[idx] = 1;
           queue.push(x, y, z);
         }
@@ -1214,8 +1241,8 @@ export function updateWaterGrid() {
     }
     for (let z = 1; z < world.sizeZ - 1; z++) {
       for (let x of [0, world.sizeX - 1]) {
-        if (getDensity(x, y, z) <= 0.15) {
-          const idx = getIdx(x, y, z);
+        const idx = getIdx(x, y, z);
+        if ((world.density[idx] || 0) <= 0.15) {
           visited[idx] = 1;
           queue.push(x, y, z);
         }
@@ -1246,7 +1273,7 @@ export function updateWaterGrid() {
           nz >= 0 && nz < world.sizeZ) {
         
         const nIdx = getIdx(nx, ny, nz);
-        if (visited[nIdx] === 0 && getDensity(nx, ny, nz) <= 0.15) {
+        if (visited[nIdx] === 0 && (world.density[nIdx] || 0) <= 0.15) {
           visited[nIdx] = 1;
           queue.push(nx, ny, nz);
         }
