@@ -381,9 +381,16 @@ const tempColorRGB = new Float32Array(3);
 // Compute dynamic vertex color based on depth from original surface
 function getVertexColorForDepth(vx, vy, vz) {
   const spacing = world.spacing;
-  const absVx = vx + (world.gridOffsetX || 0) * spacing;
-  const absVz = vz + (world.gridOffsetZ || 0) * spacing;
-  const depth = getVertexVirtualDepth(absVx, vy, absVz);
+  const sizeX = world.sizeX;
+  const sizeZ = world.sizeZ;
+  
+  // Directly query the precomputed height cache using local coordinate indices
+  const lx = Math.max(0, Math.min(sizeX - 1, Math.round(vx / spacing)));
+  const lz = Math.max(0, Math.min(sizeZ - 1, Math.round(vz / spacing)));
+  const H = localOriginalHeights ? localOriginalHeights[lx * sizeZ + lz] : 4.0;
+  
+  const physicalDepth = H - vy;
+  const depth = Math.max(0, physicalDepth * (3.0 / spacing) + (world.currentVirtualDepth || 0));
 
   // 1. Calculate surface biome color based on absolute altitude (vy) using scaled layers
   let surfaceColor = [0.38, 0.56, 0.16]; // Default grass green
@@ -781,10 +788,19 @@ export function generateDensityGrid() {
   world.initializing = false;
 }
 
+let MC_sharedPositionArray = null;
+let MC_sharedColorArray = null;
+let MC_terrainGeometry = null;
+const MAX_MC_VERTICES = 450000; // supports up to 150k vertices
+
 // Convert density grid to standard low-poly Mesh using Marching Cubes
 export function buildMarchingCubesMesh() {
-  const positions = [];
-  const colors = [];
+  if (!MC_sharedPositionArray) {
+    MC_sharedPositionArray = new Float32Array(MAX_MC_VERTICES * 3);
+    MC_sharedColorArray = new Float32Array(MAX_MC_VERTICES * 3);
+  }
+  
+  let vIdx = 0;
   
   // Reusable arrays to prevent garbage collection pauses inside the 1.2M loop
   const tempD = new Float32Array(8);
@@ -893,53 +909,89 @@ export function buildMarchingCubesMesh() {
             continue;
           }
 
-          positions.push(v0x, v0y, v0z);
-          positions.push(v1x, v1y, v1z);
-          positions.push(v2x, v2y, v2z);
+          if (vIdx + 9 > MC_sharedPositionArray.length) {
+            // Resize buffer
+            const newSize = MC_sharedPositionArray.length * 2;
+            const newPos = new Float32Array(newSize);
+            const newCol = new Float32Array(newSize);
+            newPos.set(MC_sharedPositionArray);
+            newCol.set(MC_sharedColorArray);
+            MC_sharedPositionArray = newPos;
+            MC_sharedColorArray = newCol;
+            console.log(`Resized Marching Cubes buffers to ${newSize} elements`);
+          }
 
-          // Get vertex colors (writes straight to tempColorRGB)
+          MC_sharedPositionArray[vIdx] = v0x;
+          MC_sharedPositionArray[vIdx + 1] = v0y;
+          MC_sharedPositionArray[vIdx + 2] = v0z;
+
+          MC_sharedPositionArray[vIdx + 3] = v1x;
+          MC_sharedPositionArray[vIdx + 4] = v1y;
+          MC_sharedPositionArray[vIdx + 5] = v1z;
+
+          MC_sharedPositionArray[vIdx + 6] = v2x;
+          MC_sharedPositionArray[vIdx + 7] = v2y;
+          MC_sharedPositionArray[vIdx + 8] = v2z;
+
+          // Get colors (writes to tempColorRGB)
           getVertexColorForDepth(v0x, v0y, v0z);
-          colors.push(tempColorRGB[0], tempColorRGB[1], tempColorRGB[2]);
+          MC_sharedColorArray[vIdx] = tempColorRGB[0];
+          MC_sharedColorArray[vIdx + 1] = tempColorRGB[1];
+          MC_sharedColorArray[vIdx + 2] = tempColorRGB[2];
 
           getVertexColorForDepth(v1x, v1y, v1z);
-          colors.push(tempColorRGB[0], tempColorRGB[1], tempColorRGB[2]);
+          MC_sharedColorArray[vIdx + 3] = tempColorRGB[0];
+          MC_sharedColorArray[vIdx + 4] = tempColorRGB[1];
+          MC_sharedColorArray[vIdx + 5] = tempColorRGB[2];
 
           getVertexColorForDepth(v2x, v2y, v2z);
-          colors.push(tempColorRGB[0], tempColorRGB[1], tempColorRGB[2]);
+          MC_sharedColorArray[vIdx + 6] = tempColorRGB[0];
+          MC_sharedColorArray[vIdx + 7] = tempColorRGB[1];
+          MC_sharedColorArray[vIdx + 8] = tempColorRGB[2];
+
+          vIdx += 9;
         }
       }
     }
   }
 
-  // Create BufferGeometry
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  geometry.computeVertexNormals();
+  // Create or update BufferGeometry without GC overhead
+  if (!MC_terrainGeometry) {
+    MC_terrainGeometry = new THREE.BufferGeometry();
+    MC_terrainGeometry.setAttribute('position', new THREE.BufferAttribute(MC_sharedPositionArray, 3));
+    MC_terrainGeometry.setAttribute('color', new THREE.BufferAttribute(MC_sharedColorArray, 3));
+  } else {
+    if (MC_terrainGeometry.attributes.position.array !== MC_sharedPositionArray) {
+      MC_terrainGeometry.setAttribute('position', new THREE.BufferAttribute(MC_sharedPositionArray, 3));
+      MC_terrainGeometry.setAttribute('color', new THREE.BufferAttribute(MC_sharedColorArray, 3));
+    }
+  }
+
+  MC_terrainGeometry.setDrawRange(0, vIdx / 3);
+  MC_terrainGeometry.attributes.position.needsUpdate = true;
+  MC_terrainGeometry.attributes.color.needsUpdate = true;
+  MC_terrainGeometry.computeVertexNormals();
+  MC_terrainGeometry.computeBoundingSphere();
+  MC_terrainGeometry.computeBoundingBox();
 
   if (world.terrainMesh) {
-    const oldGeometry = world.terrainMesh.geometry;
-    world.terrainMesh.geometry = geometry;
-    oldGeometry.dispose();
+    world.terrainMesh.geometry = MC_terrainGeometry;
   } else {
-    // Material details: stylized peach-sandy-gold rock
-    // Set color to white to multiply with vertex colors, using FrontSide to prevent self-intersection and visual overlapping.
     world.material = new THREE.MeshStandardMaterial({
       color: 0xffffff,
       roughness: 0.85,
       metalness: 0.05,
-      flatShading: true, // Flat shading gives the low-poly look!
-      vertexColors: true, // Enable vertex colors!
+      flatShading: true,
+      vertexColors: true,
       side: THREE.FrontSide
     });
 
-    world.terrainMesh = new THREE.Mesh(geometry, world.material);
+    world.terrainMesh = new THREE.Mesh(MC_terrainGeometry, world.material);
     world.terrainMesh.receiveShadow = true;
     world.terrainMesh.castShadow = true;
     game.scene.add(world.terrainMesh);
   }
 
-  // Always position the terrainMesh according to its absolute world grid offset
   if (world.terrainMesh) {
     world.terrainMesh.position.set(
       (world.gridOffsetX || 0) * spacing,
@@ -1038,6 +1090,7 @@ export function shiftGridWindow(centerWx, centerWz) {
 
 // Deform terrain at world hit point (digging craters/tunnels)
 export function deformTerrainLowPoly(hitPoint, radius, depth) {
+  console.log("deformTerrainLowPoly called - hitPoint:", hitPoint, "radius:", radius, "depth:", depth);
   // Convert world coordinates to grid index
   const spacing = world.spacing;
   const gx = (hitPoint.x / spacing) - (world.gridOffsetX || 0);
@@ -1091,6 +1144,7 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
           // Subtract density (air has negative density). Multiplied by 5.0 to guarantee carving on first swing.
           const reduction = depth * 5.0 * (1.0 - dist / gRadius);
           const newDens = currentDens - reduction;
+          console.log(`Modifying voxel (${x}, ${y}, ${z}) - old density: ${currentDens.toFixed(2)}, reduction: ${reduction.toFixed(2)}, new density: ${newDens.toFixed(2)}`);
           setDensity(x, y, z, newDens);
 
           modified = true;
@@ -1101,7 +1155,9 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
 
   // Regenerate terrain mesh if anything changed
   if (modified) {
+    const t0 = performance.now();
     buildMarchingCubesMesh();
+    console.log(`buildMarchingCubesMesh completed in ${(performance.now() - t0).toFixed(1)}ms`);
     
     // Only update water grid/mesh if we deformed close to the sea level!
     const nearSeaLevel = Math.abs(hitPoint.y - world.seaLevel) <= 3.2;
@@ -1222,8 +1278,39 @@ export function updateWaterGrid() {
   }
 }
 
+let waterSeabedHeights = null;
+let waterNoiseValues = null;
+
+export function precomputeWaterData() {
+  if (waterSeabedHeights) return;
+  
+  const size = (WATER_CELLS_X + 1) * (WATER_CELLS_Z + 1);
+  waterSeabedHeights = new Float32Array(size);
+  waterNoiseValues = new Float32Array(size);
+  
+  const spacing = world.spacing;
+  for (let gx = 0; gx <= WATER_CELLS_X; gx++) {
+    const vx = WATER_START_X + gx * spacing;
+    const idxOffset = gx * (WATER_CELLS_Z + 1);
+    for (let gz = 0; gz <= WATER_CELLS_Z; gz++) {
+      const vz = WATER_START_Z + gz * spacing;
+      const idx = idxOffset + gz;
+      
+      waterSeabedHeights[idx] = getSeabedHeight(vx, vz);
+      
+      const nv = fbmNoise2D(vx * 0.003, vz * 0.003);
+      const detailNoise = fbmNoise2D(vx * 0.02, vz * 0.02) * 0.2;
+      waterNoiseValues[idx] = nv + detailNoise;
+    }
+  }
+}
+
 // Build a dynamic BufferGeometry for water, only rendering quads in active water columns
 export function buildWaterGeometry() {
+  if (!waterNoiseValues) {
+    precomputeWaterData();
+  }
+
   const positions = [];
   const colors = [];
   const depths = [];
@@ -1241,7 +1328,6 @@ export function buildWaterGeometry() {
 
   const cellCountX = WATER_CELLS_X;
   const cellCountZ = WATER_CELLS_Z;
-
 
   function addQuad(x1, z1, x2, z2, ix, iz, isOuter) {
     const verts = [
@@ -1262,10 +1348,16 @@ export function buildWaterGeometry() {
       // Push directly in world X-Z coordinates (Y is height, initially 0, modified by waves)
       positions.push(vx, 0, vz);
 
-      // 1. Calculate procedural seabed noise color for the entire ocean (both inner and outer)
-      const nv = fbmNoise2D(vx * 0.003, vz * 0.003); // Large-scale patterns
-      const detailNoise = fbmNoise2D(vx * 0.02, vz * 0.02) * 0.2; // Small-scale coral noise
-      const val = nv + detailNoise;
+      // Look up precomputed noise and seabed heights
+      let val = 0.5;
+      if (!isOuter) {
+        const idx = vgx * (WATER_CELLS_Z + 1) + vgz;
+        val = waterNoiseValues[idx];
+      } else {
+        const nv = fbmNoise2D(vx * 0.003, vz * 0.003); // Large-scale patterns
+        const detailNoise = fbmNoise2D(vx * 0.02, vz * 0.02) * 0.2; // Small-scale coral noise
+        val = nv + detailNoise;
+      }
       
       // Define three curated tropical ocean colors:
       const colorSand = new THREE.Color(0x05edd0);   // Bright luminous beach sand under water
@@ -1288,7 +1380,8 @@ export function buildWaterGeometry() {
 
       let depth = 4.0;
       if (!isOuter) {
-        const groundY = getSeabedHeight(vx, vz);
+        const idx = vgx * (WATER_CELLS_Z + 1) + vgz;
+        const groundY = waterSeabedHeights[idx];
         depth = Math.max(0, 4.0 - groundY);
 
         // Smoothly blend depth to 4.0 (deep ocean) near the boundaries to integrate with the outer ocean
@@ -2827,6 +2920,7 @@ function spawnGeologicalTotem(bx, by, bz) {
 }
 // Initialize World
 export function initWorld() {
+  precomputeWaterData();
   generateDensityGrid();
   buildMarchingCubesMesh();
   spawnScenery();

@@ -763,6 +763,7 @@ function performWoodcuttingRaycast() {
 
 // Perform raycast from camera center to detect terrain or ore deposit hits
 function performMiningRaycast() {
+  console.log("performMiningRaycast called. selectedSlot:", player.selectedSlot, "right_hand:", player.equipped.right_hand, "hasPickaxe:", getActivePickaxe());
   // We only mine if pickaxe is selected or equipped
   const pickaxeActive = (player.selectedSlot === 6 && getActivePickaxe() !== null) || 
                         player.equipped.right_hand === 'primitive_pickaxe' || 
@@ -826,6 +827,7 @@ function performMiningRaycast() {
     }
   }
 
+  console.log("performMiningRaycast hit evaluation - hitPoint:", hitPoint, "hitDistance:", hitDistance, "isOreHit:", isOreHit);
   // If hit was successful and in range
   if (hitPoint && hitDistance < 6.0) {
     if (isOreHit && oreGroupRef) {
