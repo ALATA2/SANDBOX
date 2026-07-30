@@ -1122,6 +1122,14 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
   const minZ = Math.max(0, Math.floor(gz - gRadius));
   const maxZ = Math.min(world.sizeZ - 1, Math.ceil(gz + gRadius));
 
+  console.log(`deformTerrainLowPoly debug:
+    gx: ${gx.toFixed(3)}, gy: ${gy.toFixed(3)}, gz: ${gz.toFixed(3)}
+    gRadius: ${gRadius.toFixed(3)}
+    minX..maxX: ${minX}..${maxX}
+    minY..maxY: ${minY}..${maxY}
+    minZ..maxZ: ${minZ}..${maxZ}
+  `);
+
   let modified = false;
 
   for (let x = minX; x <= maxX; x++) {
@@ -1134,6 +1142,7 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
         const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
         if (dist < gRadius) {
+          console.log(`Inside dist < gRadius for voxel (${x}, ${y}, ${z}) - dist: ${dist.toFixed(3)}`);
           const virtualDepth = getVirtualDepthAt(y);
           if (virtualDepth >= 1100) continue; // Bedrock core is indestructible!
 
