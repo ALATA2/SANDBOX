@@ -567,11 +567,23 @@ function performToolsRaycast() {
     return;
   }
 
-  if (player.selectedSlot === 0 || player.activeCustomItem === 'stick' || player.activeCustomItem === 'cane') {
+  const spearActive = (player.selectedSlot === 0 && getActiveSpear() !== null) || 
+                      player.equipped.right_hand === 'primitive_spear' || 
+                      player.equipped.right_hand === 'refined_spear';
+
+  const axeActive = (player.selectedSlot === 1 && getActiveAxe() !== null) || 
+                    player.equipped.right_hand === 'primitive_axe' || 
+                    player.equipped.right_hand === 'refined_axe';
+
+  const pickaxeActive = (player.selectedSlot === 6 && getActivePickaxe() !== null) || 
+                        player.equipped.right_hand === 'primitive_pickaxe' || 
+                        player.equipped.right_hand === 'refined_pickaxe';
+
+  if (spearActive || player.activeCustomItem === 'stick' || player.activeCustomItem === 'cane') {
     performSpearRaycast();
-  } else if (player.selectedSlot === 6) {
+  } else if (pickaxeActive) {
     performMiningRaycast();
-  } else if (player.selectedSlot === 1) {
+  } else if (axeActive) {
     performWoodcuttingRaycast();
     performSpearRaycast(); // Allow hunting with Axe!
   } else if (player.selectedSlot === 2) {
@@ -751,8 +763,11 @@ function performWoodcuttingRaycast() {
 
 // Perform raycast from camera center to detect terrain or ore deposit hits
 function performMiningRaycast() {
-  // We only mine if pickaxe is selected (Slot 7, index 6)
-  if (player.selectedSlot !== 6) return;
+  // We only mine if pickaxe is selected or equipped
+  const pickaxeActive = (player.selectedSlot === 6 && getActivePickaxe() !== null) || 
+                        player.equipped.right_hand === 'primitive_pickaxe' || 
+                        player.equipped.right_hand === 'refined_pickaxe';
+  if (!pickaxeActive) return;
 
   // Set raycaster from center of the screen
   raycaster.setFromCamera(new THREE.Vector2(0, 0), game.camera);
@@ -782,7 +797,7 @@ function performMiningRaycast() {
   let oreGroupRef = null;
 
   // Check if we hit an ore deposit first (since they overlap the terrain)
-  if (oreIntersections.length > 0 && oreIntersections[0].distance < 4.0) {
+  if (oreIntersections.length > 0 && oreIntersections[0].distance < 6.0) {
     const hit = oreIntersections[0];
     hitObject = hit.object;
     hitPoint = hit.point;
@@ -799,7 +814,7 @@ function performMiningRaycast() {
   }
 
   // Check if terrain hit is closer
-  if (terrainIntersections.length > 0 && terrainIntersections[0].distance < 4.0) {
+  if (terrainIntersections.length > 0 && terrainIntersections[0].distance < 6.0) {
     const hit = terrainIntersections[0];
     if (hit.distance < hitDistance) {
       hitObject = hit.object;
@@ -812,7 +827,7 @@ function performMiningRaycast() {
   }
 
   // If hit was successful and in range
-  if (hitPoint && hitDistance < 4.0) {
+  if (hitPoint && hitDistance < 6.0) {
     if (isOreHit && oreGroupRef) {
       // 1. Spawns shiny gold ore debris
       spawnDebris(hitPoint, hitNormal, 'ore');
