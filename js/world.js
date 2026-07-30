@@ -172,11 +172,7 @@ export function setDensity(x, y, z, value) {
   }
 
   if (!world.initializing) {
-    if (value <= -2.0) {
-      delete world.carvedVoxels[key];
-    } else {
-      world.carvedVoxels[key] = value;
-    }
+    world.carvedVoxels[key] = value;
   }
 
   const idx = getGridIndex(x, y, z);
@@ -820,16 +816,32 @@ export function buildMarchingCubesMesh() {
   ];
 
   const spacing = world.spacing;
+  const sizeY = world.sizeY;
+  const sizeZ = world.sizeZ;
+  const idxOff1 = sizeY * sizeZ;
+  const idxOff2 = sizeY * sizeZ + 1;
+  const idxOff3 = 1;
+  const idxOff4 = sizeZ;
+  const idxOff5 = sizeY * sizeZ + sizeZ;
+  const idxOff6 = sizeY * sizeZ + sizeZ + 1;
+  const idxOff7 = sizeZ + 1;
 
   for (let x = 0; x < world.sizeX - 1; x++) {
+    const xStride = x * sizeY * sizeZ;
     for (let y = 0; y < world.sizeY - 1; y++) {
+      const yStride = y * sizeZ;
+      let baseIdx = xStride + yStride;
       for (let z = 0; z < world.sizeZ - 1; z++) {
         
-        // 1. Get densities at 8 corners
-        for (let i = 0; i < 8; i++) {
-          const off = cornerOffsets[i];
-          tempD[i] = world.density[getGridIndex(x + off[0], y + off[1], z + off[2])];
-        }
+        // 1. Get densities at 8 corners using fast sequential offsets
+        tempD[0] = world.density[baseIdx];
+        tempD[1] = world.density[baseIdx + idxOff1];
+        tempD[2] = world.density[baseIdx + idxOff2];
+        tempD[3] = world.density[baseIdx + idxOff3];
+        tempD[4] = world.density[baseIdx + idxOff4];
+        tempD[5] = world.density[baseIdx + idxOff5];
+        tempD[6] = world.density[baseIdx + idxOff6];
+        tempD[7] = world.density[baseIdx + idxOff7];
 
         // 2. Classify cell corners to find case index (0-255)
         let cubeIndex = 0;
@@ -843,7 +855,10 @@ export function buildMarchingCubesMesh() {
         if (tempD[7] >= 0) cubeIndex |= 128;
 
         const edges = edgeTable[cubeIndex];
-        if (edges === 0) continue;
+        if (edges === 0) {
+          baseIdx++;
+          continue;
+        }
 
         const triRow = triTable[cubeIndex];
 
@@ -951,6 +966,7 @@ export function buildMarchingCubesMesh() {
 
           vIdx += 9;
         }
+        baseIdx++;
       }
     }
   }
