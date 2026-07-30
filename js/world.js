@@ -368,7 +368,8 @@ export function getVirtualDepthAt(y) {
 
 export function getVertexVirtualDepth(absVx, vy, absVz) {
   const H = getOriginalHeight(absVx, absVz);
-  const physicalDepth = H - vy;
+  const shiftedVy = vy + (world.gridOffsetY || 0);
+  const physicalDepth = H - shiftedVy;
   return Math.max(0, physicalDepth * (3.0 / world.spacing) + (world.currentVirtualDepth || 0));
 }
 
@@ -385,7 +386,8 @@ function getVertexColorForDepth(vx, vy, vz) {
   const lz = Math.max(0, Math.min(sizeZ - 1, Math.round(vz / spacing)));
   const H = localOriginalHeights ? localOriginalHeights[lx * sizeZ + lz] : 4.0;
   
-  const physicalDepth = H - vy;
+  const shiftedVy = vy + (world.gridOffsetY || 0);
+  const physicalDepth = H - shiftedVy;
   const depth = Math.max(0, physicalDepth * (3.0 / spacing) + (world.currentVirtualDepth || 0));
 
   // 1. Calculate surface biome color based on absolute altitude (vy) using scaled layers
@@ -1103,7 +1105,7 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
   // Convert world coordinates to grid index
   const spacing = world.spacing;
   const gx = (hitPoint.x / spacing) - (world.gridOffsetX || 0);
-  const gy = (hitPoint.y - (world.gridOffsetY || 0)) / spacing;
+  const gy = hitPoint.y / spacing;
   const gz = (hitPoint.z / spacing) - (world.gridOffsetZ || 0);
 
   const gRadius = radius / spacing;
