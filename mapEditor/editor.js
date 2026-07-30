@@ -308,6 +308,19 @@ function setupUI() {
       }
     });
   }
+
+  const lakeSlider = document.getElementById('lake-level-slider');
+  const lakeValueLabel = document.getElementById('lake-level-value');
+  if (lakeSlider && lakeValueLabel) {
+    lakeSlider.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      world.lakeLevel = val;
+      lakeValueLabel.textContent = `${val.toFixed(1)}m`;
+      if (world.lakeMesh) {
+        world.lakeMesh.position.y = val;
+      }
+    });
+  }
 }
 
 // Create appropriate 3D mesh for the ghost preview
@@ -793,7 +806,8 @@ function serializeMapData() {
     playerSpawn: playerSpawn,
     carvedVoxels: world.carvedVoxels || {},
     objects: objectsMeta,
-    seaLevel: world.seaLevel !== undefined ? world.seaLevel : 4.0
+    seaLevel: world.seaLevel !== undefined ? world.seaLevel : 4.0,
+    lakeLevel: world.lakeLevel !== undefined ? world.lakeLevel : 32.0
   };
 }
 
@@ -924,6 +938,20 @@ function importMapJSON(mapData) {
     }
     if (world.waterMesh) {
       world.waterMesh.position.y = mapData.seaLevel;
+    }
+  }
+
+  // Restore lake level
+  if (mapData.lakeLevel !== undefined) {
+    world.lakeLevel = mapData.lakeLevel;
+    const lakeSlider = document.getElementById('lake-level-slider');
+    const lakeValueLabel = document.getElementById('lake-level-value');
+    if (lakeSlider && lakeValueLabel) {
+      lakeSlider.value = mapData.lakeLevel;
+      lakeValueLabel.textContent = `${mapData.lakeLevel.toFixed(1)}m`;
+    }
+    if (world.lakeMesh) {
+      world.lakeMesh.position.y = mapData.lakeLevel;
     }
   }
 }

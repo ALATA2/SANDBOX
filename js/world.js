@@ -4038,6 +4038,16 @@ export function loadCustomMap(mapData) {
     world.waterMesh.position.y = world.seaLevel;
   }
 
+  // Restore lake level
+  if (mapData.lakeLevel !== undefined) {
+    world.lakeLevel = mapData.lakeLevel;
+  } else {
+    world.lakeLevel = 32.0;
+  }
+  if (world.lakeMesh) {
+    world.lakeMesh.position.y = world.lakeLevel;
+  }
+
   // Set spawn point
   if (mapData.playerSpawn) {
     world.playerSpawnPoint = new THREE.Vector3(mapData.playerSpawn.x, mapData.playerSpawn.y, mapData.playerSpawn.z);
