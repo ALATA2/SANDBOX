@@ -855,8 +855,8 @@ function performMiningRaycast() {
     } else {
       // 2. Generic terrain hits: deform (carve crater) and spawn chemistry or stone debris
       const virtualDepth = getVertexVirtualDepth(hitPoint.x, hitPoint.y, hitPoint.z);
-      const deformRadius = player.energy < 10 ? 0.9 : 1.8;
-      const deformDepth = player.energy < 10 ? 0.6 : 1.2;
+      const deformRadius = 2.0;
+      const deformDepth = 1.5;
       deformTerrainLowPoly(hitPoint, deformRadius, deformDepth);
 
       // Determine what material to drop based on local chemistry composition!

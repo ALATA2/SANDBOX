@@ -1175,39 +1175,8 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
     buildMarchingCubesMesh();
     console.log(`buildMarchingCubesMesh completed in ${(performance.now() - t0).toFixed(1)}ms`);
     
-    // Only update water grid/mesh if we deformed close to the sea level!
-    const nearSeaLevel = Math.abs(hitPoint.y - world.seaLevel) <= 3.2;
-    if (nearSeaLevel) {
-      updateWaterGrid();
-      
-      // Update precomputed water ground heights only for the affected region
-      if (world.waterGroundHeights) {
-        const minWaterX = Math.max(0, Math.floor((minX * spacing - WATER_START_X) / spacing) - 1);
-        const maxWaterX = Math.min(WATER_CELLS_X, Math.ceil((maxX * spacing - WATER_START_X) / spacing) + 1);
-        const minWaterZ = Math.max(0, Math.floor((minZ * spacing - WATER_START_Z) / spacing) - 1);
-        const maxWaterZ = Math.min(WATER_CELLS_Z, Math.ceil((maxZ * spacing - WATER_START_Z) / spacing) + 1);
-        
-        for (let gx = minWaterX; gx <= maxWaterX; gx++) {
-          const vx = WATER_START_X + gx * spacing;
-          const idxOffset = gx * (WATER_CELLS_Z + 1);
-          for (let gz = minWaterZ; gz <= maxWaterZ; gz++) {
-            const vz = WATER_START_Z + gz * spacing;
-            const idx = idxOffset + gz;
-            world.waterGroundHeights[idx] = getSurfaceHeightNear(vx, 5.0, vz);
-          }
-        }
-      }
-    }
-
     // Snap affected scenery/deposits/boards near hitPoint
     snapSceneryNear(hitPoint, radius);
-
-    if (nearSeaLevel && world.waterMesh) {
-      const newWaterGeom = buildWaterGeometry();
-      const oldWaterGeom = world.waterMesh.geometry;
-      world.waterMesh.geometry = newWaterGeom;
-      oldWaterGeom.dispose();
-    }
   }
 }
 
