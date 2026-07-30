@@ -376,6 +376,8 @@ export function getVertexVirtualDepth(absVx, vy, absVz) {
   return Math.max(0, physicalDepth * (3.0 / world.spacing) + (world.currentVirtualDepth || 0));
 }
 
+const tempColorRGB = new Float32Array(3);
+
 // Compute dynamic vertex color based on depth from original surface
 function getVertexColorForDepth(vx, vy, vz) {
   const spacing = world.spacing;
@@ -534,11 +536,9 @@ function getVertexColorForDepth(vx, vy, vz) {
   // 3. Blend between surface biome color and mining depth color based on depth
   // At depth = 0, it's 100% surface color. At depth >= 2.5, it's 100% underground color.
   const blendT = Math.max(0, Math.min(1.0, depth / 2.5));
-  return [
-    surfaceColor[0] + blendT * (color[0] - surfaceColor[0]),
-    surfaceColor[1] + blendT * (color[1] - surfaceColor[1]),
-    surfaceColor[2] + blendT * (color[2] - surfaceColor[2])
-  ];
+  tempColorRGB[0] = surfaceColor[0] + blendT * (color[0] - surfaceColor[0]);
+  tempColorRGB[1] = surfaceColor[1] + blendT * (color[1] - surfaceColor[1]);
+  tempColorRGB[2] = surfaceColor[2] + blendT * (color[2] - surfaceColor[2]);
 }
 
 // 3D Noise for subterranean caves
@@ -786,6 +786,10 @@ export function buildMarchingCubesMesh() {
   const positions = [];
   const colors = [];
   
+  // Reusable arrays to prevent garbage collection pauses inside the 1.2M loop
+  const tempD = new Float32Array(8);
+  const tempVertList = new Float32Array(36);
+
   // Cube vertex index offsets
   const cornerOffsets = [
     [0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1],
@@ -806,22 +810,21 @@ export function buildMarchingCubesMesh() {
       for (let z = 0; z < world.sizeZ - 1; z++) {
         
         // 1. Get densities at 8 corners
-        const d = new Float32Array(8);
         for (let i = 0; i < 8; i++) {
           const off = cornerOffsets[i];
-          d[i] = world.density[getGridIndex(x + off[0], y + off[1], z + off[2])];
+          tempD[i] = world.density[getGridIndex(x + off[0], y + off[1], z + off[2])];
         }
 
         // 2. Classify cell corners to find case index (0-255)
         let cubeIndex = 0;
-        if (d[0] >= 0) cubeIndex |= 1;
-        if (d[1] >= 0) cubeIndex |= 2;
-        if (d[2] >= 0) cubeIndex |= 4;
-        if (d[3] >= 0) cubeIndex |= 8;
-        if (d[4] >= 0) cubeIndex |= 16;
-        if (d[5] >= 0) cubeIndex |= 32;
-        if (d[6] >= 0) cubeIndex |= 64;
-        if (d[7] >= 0) cubeIndex |= 128;
+        if (tempD[0] >= 0) cubeIndex |= 1;
+        if (tempD[1] >= 0) cubeIndex |= 2;
+        if (tempD[2] >= 0) cubeIndex |= 4;
+        if (tempD[3] >= 0) cubeIndex |= 8;
+        if (tempD[4] >= 0) cubeIndex |= 16;
+        if (tempD[5] >= 0) cubeIndex |= 32;
+        if (tempD[6] >= 0) cubeIndex |= 64;
+        if (tempD[7] >= 0) cubeIndex |= 128;
 
         const edges = edgeTable[cubeIndex];
         if (edges === 0) continue;
@@ -829,7 +832,6 @@ export function buildMarchingCubesMesh() {
         const triRow = triTable[cubeIndex];
 
         // 3. Interpolate vertices along active edges
-        const vertList = new Float32Array(12 * 3);
         for (let i = 0; i < 12; i++) {
           if (edges & (1 << i)) {
             const c1 = edgeCorners[i][0];
@@ -846,8 +848,8 @@ export function buildMarchingCubesMesh() {
             const p2y = (y + off2[1]) * spacing;
             const p2z = (z + off2[2]) * spacing;
 
-            const val1 = d[c1];
-            const val2 = d[c2];
+            const val1 = tempD[c1];
+            const val2 = tempD[c2];
 
             // Linear interpolation factor
             let t = 0.5;
@@ -857,9 +859,9 @@ export function buildMarchingCubesMesh() {
             }
             t = Math.max(0, Math.min(1, t)); // clamp
 
-            vertList[i * 3 + 0] = p1x + t * (p2x - p1x);
-            vertList[i * 3 + 1] = p1y + t * (p2y - p1y);
-            vertList[i * 3 + 2] = p1z + t * (p2z - p1z);
+            tempVertList[i * 3 + 0] = p1x + t * (p2x - p1x);
+            tempVertList[i * 3 + 1] = p1y + t * (p2y - p1y);
+            tempVertList[i * 3 + 2] = p1z + t * (p2z - p1z);
           }
         }
 
@@ -872,17 +874,17 @@ export function buildMarchingCubesMesh() {
           if (e0 === undefined || e1 === undefined || e2 === undefined) break;
           if (e0 < 0 || e0 >= 12 || e1 < 0 || e1 >= 12 || e2 < 0 || e2 >= 12) break;
 
-          const v0x = vertList[e0 * 3 + 0];
-          const v0y = vertList[e0 * 3 + 1];
-          const v0z = vertList[e0 * 3 + 2];
+          const v0x = tempVertList[e0 * 3 + 0];
+          const v0y = tempVertList[e0 * 3 + 1];
+          const v0z = tempVertList[e0 * 3 + 2];
 
-          const v1x = vertList[e1 * 3 + 0];
-          const v1y = vertList[e1 * 3 + 1];
-          const v1z = vertList[e1 * 3 + 2];
+          const v1x = tempVertList[e1 * 3 + 0];
+          const v1y = tempVertList[e1 * 3 + 1];
+          const v1z = tempVertList[e1 * 3 + 2];
 
-          const v2x = vertList[e2 * 3 + 0];
-          const v2y = vertList[e2 * 3 + 1];
-          const v2z = vertList[e2 * 3 + 2];
+          const v2x = tempVertList[e2 * 3 + 0];
+          const v2y = tempVertList[e2 * 3 + 1];
+          const v2z = tempVertList[e2 * 3 + 2];
 
           // Check for safety against NaNs
           if (Number.isNaN(v0x) || Number.isNaN(v0y) || Number.isNaN(v0z) ||
@@ -895,13 +897,15 @@ export function buildMarchingCubesMesh() {
           positions.push(v1x, v1y, v1z);
           positions.push(v2x, v2y, v2z);
 
-          const c0 = getVertexColorForDepth(v0x, v0y, v0z);
-          const c1 = getVertexColorForDepth(v1x, v1y, v1z);
-          const c2 = getVertexColorForDepth(v2x, v2y, v2z);
+          // Get vertex colors (writes straight to tempColorRGB)
+          getVertexColorForDepth(v0x, v0y, v0z);
+          colors.push(tempColorRGB[0], tempColorRGB[1], tempColorRGB[2]);
 
-          colors.push(c0[0], c0[1], c0[2]);
-          colors.push(c1[0], c1[1], c1[2]);
-          colors.push(c2[0], c2[1], c2[2]);
+          getVertexColorForDepth(v1x, v1y, v1z);
+          colors.push(tempColorRGB[0], tempColorRGB[1], tempColorRGB[2]);
+
+          getVertexColorForDepth(v2x, v2y, v2z);
+          colors.push(tempColorRGB[0], tempColorRGB[1], tempColorRGB[2]);
         }
       }
     }
@@ -1084,8 +1088,8 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
           }
 
           const currentDens = getDensity(x, y, z);
-          // Subtract density (air has negative density)
-          const reduction = depth * (1.0 - dist / gRadius);
+          // Subtract density (air has negative density). Multiplied by 5.0 to guarantee carving on first swing.
+          const reduction = depth * 5.0 * (1.0 - dist / gRadius);
           const newDens = currentDens - reduction;
           setDensity(x, y, z, newDens);
 
