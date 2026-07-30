@@ -3564,8 +3564,8 @@ function spawnSeabed() {
     pos.setY(i, vy);
     
     // Coloring: use getVertexColorForDepth for matching biomes (depth=0 since it's surface)
-    const c = getVertexColorForDepth(wx, vy, wz);
-    colors.push(c[0], c[1], c[2]);
+    getVertexColorForDepth(wx, vy, wz);
+    colors.push(tempColorRGB[0], tempColorRGB[1], tempColorRGB[2]);
   }
   
   geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
