@@ -107,18 +107,27 @@ export const player = {
 };
 
 export function getActiveSpear() {
+  if (player.equipped.right_hand === 'refined_spear' || player.equipped.right_hand === 'primitive_spear') {
+    return player.equipped.right_hand;
+  }
   if ((player.inventory.refined_spear || 0) > 0) return 'refined_spear';
   if ((player.inventory.primitive_spear || 0) > 0) return 'primitive_spear';
   return null;
 }
 
 export function getActiveAxe() {
+  if (player.equipped.right_hand === 'refined_axe' || player.equipped.right_hand === 'primitive_axe') {
+    return player.equipped.right_hand;
+  }
   if ((player.inventory.refined_axe || 0) > 0) return 'refined_axe';
   if ((player.inventory.primitive_axe || 0) > 0) return 'primitive_axe';
   return null;
 }
 
 export function getActivePickaxe() {
+  if (player.equipped.right_hand === 'refined_pickaxe' || player.equipped.right_hand === 'primitive_pickaxe') {
+    return player.equipped.right_hand;
+  }
   if ((player.inventory.refined_pickaxe || 0) > 0) return 'refined_pickaxe';
   if ((player.inventory.primitive_pickaxe || 0) > 0) return 'primitive_pickaxe';
   return null;
