@@ -763,6 +763,9 @@ function performWoodcuttingRaycast() {
 
 // Perform raycast from camera center to detect terrain or ore deposit hits
 function performMiningRaycast() {
+  const playerPos = game.controls.getObject().position;
+  const currentGroundY = getSurfaceHeightNear(playerPos.x, playerPos.y, playerPos.z);
+  console.log(`performMiningRaycast Debug: player Y = ${playerPos.y.toFixed(3)}, groundY = ${currentGroundY.toFixed(3)}, gridOffsetX = ${world.gridOffsetX}, gridOffsetZ = ${world.gridOffsetZ}`);
   console.log("performMiningRaycast called. selectedSlot:", player.selectedSlot, "right_hand:", player.equipped.right_hand, "hasPickaxe:", getActivePickaxe());
   // We only mine if pickaxe is selected or equipped
   const pickaxeActive = (player.selectedSlot === 6 && getActivePickaxe() !== null) || 
