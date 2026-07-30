@@ -1189,10 +1189,15 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
     
     // Update precomputed water ground heights only for the affected region
     if (world.waterGroundHeights) {
-      const minWaterX = Math.max(0, Math.floor((minX * spacing - WATER_START_X) / spacing) - 1);
-      const maxWaterX = Math.min(WATER_CELLS_X, Math.ceil((maxX * spacing - WATER_START_X) / spacing) + 1);
-      const minWaterZ = Math.max(0, Math.floor((minZ * spacing - WATER_START_Z) / spacing) - 1);
-      const maxWaterZ = Math.min(WATER_CELLS_Z, Math.ceil((maxZ * spacing - WATER_START_Z) / spacing) + 1);
+      const minAbsX = hitPoint.x - radius;
+      const maxAbsX = hitPoint.x + radius;
+      const minAbsZ = hitPoint.z - radius;
+      const maxAbsZ = hitPoint.z + radius;
+
+      const minWaterX = Math.max(0, Math.floor((minAbsX - WATER_START_X) / spacing) - 1);
+      const maxWaterX = Math.min(WATER_CELLS_X, Math.ceil((maxAbsX - WATER_START_X) / spacing) + 1);
+      const minWaterZ = Math.max(0, Math.floor((minAbsZ - WATER_START_Z) / spacing) - 1);
+      const maxWaterZ = Math.min(WATER_CELLS_Z, Math.ceil((maxAbsZ - WATER_START_Z) / spacing) + 1);
       
       for (let gx = minWaterX; gx <= maxWaterX; gx++) {
         const vx = WATER_START_X + gx * spacing;
