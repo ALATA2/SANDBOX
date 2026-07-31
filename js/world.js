@@ -64,7 +64,8 @@ export function isWaterActiveAt(vx, vz) {
   if (gx < 0 || gx >= world.sizeX || gz < 0 || gz >= world.sizeZ) {
     return true; // Open ocean is always active
   }
-  const idx = gx * world.sizeY * world.sizeZ + 2 * world.sizeZ + gz;
+  const waterYIndex = Math.max(0, Math.min(world.sizeY - 1, Math.floor((world.seaLevel - (world.gridOffsetY || 0)) / spacing)));
+  const idx = gx * world.sizeY * world.sizeZ + waterYIndex * world.sizeZ + gz;
   return world.waterActive && world.waterActive[idx] === 1;
 }
 
@@ -1231,7 +1232,7 @@ export function updateWaterGrid() {
     return x * world.sizeY * world.sizeZ + y * world.sizeZ + z;
   }
 
-  const maxWaterY = 2; // Water level 4.0m corresponds to grid index y = 2 (up to 4.8m)
+  const maxWaterY = Math.max(0, Math.min(world.sizeY - 1, Math.floor((world.seaLevel - (world.gridOffsetY || 0)) / spacing)));
 
   // 1. Add all border air voxels at y <= maxWaterY to the queue
   for (let y = 0; y <= maxWaterY; y++) {
