@@ -59,8 +59,10 @@ export const WATER_CELLS_Z = 146;
 
 export function isWaterActiveAt(vx, vz) {
   const spacing = world.spacing;
-  const gx = Math.floor(vx / spacing);
-  const gz = Math.floor(vz / spacing);
+  const absGx = Math.floor(vx / spacing);
+  const absGz = Math.floor(vz / spacing);
+  const gx = absGx - (world.gridOffsetX || 0);
+  const gz = absGz - (world.gridOffsetZ || 0);
   if (gx < 0 || gx >= world.sizeX || gz < 0 || gz >= world.sizeZ) {
     return true; // Open ocean is always active
   }
