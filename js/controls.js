@@ -323,9 +323,9 @@ export function updateControls(delta) {
     canJump = false;
   }
 
-  // Cap Y coordinates so players can't jump out of the world bounds
-  if (position.y > 25.5) {
-    position.y = 25.5;
+  // Cap Y coordinates so players can't jump out of the world bounds (sizeY is 48, max grid height is 76.8m)
+  if (position.y > 72.0) {
+    position.y = 72.0;
     velocity.y = 0;
   }
 

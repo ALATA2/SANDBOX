@@ -116,6 +116,7 @@ export let currentPreset = 'sunset';
 export const presets = {
   sunset: {
     bg: 0xffa089, // Warm peachy pink
+    gradBottom: 0xff8a65, // Horizon color!
     fogDensity: 0.0011, // Clearer sky for long distance view
     ambient: 0x4a3466, // Soft purple ambient
     ambientIntensity: 1.2,
@@ -312,7 +313,7 @@ export function applyPreset(presetName) {
   const container = document.getElementById('canvas-container');
   if (container) {
     if (presetName === 'sunset') {
-      container.style.background = 'linear-gradient(to bottom, #4ba3e3, #fc8c82)';
+      container.style.background = 'linear-gradient(to bottom, #322260, #ff8a65)';
     } else if (presetName === 'nebula') {
       container.style.background = 'linear-gradient(to bottom, #020107, #070312)';
     } else if (presetName === 'toxic') {
@@ -323,7 +324,7 @@ export function applyPreset(presetName) {
   }
   
   if (game.scene.fog) {
-    game.scene.fog.color.setHex(preset.bg);
+    game.scene.fog.color.setHex(preset.gradBottom || preset.bg);
     game.scene.fog.density = preset.fogDensity;
   }
   
@@ -481,7 +482,8 @@ export function updateWeatherAndOrbit(delta, wasSubmerged, cameraPos, angle, sun
   // 3. Lerp fog color & density
   if (game.scene.fog) {
     game.scene.fog.density = baseState.fogDensity + (targetState.fogDensity - baseState.fogDensity) * t;
-    colorTempFog.copy(cTemp1.set(baseState.bg)).lerp(cTemp2.set(targetState.bg), t);
+    // Use gradBottom (the horizon color) instead of bg for a seamless horizon transition!
+    colorTempFog.copy(cTemp1.set(baseState.gradBottom)).lerp(cTemp2.set(targetState.gradBottom), t);
     game.scene.fog.color.copy(colorTempFog);
   }
 
@@ -705,22 +707,29 @@ export function updateWeatherAndOrbit(delta, wasSubmerged, cameraPos, angle, sun
 
   // Dynamic water color adjustment (Zero-alloc)
   if (world.waterMesh && world.waterMesh.material && !wasSubmerged) {
-    const twilightColor = cTemp1.set(cycle.twilight.bg);
-    const twilightTint = cTemp2.copy(twilightColor).lerp(cTemp3.set(0xffffff), 0.5);
-    const twilightEmissive = cTemp4.copy(twilightColor).multiplyScalar(0.22);
-    
-    const dayEmissive = cTemp5.set(cycle.day.bg).multiplyScalar(0.12);
-    const nightEmissive = cTemp6.set(cycle.night.bg).multiplyScalar(0.08);
-    
     const waterColor = cTemp7;
     const waterEmissive = cTemp8;
     
     if (isDayTime) {
-      waterColor.copy(twilightTint).lerp(cTemp3.set(0xffffff), t);
-      waterEmissive.copy(twilightEmissive).lerp(dayEmissive, t);
+      // Day time: keep full vertex colors (white multiplier) and luminous blue-teal emissive glow
+      const dayColor = cTemp1.set(0xffffff);
+      const dayEmissive = cTemp2.set(0x09202e);
+      
+      const sunsetColor = cTemp3.set(0xe0f7fc); // Subtle tropical cyan tint at sunset
+      const sunsetEmissive = cTemp4.set(0x051d2b);
+      
+      waterColor.copy(sunsetColor).lerp(dayColor, t);
+      waterEmissive.copy(sunsetEmissive).lerp(dayEmissive, t);
     } else {
-      waterColor.copy(twilightTint).lerp(cTemp3.set(cycle.night.bg), t);
-      waterEmissive.copy(twilightEmissive).lerp(nightEmissive, t);
+      // Night time: fade water to deep dark navy blue
+      const sunsetColor = cTemp3.set(0xe0f7fc);
+      const sunsetEmissive = cTemp4.set(0x051d2b);
+      
+      const nightColor = cTemp1.set(0x0a1d2b); // Dark navy blue
+      const nightEmissive = cTemp2.set(0x010408);
+      
+      waterColor.copy(sunsetColor).lerp(nightColor, t);
+      waterEmissive.copy(sunsetEmissive).lerp(nightEmissive, t);
     }
     
     world.waterMesh.material.color.copy(waterColor);
