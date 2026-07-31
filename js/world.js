@@ -398,54 +398,54 @@ function getVertexColorForDepth(vx, vy, vz) {
   const depth = Math.max(0, physicalDepth * (3.0 / spacing) + (world.currentVirtualDepth || 0));
 
   // 1. Calculate surface biome color based on absolute altitude (vy) using scaled layers
-  let surfaceColor = [0.38, 0.56, 0.16]; // Default grass green
+  let surfaceColor = [0.55, 0.72, 0.20]; // Default tropical grass green
   
   if (vy <= 4.0) {
     if (!ENABLE_ISLANDS && vy < -5.0) {
       // Deep seabed (Dark teal/grey marine color)
       const t = Math.min(1.0, (-5.0 - vy) / 45.0); // 0 at -5m, 1 at -50m
       surfaceColor = [
-        0.90 + t * (0.20 - 0.90),
-        0.77 + t * (0.32 - 0.77),
-        0.58 + t * (0.35 - 0.58)
+        0.94 + t * (0.20 - 0.94),
+        0.82 + t * (0.32 - 0.82),
+        0.66 + t * (0.35 - 0.66)
       ];
     } else {
-      surfaceColor = [0.90, 0.77, 0.58]; // Sandy seabed
+      surfaceColor = [0.94, 0.82, 0.66]; // Sandy seabed (bright warm gold)
     }
   } else if (vy <= 4.3) {
     // Sand beach (Peach gold sand)
-    surfaceColor = [0.90, 0.77, 0.58];
+    surfaceColor = [0.94, 0.82, 0.66];
   } else if (vy <= 5.6) {
-    // Transition from beach sand to brown soil
+    // Transition from beach sand to bright tropical grass
     const t = (vy - 4.3) / (5.6 - 4.3);
     surfaceColor = [
-      0.90 + t * (0.54 - 0.90),
-      0.77 + t * (0.38 - 0.77),
-      0.58 + t * (0.25 - 0.58)
+      0.94 + t * (0.55 - 0.94),
+      0.82 + t * (0.72 - 0.82),
+      0.66 + t * (0.20 - 0.66)
     ];
   } else if (vy <= 16.3) {
-    // Grass/Meadow (Vibrant grass green)
+    // Grass/Meadow (Lush Caribbean grass green)
     const t = (vy - 5.6) / (16.3 - 5.6);
     surfaceColor = [
-      0.54 + t * (0.38 - 0.54),
-      0.38 + t * (0.56 - 0.38),
-      0.25 + t * (0.16 - 0.25)
+      0.55 + t * (0.32 - 0.55),
+      0.72 + t * (0.65 - 0.72),
+      0.20 + t * (0.12 - 0.20)
     ];
   } else if (vy <= 21.7) {
-    // Forest / Pine understory (Darker forest green)
+    // Forest / Tropical jungle (Deep tropical green)
     const t = (vy - 16.3) / (21.7 - 16.3);
     surfaceColor = [
-      0.38 + t * (0.22 - 0.38),
-      0.56 + t * (0.40 - 0.56),
-      0.16 + t * (0.20 - 0.16)
+      0.32 + t * (0.20 - 0.32),
+      0.65 + t * (0.45 - 0.65),
+      0.12 + t * (0.08 - 0.12)
     ];
   } else if (vy <= 330.0) {
-    // Rocky slopes (Bare granite grey rock)
+    // Rocky slopes (Bare warm granite grey rock)
     const t = (vy - 21.7) / (330.0 - 21.7);
     surfaceColor = [
-      0.22 + t * (0.45 - 0.22),
-      0.40 + t * (0.48 - 0.40),
-      0.20 + t * (0.48 - 0.20)
+      0.32 + t * (0.45 - 0.32),
+      0.30 + t * (0.42 - 0.30),
+      0.28 + t * (0.40 - 0.28)
     ];
   } else {
     // Transition to Snow Peak (above Y=330.0)
@@ -1644,175 +1644,48 @@ export function createPalmTree() {
 export function createPineTree() {
   const pineGroup = new THREE.Group();
 
-  const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x543d2b, roughness: 0.9, flatShading: true });
-  // Natural mossy greens matching reference image
-  const foliageMaterial1 = new THREE.MeshStandardMaterial({ 
-    color: 0x47783a, 
-    roughness: 0.85, 
-    flatShading: true, 
-    side: THREE.DoubleSide 
-  });
-  const foliageMaterial2 = new THREE.MeshStandardMaterial({ 
-    color: 0x5a904d, 
-    roughness: 0.85, 
-    flatShading: true, 
-    side: THREE.DoubleSide 
-  });
-
-  // 1. Detailed trunk
-  const trunkHeight = 5.2;
-  const trunkGeom = new THREE.CylinderGeometry(0.1, 0.25, trunkHeight, 5);
-  // Shift pivot to base of trunk
-  trunkGeom.translate(0, trunkHeight / 2, 0);
+  const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9, flatShading: true }); // Warm brown
+  
+  // 1. Trunk
+  const trunkHeight = 5.6;
+  const trunkGeom = new THREE.CylinderGeometry(0.16, 0.32, trunkHeight, 5); // Pentagonal low-poly cylinder
+  trunkGeom.translate(0, trunkHeight / 2, 0); // Pivot at base
   const trunk = new THREE.Mesh(trunkGeom, trunkMaterial);
   trunk.castShadow = true;
   trunk.receiveShadow = true;
   pineGroup.add(trunk);
 
-  // 2. Small bare branch stubs at the trunk base (Y between 0.6 and 1.6)
-  const stubCount = 3 + Math.floor(Math.random() * 3);
-  for (let i = 0; i < stubCount; i++) {
-    const stubLength = 0.25 + Math.random() * 0.25;
-    const stubGeom = new THREE.CylinderGeometry(0.02, 0.04, stubLength, 4);
-    stubGeom.translate(0, stubLength / 2, 0);
-    const stub = new THREE.Mesh(stubGeom, trunkMaterial);
+  // 2. Foliage: A few overlapping low-poly spheres for a lush tropical crown
+  const foliageGroup = new THREE.Group();
+  foliageGroup.position.set(0, trunkHeight * 0.9, 0);
+  
+  const sphereCount = 5;
+  const leafColors = [0x388e3c, 0x4caf50, 0x2e7d32, 0x66bb6a];
+  
+  for (let i = 0; i < sphereCount; i++) {
+    const radius = 1.6 + Math.random() * 0.6;
+    const geom = new THREE.DodecahedronGeometry(radius, 1); // Low-poly sphere (detail=1)
+    const mat = new THREE.MeshStandardMaterial({
+      color: leafColors[i % leafColors.length],
+      roughness: 0.8,
+      flatShading: true
+    });
+    const mesh = new THREE.Mesh(geom, mat);
     
-    // Position along the trunk height
-    const sy = 0.6 + (i / stubCount) * 0.8 + Math.random() * 0.15;
-    stub.position.set(0, sy, 0);
+    // Offset each sphere slightly to form a natural organic crown
+    const angle = (i / (sphereCount - 1)) * Math.PI * 2;
+    const dist = 0.5 + Math.random() * 0.4;
+    const ox = Math.cos(angle) * dist;
+    const oz = Math.sin(angle) * dist;
+    const oy = (i * 0.45) - 0.4;
     
-    // Angle sticking outward and slightly downward
-    const sAngle = Math.random() * Math.PI * 2;
-    stub.rotation.y = sAngle;
-    stub.rotation.z = 1.1 + Math.random() * 0.3; // point downward/outward
-    stub.castShadow = true;
-    pineGroup.add(stub);
+    mesh.position.set(ox, oy, oz);
+    mesh.scale.set(1.0 + Math.random() * 0.25, 0.95 + Math.random() * 0.2, 1.0 + Math.random() * 0.25);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    foliageGroup.add(mesh);
   }
-
-  // 3. Foliage: 11 layers of dense evergreen branches matching the reference
-  const numLayers = 11;
-  for (let i = 0; i < numLayers; i++) {
-    const t = i / (numLayers - 1);
-    // Non-linear power distribution clusters layers closer towards the top crown
-    const yPos = 1.0 + Math.pow(t, 0.7) * 4.15; // distribute from Y=1.0 to 5.15
-    
-    // Calculate tapered size of branch at this layer
-    const L = 1.95 * (1.0 - Math.pow(t, 0.85) * 0.78);        // Length of the branch outward
-    const W = 0.75 * (1.0 - Math.pow(t, 0.85) * 0.68);        // Width of the branch base
-    const H_inner = 0.22 * (1.0 - t * 0.7);                   // Height of the fold at the trunk
-    const tipDroop = 0.65 * (1.0 - t * 0.78);                 // How much the tip droops below the base
-    
-    // Number of branches in this layer (more at bottom, fewer at top)
-    const N = Math.round(10 - t * 5); 
-    
-    // Alternating stagger and some offset variation to break perfect radial alignment
-    const stagger = (i % 2) * (Math.PI / N) + (i * 0.2);
-    
-    // Alternate color between layers to add visual depth
-    const material = (i % 2 === 0) ? foliageMaterial1 : foliageMaterial2;
-    
-    // Dynamic trunk radius to position branches offset from trunk surface
-    const trunkRadius = 0.25 - (yPos / trunkHeight) * 0.15;
-
-    for (let k = 0; k < N; k++) {
-      const angle = (k * Math.PI * 2) / N + stagger;
-      
-      const branchGeom = new THREE.BufferGeometry();
-      
-      // We model each branch as a 2-segment, 3-cross-section folded plate.
-      // Cross-sections along local Z (outward from trunk):
-      // 1. Inner (Z = baseZ)
-      // 2. Middle (Z = midZ)
-      // 3. Tip (Z = tipZ)
-      const baseZ = -trunkRadius * 0.8;
-      const midZ = baseZ + (L - baseZ) * 0.5;
-      const tipZ = L;
-      
-      // Widths at each section
-      const W_inner = W;
-      const W_mid = W * 0.85;
-      const W_tip = W * 0.40;
-      
-      // Vertical offsets (droop and fold crease)
-      // Crease fold is highest in center and tapers down towards the outer edges
-      const ySide_inner = 0;
-      const yCenter_inner = H_inner;
-      
-      const ySide_mid = -tipDroop * 0.35;
-      const yCenter_mid = ySide_mid + H_inner * 0.6;
-      
-      const ySide_tip = -tipDroop;
-      const yCenter_tip = ySide_tip + H_inner * 0.2;
-      
-      // 8 triangles forming a curved, folded, shingled branch
-      const vertices = new Float32Array([
-        // Left side, Inner to Mid: InnerCenter, InnerLeft, MidLeft
-        0, yCenter_inner, baseZ,
-        -W_inner / 2, ySide_inner, baseZ,
-        -W_mid / 2, ySide_mid, midZ,
-        
-        // Left side, Inner to Mid: InnerCenter, MidLeft, MidCenter
-        0, yCenter_inner, baseZ,
-        -W_mid / 2, ySide_mid, midZ,
-        0, yCenter_mid, midZ,
-        
-        // Right side, Inner to Mid: InnerCenter, MidRight, InnerRight
-        0, yCenter_inner, baseZ,
-        W_mid / 2, ySide_mid, midZ,
-        W_inner / 2, ySide_inner, baseZ,
-        
-        // Right side, Inner to Mid: InnerCenter, MidCenter, MidRight
-        0, yCenter_inner, baseZ,
-        0, yCenter_mid, midZ,
-        W_mid / 2, ySide_mid, midZ,
-        
-        // Left side, Mid to Tip: MidCenter, MidLeft, TipLeft
-        0, yCenter_mid, midZ,
-        -W_mid / 2, ySide_mid, midZ,
-        -W_tip / 2, ySide_tip, tipZ,
-        
-        // Left side, Mid to Tip: MidCenter, TipLeft, TipCenter
-        0, yCenter_mid, midZ,
-        -W_tip / 2, ySide_tip, tipZ,
-        0, yCenter_tip, tipZ,
-        
-        // Right side, Mid to Tip: MidCenter, TipRight, MidRight
-        0, yCenter_mid, midZ,
-        W_tip / 2, ySide_tip, tipZ,
-        W_mid / 2, ySide_mid, midZ,
-        
-        // Right side, Mid to Tip: MidCenter, TipCenter, TipRight
-        0, yCenter_mid, midZ,
-        0, yCenter_tip, tipZ,
-        W_tip / 2, ySide_tip, tipZ
-      ]);
-      
-      branchGeom.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-      branchGeom.computeVertexNormals();
-      
-      const branchMesh = new THREE.Mesh(branchGeom, material);
-      branchMesh.position.set(0, yPos, 0);
-      
-      // Add slight random variation to each branch to make them look organic
-      branchMesh.rotation.y = angle + (Math.random() - 0.5) * 0.12; 
-      branchMesh.rotation.x = (Math.random() - 0.5) * 0.08; 
-      branchMesh.rotation.z = (Math.random() - 0.5) * 0.08; 
-      
-      branchMesh.castShadow = true;
-      branchMesh.receiveShadow = true;
-      
-      pineGroup.add(branchMesh);
-    }
-  }
-
-  // 4. Add a vertical crown cone at the top of the trunk to cap the tree's tip cleanly
-  const crownConeGeom = new THREE.ConeGeometry(0.24, 0.7, 5);
-  crownConeGeom.translate(0, 0.35, 0);
-  const crownCone = new THREE.Mesh(crownConeGeom, foliageMaterial1);
-  crownCone.position.set(0, 5.15, 0); // Cap it right at the top
-  crownCone.castShadow = true;
-  crownCone.receiveShadow = true;
-  pineGroup.add(crownCone);
+  pineGroup.add(foliageGroup);
 
   // Random rotation on the entire tree to make each instance unique
   pineGroup.rotation.y = Math.random() * Math.PI * 2;
@@ -2006,10 +1879,10 @@ function spawnScenery() {
     const waterGeometry = buildWaterGeometry();
     const waterMaterial = new THREE.MeshStandardMaterial({
       vertexColors: true,
-      roughness: 0.06,
-      metalness: 0.15,
+      roughness: 0.35,
+      metalness: 0.05,
       transparent: true,
-      opacity: 0.90,
+      opacity: 0.85,
       flatShading: true,
       side: THREE.DoubleSide,
       emissive: new THREE.Color(0x09202e)
@@ -2024,10 +1897,10 @@ function spawnScenery() {
   
   const waterMaterial = new THREE.MeshStandardMaterial({
     vertexColors: true, // Enable vertex colors!
-    roughness: 0.06,
-    metalness: 0.15,
+    roughness: 0.35,
+    metalness: 0.05,
     transparent: true,
-    opacity: 0.90,
+    opacity: 0.85,
     flatShading: true,
     side: THREE.DoubleSide,
     emissive: new THREE.Color(0x09202e) // Subtle glow so the water looks luminous and alive

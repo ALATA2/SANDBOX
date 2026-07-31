@@ -115,14 +115,14 @@ export let currentPreset = 'sunset';
 
 export const presets = {
   sunset: {
-    bg: 0xfc8c82,
-    fogDensity: 0.0015,
-    ambient: 0x4a2e5c,
+    bg: 0xffa089, // Warm peachy pink
+    fogDensity: 0.0011, // Clearer sky for long distance view
+    ambient: 0x4a3466, // Soft purple ambient
     ambientIntensity: 1.2,
-    sun: 0xffaa44,
-    sunIntensity: 2.5,
+    sun: 0xffb366, // Golden sun light
+    sunIntensity: 3.2,
     sunPos: new THREE.Vector3(-120, 5, -50),
-    sunMeshColor: 0xfff9e6
+    sunMeshColor: 0xfff0d0 // Peach-gold sun mesh
   },
   nebula: {
     bg: 0x070312,
@@ -159,24 +159,24 @@ export const presets = {
 export const presetCycles = {
   sunset: {
     day: {
-      bg: 0xfba190,
-      gradTop: 0x2b1b54,
-      gradBottom: 0xff8560,
-      ambient: 0x442854,
-      ambientIntensity: 0.9,
-      sun: 0xffaa66,
-      sunIntensity: 3.2,
-      fogDensity: 0.0022
+      bg: 0xffa88f, // Warm pink-peach fog
+      gradTop: 0x322260, // Deep purple-indigo sky top
+      gradBottom: 0xff8a65, // Vibrant peachy orange sky bottom
+      ambient: 0x4d3265, // Warm purple ambient
+      ambientIntensity: 1.0,
+      sun: 0xffb570, // Golden-peach sun light
+      sunIntensity: 3.5,
+      fogDensity: 0.0011
     },
     twilight: {
-      bg: 0xe05650,
-      gradTop: 0x190c30,
-      gradBottom: 0xd4504a,
-      ambient: 0x2c1435,
-      ambientIntensity: 0.6,
-      sun: 0xff4f1f,
-      sunIntensity: 1.8,
-      fogDensity: 0.0028
+      bg: 0xff7b60, // Peachy twilight fog
+      gradTop: 0x221245, // Deep violet twilight sky top
+      gradBottom: 0xff6f45, // Warm orange-red twilight sky bottom
+      ambient: 0x3a1f4d, // Violet ambient
+      ambientIntensity: 0.7,
+      sun: 0xff5a2b, // Glowing orange sun light
+      sunIntensity: 2.0,
+      fogDensity: 0.0015
     },
     night: {
       bg: 0x070312,
