@@ -52,21 +52,19 @@ export const world = {
 };
 
 // Water grid limits and cell counts
-export const WATER_START_X = -20.8;
-export const WATER_START_Z = -20.8;
-export const WATER_CELLS_X = 146;
-export const WATER_CELLS_Z = 146;
+export const WATER_START_X = 0;
+export const WATER_START_Z = 0;
+export const WATER_CELLS_X = 160;
+export const WATER_CELLS_Z = 160;
 
 export function isWaterActiveAt(vx, vz) {
   const spacing = world.spacing;
-  const absGx = Math.floor(vx / spacing);
-  const absGz = Math.floor(vz / spacing);
-  const gx = absGx - (world.gridOffsetX || 0);
-  const gz = absGz - (world.gridOffsetZ || 0);
+  const gx = Math.floor(vx / spacing);
+  const gz = Math.floor(vz / spacing);
   if (gx < 0 || gx >= world.sizeX || gz < 0 || gz >= world.sizeZ) {
     return true; // Open ocean is always active
   }
-  const waterYIndex = Math.max(0, Math.min(world.sizeY - 1, Math.floor((world.seaLevel - (world.gridOffsetY || 0)) / spacing)));
+  const waterYIndex = 2;
   const idx = gx * world.sizeY * world.sizeZ + waterYIndex * world.sizeZ + gz;
   return world.waterActive && world.waterActive[idx] === 1;
 }
@@ -105,8 +103,8 @@ export function getWaterHeightAt(vx, vz) {
 
   if (!world.waterHeights) return world.seaLevel;
   const spacing = world.spacing;
-  const gx = Math.round((vx - WATER_START_X) / spacing);
-  const gz = Math.round((vz - WATER_START_Z) / spacing);
+  const gx = Math.round(vx / spacing);
+  const gz = Math.round(vz / spacing);
   if (gx < 0 || gx > WATER_CELLS_X || gz < 0 || gz > WATER_CELLS_Z) {
     return world.seaLevel;
   }
@@ -1041,11 +1039,18 @@ export function shiftGridWindow(centerWx, centerWz) {
 
     updateOriginalHeightsCache();
 
-    // Reposition the terrain mesh in the 3D scene
+    // Reposition the terrain mesh and water mesh in the 3D scene
     if (world.terrainMesh) {
       world.terrainMesh.position.set(
         world.gridOffsetX * spacing,
         0,
+        world.gridOffsetZ * spacing
+      );
+    }
+    if (world.waterMesh) {
+      world.waterMesh.position.set(
+        world.gridOffsetX * spacing,
+        world.seaLevel,
         world.gridOffsetZ * spacing
       );
     }
@@ -1105,6 +1110,12 @@ export function shiftGridWindow(centerWx, centerWz) {
 
     // Rebuild the smooth marching cubes mesh geometry
     buildMarchingCubesMesh();
+
+    // Re-initialize local water grid values for the shifted offsets
+    reinitWaterGrid();
+
+    // Rebuild the water mesh geometry for the new active grid
+    rebuildWaterMesh();
   }
 }
 
@@ -1197,21 +1208,24 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
       const minAbsZ = hitPoint.z - radius;
       const maxAbsZ = hitPoint.z + radius;
 
-      const minWaterX = Math.max(0, Math.floor((minAbsX - WATER_START_X) / spacing) - 1);
-      const maxWaterX = Math.min(WATER_CELLS_X, Math.ceil((maxAbsX - WATER_START_X) / spacing) + 1);
-      const minWaterZ = Math.max(0, Math.floor((minAbsZ - WATER_START_Z) / spacing) - 1);
-      const maxWaterZ = Math.min(WATER_CELLS_Z, Math.ceil((maxAbsZ - WATER_START_Z) / spacing) + 1);
+      const minWaterX = Math.max(0, Math.floor((minAbsX - (world.gridOffsetX || 0) * spacing) / spacing) - 1);
+      const maxWaterX = Math.min(WATER_CELLS_X, Math.ceil((maxAbsX - (world.gridOffsetX || 0) * spacing) / spacing) + 1);
+      const minWaterZ = Math.max(0, Math.floor((minAbsZ - (world.gridOffsetZ || 0) * spacing) / spacing) - 1);
+      const maxWaterZ = Math.min(WATER_CELLS_Z, Math.ceil((maxAbsZ - (world.gridOffsetZ || 0) * spacing) / spacing) + 1);
       
       for (let gx = minWaterX; gx <= maxWaterX; gx++) {
-        const vx = WATER_START_X + gx * spacing;
+        const vx = ((world.gridOffsetX || 0) + gx) * spacing;
         const idxOffset = gx * (WATER_CELLS_Z + 1);
         for (let gz = minWaterZ; gz <= maxWaterZ; gz++) {
-          const vz = WATER_START_Z + gz * spacing;
+          const vz = ((world.gridOffsetZ || 0) + gz) * spacing;
           const idx = idxOffset + gz;
           world.waterGroundHeights[idx] = getSurfaceHeightNear(vx, 5.0, vz);
         }
       }
     }
+    
+    // Rebuild the water mesh geometry to match the updated water active cells
+    rebuildWaterMesh();
     
     // Snap affected scenery/deposits/boards near hitPoint
     snapSceneryNear(hitPoint, radius);
@@ -1234,8 +1248,7 @@ export function updateWaterGrid() {
     return x * world.sizeY * world.sizeZ + y * world.sizeZ + z;
   }
 
-  const spacing = world.spacing;
-  const maxWaterY = Math.max(0, Math.min(world.sizeY - 1, Math.floor((world.seaLevel - (world.gridOffsetY || 0)) / spacing)));
+  const maxWaterY = 2; // Water level 4.0m corresponds to grid index y = 2 (up to 4.8m)
 
   // 1. Add all border air voxels at y <= maxWaterY to the queue
   for (let y = 0; y <= maxWaterY; y++) {
@@ -1471,25 +1484,8 @@ export function buildWaterGeometry() {
       const z1 = startZ + iz * spacing;
       const z2 = z1 + spacing;
       
-      // Render the cell if water is active at its center, or if any of its 8 neighbors is active
-      let shouldRender = false;
+      // Render the cell only if water is active at its center to prevent diagonal slopes cutting through the terrain
       if (isCellActive(ix, iz)) {
-        shouldRender = true;
-      } else {
-        // Check 8 neighbors
-        for (let dx = -1; dx <= 1; dx++) {
-          for (let dz = -1; dz <= 1; dz++) {
-            if (dx === 0 && dz === 0) continue;
-            if (isCellActive(ix + dx, iz + dz)) {
-              shouldRender = true;
-              break;
-            }
-          }
-          if (shouldRender) break;
-        }
-      }
-
-      if (shouldRender) {
         addQuad(x1, z1, x2, z2, ix, iz, false);
       }
     }
@@ -1502,6 +1498,16 @@ export function buildWaterGeometry() {
   geometry.computeVertexNormals();
 
   return geometry;
+}
+
+export function rebuildWaterMesh() {
+  if (!world.waterMesh) return;
+  const oldGeom = world.waterMesh.geometry;
+  const newGeom = buildWaterGeometry();
+  world.waterMesh.geometry = newGeom;
+  if (oldGeom) {
+    oldGeom.dispose();
+  }
 }
 
 // Check if a specific world coordinate (px, py, pz) is inside active water
@@ -1973,34 +1979,47 @@ function isNearAnyIsland(vx, vz) {
   return false;
 }
 
+export function reinitWaterGrid() {
+  const spacing = world.spacing;
+  const size = (WATER_CELLS_X + 1) * (WATER_CELLS_Z + 1);
+  if (!world.waterHeights || world.waterHeights.length !== size) {
+    world.waterHeights = new Float32Array(size);
+    world.waterGroundHeights = new Float32Array(size);
+    world.waterActiveVertices = new Uint8Array(size);
+  }
+  
+  updateWaterGrid();
+  
+  const startX = (world.gridOffsetX || 0) * spacing;
+  const startZ = (world.gridOffsetZ || 0) * spacing;
+  
+  for (let gx = 0; gx <= WATER_CELLS_X; gx++) {
+    const vx = startX + gx * spacing;
+    const idxOffset = gx * (WATER_CELLS_Z + 1);
+    for (let gz = 0; gz <= WATER_CELLS_Z; gz++) {
+      const vz = startZ + gz * spacing;
+      const idx = idxOffset + gz;
+      const active = isVertexActive(gx, gz);
+      world.waterActiveVertices[idx] = active ? 1 : 0;
+      
+      const groundY = isNearAnyIsland(vx, vz) ? getSurfaceHeightNear(vx, 5.0, vz) : -50.0;
+      world.waterGroundHeights[idx] = groundY;
+      world.waterHeights[idx] = active ? world.seaLevel : -50.0;
+    }
+  }
+}
+
 // Spawns static low-poly island assets
 function spawnScenery() {
   const spacing = world.spacing;
   const cx = world.sizeX / 2;
   const cz = world.sizeZ / 2;
 
+  // Initialize water grid values locally
+  reinitWaterGrid();
+
   // If islands are disabled, only spawn the ocean water plane and early return
   if (!ENABLE_ISLANDS) {
-    updateWaterGrid();
-
-    const size = (WATER_CELLS_X + 1) * (WATER_CELLS_Z + 1);
-    world.waterHeights = new Float32Array(size);
-    world.waterGroundHeights = new Float32Array(size);
-    world.waterActiveVertices = new Uint8Array(size);
-    for (let gx = 0; gx <= WATER_CELLS_X; gx++) {
-      const vx = WATER_START_X + gx * spacing;
-      for (let gz = 0; gz <= WATER_CELLS_Z; gz++) {
-        const vz = WATER_START_Z + gz * spacing;
-        const idx = gx * (WATER_CELLS_Z + 1) + gz;
-        const active = isVertexActive(gx, gz);
-        world.waterActiveVertices[idx] = active ? 1 : 0;
-        
-        const groundY = isNearAnyIsland(vx, vz) ? getSurfaceHeightNear(vx, 5.0, vz) : -50.0;
-        world.waterGroundHeights[idx] = groundY;
-        world.waterHeights[idx] = active ? world.seaLevel : Math.min(world.seaLevel, groundY);
-      }
-    }
-
     const waterGeometry = buildWaterGeometry();
     const waterMaterial = new THREE.MeshStandardMaterial({
       vertexColors: true,
@@ -2013,31 +2032,9 @@ function spawnScenery() {
       emissive: new THREE.Color(0x09202e)
     });
     world.waterMesh = new THREE.Mesh(waterGeometry, waterMaterial);
-    world.waterMesh.position.set(0, world.seaLevel, 0);
+    world.waterMesh.position.set((world.gridOffsetX || 0) * spacing, world.seaLevel, (world.gridOffsetZ || 0) * spacing);
     game.scene.add(world.waterMesh);
     return;
-  }
-
-  // 1. Crystal Water Plane with Depth Color Gradients
-  updateWaterGrid();
-
-  // Initialize waterHeights and waterGroundHeights Float32Array to default target heights
-  const size = (WATER_CELLS_X + 1) * (WATER_CELLS_Z + 1);
-  world.waterHeights = new Float32Array(size);
-  world.waterGroundHeights = new Float32Array(size);
-  world.waterActiveVertices = new Uint8Array(size);
-  for (let gx = 0; gx <= WATER_CELLS_X; gx++) {
-    const vx = WATER_START_X + gx * spacing;
-    for (let gz = 0; gz <= WATER_CELLS_Z; gz++) {
-      const vz = WATER_START_Z + gz * spacing;
-      const idx = gx * (WATER_CELLS_Z + 1) + gz;
-      const active = isVertexActive(gx, gz);
-      world.waterActiveVertices[idx] = active ? 1 : 0;
-      
-      const groundY = isNearAnyIsland(vx, vz) ? getSurfaceHeightNear(vx, 5.0, vz) : -50.0;
-      world.waterGroundHeights[idx] = groundY;
-      world.waterHeights[idx] = active ? world.seaLevel : Math.min(world.seaLevel, groundY);
-    }
   }
 
   const waterGeometry = buildWaterGeometry();
@@ -2053,7 +2050,7 @@ function spawnScenery() {
     emissive: new THREE.Color(0x09202e) // Subtle glow so the water looks luminous and alive
   });
   world.waterMesh = new THREE.Mesh(waterGeometry, waterMaterial);
-  world.waterMesh.position.set(0, world.seaLevel, 0); // Directly at coordinate origin, Y=seaLevel height (no rotation needed)
+  world.waterMesh.position.set((world.gridOffsetX || 0) * spacing, world.seaLevel, (world.gridOffsetZ || 0) * spacing); // Align with voxel grid offset
   game.scene.add(world.waterMesh);
 
   // 1b. Mountain Lake Plane
