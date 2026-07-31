@@ -1113,9 +1113,6 @@ export function shiftGridWindow(centerWx, centerWz) {
 
     // Re-initialize local water grid values for the shifted offsets
     reinitWaterGrid();
-
-    // Rebuild the water mesh geometry for the new active grid
-    rebuildWaterMesh();
   }
 }
 
@@ -1223,9 +1220,6 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
         }
       }
     }
-    
-    // Rebuild the water mesh geometry to match the updated water active cells
-    rebuildWaterMesh();
     
     // Snap affected scenery/deposits/boards near hitPoint
     snapSceneryNear(hitPoint, radius);
@@ -1484,10 +1478,7 @@ export function buildWaterGeometry() {
       const z1 = startZ + iz * spacing;
       const z2 = z1 + spacing;
       
-      // Render the cell only if water is active at its center to prevent diagonal slopes cutting through the terrain
-      if (isCellActive(ix, iz)) {
-        addQuad(x1, z1, x2, z2, ix, iz, false);
-      }
+      addQuad(x1, z1, x2, z2, ix, iz, false);
     }
   }
 
@@ -1498,16 +1489,6 @@ export function buildWaterGeometry() {
   geometry.computeVertexNormals();
 
   return geometry;
-}
-
-export function rebuildWaterMesh() {
-  if (!world.waterMesh) return;
-  const oldGeom = world.waterMesh.geometry;
-  const newGeom = buildWaterGeometry();
-  world.waterMesh.geometry = newGeom;
-  if (oldGeom) {
-    oldGeom.dispose();
-  }
 }
 
 // Check if a specific world coordinate (px, py, pz) is inside active water
@@ -2004,7 +1985,7 @@ export function reinitWaterGrid() {
       
       const groundY = isNearAnyIsland(vx, vz) ? getSurfaceHeightNear(vx, 5.0, vz) : -50.0;
       world.waterGroundHeights[idx] = groundY;
-      world.waterHeights[idx] = active ? world.seaLevel : -50.0;
+      world.waterHeights[idx] = active ? world.seaLevel : Math.min(world.seaLevel, groundY - 0.5);
     }
   }
 }

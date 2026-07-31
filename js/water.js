@@ -17,7 +17,7 @@ export function updateWaterHeights(delta) {
       const active = world.waterActiveVertices[idx] === 1;
       const groundY = world.waterGroundHeights[idx];
       
-      const targetY = active ? 4.0 : -50.0;
+      const targetY = active ? 4.0 : Math.min(4.0, groundY - 0.5);
       const currentY = world.waterHeights[idx];
       
       // Interpolate water height towards target
