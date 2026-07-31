@@ -1232,6 +1232,7 @@ export function updateWaterGrid() {
     return x * world.sizeY * world.sizeZ + y * world.sizeZ + z;
   }
 
+  const spacing = world.spacing;
   const maxWaterY = Math.max(0, Math.min(world.sizeY - 1, Math.floor((world.seaLevel - (world.gridOffsetY || 0)) / spacing)));
 
   // 1. Add all border air voxels at y <= maxWaterY to the queue
