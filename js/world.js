@@ -1216,7 +1216,7 @@ export function deformTerrainLowPoly(hitPoint, radius, depth) {
         for (let gz = minWaterZ; gz <= maxWaterZ; gz++) {
           const vz = ((world.gridOffsetZ || 0) + gz) * spacing;
           const idx = idxOffset + gz;
-          world.waterGroundHeights[idx] = getSurfaceHeightNear(vx, 5.0, vz);
+          world.waterGroundHeights[idx] = getSurfaceHeightNear(vx, hitPoint.y, vz);
         }
       }
     }
@@ -1974,6 +1974,8 @@ export function reinitWaterGrid() {
   const startX = (world.gridOffsetX || 0) * spacing;
   const startZ = (world.gridOffsetZ || 0) * spacing;
   
+  const playerY = (window.game && game.controls && game.controls.getObject()) ? game.controls.getObject().position.y : 5.0;
+
   for (let gx = 0; gx <= WATER_CELLS_X; gx++) {
     const vx = startX + gx * spacing;
     const idxOffset = gx * (WATER_CELLS_Z + 1);
@@ -1983,7 +1985,7 @@ export function reinitWaterGrid() {
       const active = isVertexActive(gx, gz);
       world.waterActiveVertices[idx] = active ? 1 : 0;
       
-      const groundY = isNearAnyIsland(vx, vz) ? getSurfaceHeightNear(vx, 5.0, vz) : -50.0;
+      const groundY = isNearAnyIsland(vx, vz) ? getSurfaceHeightNear(vx, playerY, vz) : -50.0;
       world.waterGroundHeights[idx] = groundY;
       world.waterHeights[idx] = active ? world.seaLevel : Math.min(world.seaLevel, groundY - 0.5);
     }

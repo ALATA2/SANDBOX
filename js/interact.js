@@ -865,15 +865,17 @@ function performMiningRaycast() {
       // DEBUG LOG FOR WATER GRID
       if (world.waterHeights && world.waterGroundHeights && world.waterActiveVertices) {
         const spacing = world.spacing;
-        const WATER_START_X = -20.8;
-        const WATER_START_Z = -20.8;
-        const WATER_CELLS_Z = 146;
-        const gx = Math.round((hitPoint.x - WATER_START_X) / spacing);
-        const gz = Math.round((hitPoint.z - WATER_START_Z) / spacing);
-        const idx = gx * (WATER_CELLS_Z + 1) + gz;
-        console.log(`[DEFORM DEBUG] hitPoint: (${hitPoint.x.toFixed(2)}, ${hitPoint.y.toFixed(2)}, ${hitPoint.z.toFixed(2)})`);
-        console.log(`[DEFORM DEBUG] water cell: (${gx}, ${gz}), idx: ${idx}`);
-        console.log(`[DEFORM DEBUG] active: ${world.waterActiveVertices[idx]}, groundY: ${world.waterGroundHeights[idx]?.toFixed(2)}, waterHeight: ${world.waterHeights[idx]?.toFixed(2)}`);
+        const WATER_CELLS_X = 160;
+        const WATER_CELLS_Z = 160;
+        const gx = Math.round(hitPoint.x / spacing) - (world.gridOffsetX || 0);
+        const gz = Math.round(hitPoint.z / spacing) - (world.gridOffsetZ || 0);
+        
+        if (gx >= 0 && gx <= WATER_CELLS_X && gz >= 0 && gz <= WATER_CELLS_Z) {
+          const idx = gx * (WATER_CELLS_Z + 1) + gz;
+          console.log(`[DEFORM DEBUG] hitPoint: (${hitPoint.x.toFixed(2)}, ${hitPoint.y.toFixed(2)}, ${hitPoint.z.toFixed(2)})`);
+          console.log(`[DEFORM DEBUG] water cell: (${gx}, ${gz}), idx: ${idx}`);
+          console.log(`[DEFORM DEBUG] active: ${world.waterActiveVertices[idx]}, groundY: ${world.waterGroundHeights[idx]?.toFixed(2)}, waterHeight: ${world.waterHeights[idx]?.toFixed(2)}`);
+        }
       }
 
       // Determine what material to drop based on local chemistry composition!
