@@ -417,9 +417,208 @@ function checkIsSheltered(pos) {
   return false;
 }
 
+function downloadManualAsPDF() {
+  const isIt = (localStorage.getItem('game_language') === 'it');
+  const title = isIt ? "Manuale di Sopravvivenza - Archipelago" : "Archipelago - Survival Manual";
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) return;
+  
+  let html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>${title}</title>
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap');
+        body {
+          font-family: 'Outfit', sans-serif;
+          color: #1e293b;
+          line-height: 1.6;
+          max-width: 800px;
+          margin: 40px auto;
+          padding: 20px;
+          background: #ffffff;
+        }
+        h1 {
+          font-size: 2.5rem;
+          font-weight: 800;
+          color: #8b5cf6;
+          margin-bottom: 5px;
+          border-bottom: 2px solid #8b5cf6;
+          padding-bottom: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .subtitle {
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: #64748b;
+          margin-bottom: 30px;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+        }
+        h2 {
+          font-size: 1.5rem;
+          color: #0f172a;
+          margin-top: 30px;
+          margin-bottom: 15px;
+          border-bottom: 1px solid #e2e8f0;
+          padding-bottom: 5px;
+        }
+        p {
+          font-size: 1rem;
+          color: #334155;
+          margin-bottom: 15px;
+        }
+        ul {
+          padding-left: 20px;
+          margin-bottom: 20px;
+        }
+        li {
+          margin-bottom: 10px;
+          font-size: 0.95rem;
+        }
+        strong {
+          color: #8b5cf6;
+        }
+        .tip-box {
+          background: #f5f3ff;
+          border-left: 4px solid #8b5cf6;
+          padding: 15px;
+          border-radius: 6px;
+          margin-top: 15px;
+          margin-bottom: 25px;
+        }
+        .tip-box strong {
+          color: #6d28d9;
+          display: block;
+          margin-bottom: 4px;
+        }
+        @media print {
+          body {
+            margin: 0;
+            padding: 0;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <h1>${title}</h1>
+      <div class="subtitle">Alpha Prototype v0.091 — Official Gameplay & Controls Reference</div>
+  `;
+  
+  if (isIt) {
+    html += `
+      <h2>1. Indicatori di Sopravvivenza (Survival HUD)</h2>
+      <p>La sopravvivenza su Archipelago richiede il monitoraggio di tre indicatori vitali:</p>
+      <ul>
+        <li><strong>Salute (Vita):</strong> Diminuisce a causa di annegamento, fame, freddo intenso o ingestione di cibo crudo e tossico. Si rigenera mangiando carne cotta o uova sode.</li>
+        <li><strong>Energia (Stamina):</strong> Si consuma scattando, saltando e usando attrezzi. Si rigenera stando fermi o camminando.</li>
+        <li><strong>Idratazione:</strong> Diminuisce progressivamente col passare del tempo. Va ripristinata bevendo acqua dolce dal lago vulcanico al centro dell'isola. Bere acqua salata dell'oceano causa danni immediati!</li>
+      </ul>
+      <div class="tip-box">
+        <strong>CONSIGLIO DI SOPRAVVIVENZA:</strong>
+        Fabbrica sempre gli indumenti (cappello di paglia, gilet, pantaloni d'erba, stivali di legno). Riducono significativamente il consumo passivo di energia e idratazione!
+      </div>
+
+      <h2>2. Movimento ed Esplorazione</h2>
+      <p>Esplora l'isola vulcanica e i mari circostanti con i seguenti comandi:</p>
+      <ul>
+        <li><strong>Movimento base:</strong> Tasti WASD o Frecce direzionali.</li>
+        <li><strong>Corsa veloce (Sprint):</strong> Tieni premuto il tasto Shift. Consuma più energia.</li>
+        <li><strong>Nuoto e Immersione:</strong> Nuota automaticamente entrando in acqua. Tieni premuto Spazio per nuotare verso la superficie. Immergiti per esplorare la barriera corallina!</li>
+        <li><strong>Navigazione con Zattera:</strong> Ripara la barca iniziale per sbloccare l'esplorazione dell'oceano. Costruisci una zattera e naviga per esplorare le altre isole visibili all'orizzonte.</li>
+      </ul>
+
+      <h2>3. Scavo e Modellazione del Terreno (Terraforming)</h2>
+      <p>Il mondo di gioco è completamente modellabile e distruttibile:</p>
+      <ul>
+        <li><strong>Scavo di gallerie e grotte:</strong> Equipaggia il Piccone (Slot 7) e clicca col tasto sinistro sul terreno per scavare. Puoi creare tunnel profondi nelle montagne.</li>
+        <li><strong>Costruzione del terreno:</strong> Seleziona blocchi di Sabbia o Pietra nella barra rapida e posizionali col tasto sinistro per creare ponti, scale o chiudere buchi.</li>
+        <li><strong>Estrazione dell'Oro:</strong> Trova le vene di minerale dorato sull'isola, colpiscile col Piccone e raccogli l'oro per riparare la barca e completare l'obiettivo.</li>
+      </ul>
+
+      <h2>4. Stazione di Creazione (Crafting) e Costruzione Basi</h2>
+      <p>Accedi alla creazione per fabbricare equipaggiamenti essenziali:</p>
+      <ul>
+        <li><strong>Inventario e Crafting:</strong> Premi Tab o clicca sullo zaino per aprire il menu. Sulla destra troverai tutte le ricette disponibili.</li>
+        <li><strong>Ricette Fondamentali:</strong> Crea corde (dalle foglie), torce per illuminare la notte, cappelli di paglia protettivi e fuochi da campo.</li>
+        <li><strong>Costruzione Rifugi:</strong> Fabbrica fondamenta, pareti, porte e tetti di legno o di foglie per costruire una base personalizzata e proteggerti dal meteo ostile. Attenzione: i tetti di foglie possono deteriorarsi durante le forti tempeste!</li>
+      </ul>
+
+      <h2>5. Clima, Stagioni e Fauna</h2>
+      <p>L'isola ospita un ecosistema vivo e in costante mutamento:</p>
+      <ul>
+        <li><strong>Meteo Dinamico:</strong> Alternanza di tempo sereno, nuvoloso, pioggia, neve e tempeste tropicali. Le tempeste sferzano gli alberi e riducono drasticamente la visibilità.</li>
+        <li><strong>Ciclo delle Stagioni:</strong> Primavera, Estate, Autunno e Inverno. Ogni stagione influisce sulla temperatura. In inverno, l'acqua del lago interno si congela interamente, permettendo di camminarci sopra! In autunno, le foglie cadono dagli alberi.</li>
+        <li><strong>Caccia e Pesca:</strong> Caccia granchi sulla spiaggia o pesci nelle acque basse usando la lancia (Slot 1). Puoi anche catturare vermi dal terreno. Cuoci la carne cruda accendendo un fuoco da campo per evitare intossicazioni!</li>
+      </ul>
+    `;
+  } else {
+    html += `
+      <h2>1. Survival Indicators (HUD)</h2>
+      <p>Survival on Archipelago requires managing three vital status bars:</p>
+      <ul>
+        <li><strong>Health:</strong> Decreases due to drowning, starvation, freezing, or eating raw food. Restore it by eating cooked meat or boiled eggs.</li>
+        <li><strong>Energy (Stamina):</strong> Consumed by sprinting, jumping, and swinging tools. It regenerates slowly when standing still or walking.</li>
+        <li><strong>Hydration:</strong> Drains continuously. You must drink fresh water from the volcanic lake at the center of the island. Drinking salty ocean water causes immediate damage!</li>
+      </ul>
+      <div class="tip-box">
+        <strong>SURVIVAL TIP:</strong>
+        Always craft clothes (straw hat, explorer vest, grass pants, wooden boots) to significantly reduce energy and hydration decay rates!
+      </div>
+
+      <h2>2. Movement & Exploration</h2>
+      <p>Explore the volcanic island and surrounding seas with these controls:</p>
+      <ul>
+        <li><strong>Basic Movement:</strong> WASD or Arrow keys.</li>
+        <li><strong>Sprinting:</strong> Hold the Shift key to run faster, at the cost of higher energy drain.</li>
+        <li><strong>Swimming & Diving:</strong> Walk into water to swim automatically. Hold Space to swim up. Dive under the surface to explore beautiful coral reefs!</li>
+        <li><strong>Raft Navigation:</strong> Repair the start boat to unlock ocean travel. Craft a rowing raft and sail to discover other islands on the horizon.</li>
+      </ul>
+
+      <h2>3. Digging & Terraforming</h2>
+      <p>The entire low-poly world is destructible and buildable:</p>
+      <ul>
+        <li><strong>Carving Caves & Tunnels:</strong> Equip the Pickaxe (Slot 7) and Left Click on any voxel block to excavate and shape the terrain.</li>
+        <li><strong>Placing Blocks:</strong> Equip Sand or Stone blocks in your hotbar and Left Click to build bridges, structures, or fill holes.</li>
+        <li><strong>Gold Mining:</strong> Locate shimmering gold veins, smash them with your Pickaxe, and collect the ore chunks to repair your boat.</li>
+      </ul>
+
+      <h2>4. Crafting & Building</h2>
+      <p>Use collected resources to craft survival gear and construct bases:</p>
+      <ul>
+        <li><strong>Inventory & Crafting:</strong> Press Tab or click the Backpack icon. Fulfill recipes shown on the right-hand panel.</li>
+        <li><strong>Core Recipes:</strong> Craft ropes from leaves, hand torches for night exploration, straw hats for sun protection, and campfires.</li>
+        <li><strong>Base Construction:</strong> Craft wood foundations, walls, doors, and leaf/wood roofs. Build custom houses to shield yourself from weather hazards! Leaf roofs slowly decay and collapse during tropical storms.</li>
+      </ul>
+
+      <h2>5. Weather, Seasons & Wildlife</h2>
+      <p>The island is a simulated ecosystem with atmospheric changes:</p>
+      <ul>
+        <li><strong>Dynamic Weather:</strong> Alternation of Clear, Cloudy, Rain, Snow, and Storm conditions. Storms generate high winds, dense fog, and lightning strikes.</li>
+        <li><strong>Seasonal Progression:</strong> Spring, Summer, Autumn, and Winter cycles. During Winter, the inland freshwater lake freezes completely, allowing you to walk on ice! In Autumn, leaves fall dynamically from the sky.</li>
+        <li><strong>Hunting & Cooking:</strong> Hunt beach crabs and shallow-water fish using your Spear (Slot 1). Ignite campfires using wood and stand near them to cook raw meat. Raw food consumption has health penalties!</li>
+      </ul>
+    `;
+  }
+  
+  html += `
+    </body>
+    </html>
+  `;
+  
+  printWindow.document.write(html);
+  printWindow.document.close();
+  
+  printWindow.onload = function() {
+    printWindow.print();
+  };
+}
+
 // Performance Settings bindings (moved from game.js)
 export function bindPerfProtocolsUI() {
-  const hoverables = document.querySelectorAll('.lang-pill, .preset-btn, #mute-toggle, #toggle-shadows-btn, #toggle-sway-btn');
+  const hoverables = document.querySelectorAll('.lang-pill, .preset-btn, #mute-toggle, #toggle-shadows-btn, #toggle-sway-btn, .guide-tab-btn, .guide-btn-action, .guide-btn-close');
   hoverables.forEach(el => {
     el.addEventListener('mouseenter', () => {
       playHover();
@@ -493,6 +692,59 @@ export function bindPerfProtocolsUI() {
         game.renderer.setSize(window.innerWidth, window.innerHeight);
       }
       playSelect();
+    });
+  }
+
+  // Game Guide Modal bindings
+  const guideBtn = document.getElementById('guide-button');
+  const guideModal = document.getElementById('guide-modal');
+  const guideCloseBtn = document.getElementById('guide-close-btn');
+  const guideTabBtns = document.querySelectorAll('.guide-tab-btn');
+  const guideSections = document.querySelectorAll('.guide-section');
+  const guideDownloadPdfBtn = document.getElementById('guide-download-pdf-btn');
+
+  if (guideBtn && guideModal) {
+    guideBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playSelect();
+      guideModal.style.display = 'flex';
+    });
+  }
+
+  if (guideCloseBtn && guideModal) {
+    guideCloseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playSelect();
+      guideModal.style.display = 'none';
+    });
+  }
+
+  guideTabBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playSelect();
+      
+      // Toggle active tab class
+      guideTabBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      
+      // Show corresponding section
+      const tabName = btn.getAttribute('data-tab');
+      guideSections.forEach(sect => {
+        if (sect.id === `sect-${tabName}`) {
+          sect.classList.add('active');
+        } else {
+          sect.classList.remove('active');
+        }
+      });
+    });
+  });
+
+  if (guideDownloadPdfBtn) {
+    guideDownloadPdfBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playSelect();
+      downloadManualAsPDF();
     });
   }
 }

@@ -15,22 +15,22 @@
       "imports": {
         "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
         "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/",
-        "./js/controls.js": "./js/controls.js?v=0.090",
-        "./js/world.js": "./js/world.js?v=0.090",
-        "./js/player.js": "./js/player.js?v=0.090",
-        "./js/interact.js": "./js/interact.js?v=0.090",
-        "./js/audio.js": "./js/audio.js?v=0.090",
-        "./js/lang.js": "./js/lang.js?v=0.090",
-        "./js/chemistry.js": "./js/chemistry.js?v=0.090",
-        "./js/game.js": "./js/game.js?v=0.090",
-        "./js/physics.js": "./js/physics.js?v=0.090",
-        "./js/wind.js": "./js/wind.js?v=0.090",
-        "./js/particles.js": "./js/particles.js?v=0.090",
-        "./js/shadows.js": "./js/shadows.js?v=0.090",
-        "./js/fauna.js": "./js/fauna.js?v=0.090",
-        "./js/water.js": "./js/water.js?v=0.090",
-        "./js/weather.js": "./js/weather.js?v=0.090",
-        "./js/ui.js": "./js/ui.js?v=0.090"
+        "./js/controls.js": "./js/controls.js?v=0.091",
+        "./js/world.js": "./js/world.js?v=0.091",
+        "./js/player.js": "./js/player.js?v=0.091",
+        "./js/interact.js": "./js/interact.js?v=0.091",
+        "./js/audio.js": "./js/audio.js?v=0.091",
+        "./js/lang.js": "./js/lang.js?v=0.091",
+        "./js/chemistry.js": "./js/chemistry.js?v=0.091",
+        "./js/game.js": "./js/game.js?v=0.091",
+        "./js/physics.js": "./js/physics.js?v=0.091",
+        "./js/wind.js": "./js/wind.js?v=0.091",
+        "./js/particles.js": "./js/particles.js?v=0.091",
+        "./js/shadows.js": "./js/shadows.js?v=0.091",
+        "./js/fauna.js": "./js/fauna.js?v=0.091",
+        "./js/water.js": "./js/water.js?v=0.091",
+        "./js/weather.js": "./js/weather.js?v=0.091",
+        "./js/ui.js": "./js/ui.js?v=0.091"
       }
     }
   </script>
@@ -99,6 +99,9 @@
           </div>
           <button id="editor-button" onclick="window.location.href='./mapEditor/index.html';" style="margin-top: 20px; width: 100%; max-width: 320px; padding: 12px 20px; background: rgba(56, 189, 248, 0.1); border: 1px solid #38bdf8; border-radius: 8px; font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600; color: #38bdf8; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#38bdf8'; this.style.color='#0f172a';" onmouseout="this.style.background='rgba(56, 189, 248, 0.1)'; this.style.color='#38bdf8';">
             🛠️ MAP EDITOR
+          </button>
+          <button id="guide-button" data-translate="guide_btn" style="margin-top: 12px; width: 100%; max-width: 320px; padding: 12px 20px; background: rgba(168, 85, 247, 0.1); border: 1px solid #a855f7; border-radius: 8px; font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600; color: #c084fc; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#a855f7'; this.style.color='#0f172a';" onmouseout="this.style.background='rgba(168, 85, 247, 0.1)'; this.style.color='#c084fc';">
+            📖 GAME GUIDE & INFO
           </button>
         </div>
         
@@ -217,6 +220,143 @@
         <button id="feedback-submit" data-translate="board_submit">TRANSMIT</button>
       </div>
       <button id="feedback-close" data-translate="board_close">CLOSE</button>
+    </div>
+  </div>
+
+  <!-- Game Guide Modal Overlay -->
+  <div id="guide-modal" style="display: none;">
+    <div class="guide-container">
+      <div class="guide-header">
+        <h2 id="guide-modal-title" data-translate="guide_title">ARCHIPELAGO SURVIVAL MANUAL</h2>
+        <div class="guide-header-buttons">
+          <button id="guide-download-pdf-btn" class="guide-btn-action" data-translate="guide_download_pdf">⬇️ DOWNLOAD PDF</button>
+          <button id="guide-close-btn" class="guide-btn-close" data-translate="guide_close">CLOSE</button>
+        </div>
+      </div>
+      <div class="guide-body">
+        <div class="guide-sidebar">
+          <button class="guide-tab-btn active" data-tab="survival" data-translate="tab_survival">❤️ SURVIVAL & HUD</button>
+          <button class="guide-tab-btn" data-tab="movement" data-translate="tab_movement">🏃 MOVEMENT & EXPLO</button>
+          <button class="guide-tab-btn" data-tab="mining" data-translate="tab_mining">⛏️ DIGGING & TERRAIN</button>
+          <button class="guide-tab-btn" data-tab="crafting" data-translate="tab_crafting">🛠️ CRAFT & BUILD</button>
+          <button class="guide-tab-btn" data-tab="weather" data-translate="tab_weather">🌦️ WEATHER & FAUNA</button>
+        </div>
+        <div class="guide-content-panel">
+          
+          <!-- Tab 1: Survival -->
+          <div class="guide-section active" id="sect-survival">
+            <h3 data-translate="guide_h_survival">Survival Indicators</h3>
+            <p data-translate="guide_p_survival">Survival on this island requires managing three critical bars visible at the bottom-left of the screen:</p>
+            <div class="guide-list">
+              <div class="guide-list-item">
+                <span class="guide-item-icon">❤️</span>
+                <span class="guide-item-text"><strong data-translate="guide_lbl_health">Health:</strong> <span data-translate="guide_desc_health">Decreases when you drown, starve, freeze or consume raw food. Eating cooked meat restores it.</span></span>
+              </div>
+              <div class="guide-list-item">
+                <span class="guide-item-icon">⚡</span>
+                <span class="guide-item-text"><strong data-translate="guide_lbl_energy">Energy:</strong> <span data-translate="guide_desc_energy">Drains by running, jumping, and swinging tools. It regenerates slowly when walking or standing still.</span></span>
+              </div>
+              <div class="guide-list-item">
+                <span class="guide-item-icon">💧</span>
+                <span class="guide-item-text"><strong data-translate="guide_lbl_hydration">Hydration:</strong> <span data-translate="guide_desc_hydration">Decays over time. You must drink fresh water from the inland lake to restore it. Drinking salty sea water causes damage!</span></span>
+              </div>
+            </div>
+            <div class="guide-tip-box">
+              <strong data-translate="guide_tip_title">SURVIVAL TIP:</strong>
+              <span data-translate="guide_tip_survival">Always craft clothes. A straw hat or wooden boots significantly reduce hydration and energy decay!</span>
+            </div>
+          </div>
+          
+          <!-- Tab 2: Movement & Explo -->
+          <div class="guide-section" id="sect-movement">
+            <h3 data-translate="guide_h_movement">Controls & Locomotion</h3>
+            <p data-translate="guide_p_movement">Master the movement controls to explore the large volcanic island and navigate back to the sea:</p>
+            <div class="guide-list">
+              <div class="guide-list-item">
+                <span class="guide-item-icon">⌨️</span>
+                <span class="guide-item-text"><strong data-translate="guide_lbl_keys">Movement:</strong> <span data-translate="guide_desc_keys">Use WASD or Arrow keys to walk around.</span></span>
+              </div>
+              <div class="guide-list-item">
+                <span class="guide-item-icon">🏃</span>
+                <span class="guide-item-text"><strong data-translate="guide_lbl_sprint">Sprinting:</strong> <span data-translate="guide_desc_sprint">Hold the Shift key to run faster, but keep an eye on your Energy bar!</span></span>
+              </div>
+              <div class="guide-list-item">
+                <span class="guide-item-icon">🤿</span>
+                <span class="guide-item-text"><strong data-translate="guide_lbl_swimming">Swimming & Diving:</strong> <span data-translate="guide_desc_swimming">Wade into water to swim automatically. Hold Space to swim up. Dive under to explore seabed corals!</span></span>
+              </div>
+              <div class="guide-list-item">
+                <span class="guide-item-icon">⛵</span>
+                <span class="guide-item-text"><strong data-translate="guide_lbl_raft">Raft Navigation:</strong> <span data-translate="guide_desc_raft">Repair the boat to unlock ocean travel. You can steer rafts to explore other islands on the horizon.</span></span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Tab 3: Digging & Terrain -->
+          <div class="guide-section" id="sect-mining">
+            <h3 data-translate="guide_h_mining">Terraforming & Ore Extraction</h3>
+            <p data-translate="guide_p_mining">The environment is fully destructible. Use your tools to shape the island or dig deep into the earth:</p>
+            <div class="guide-list">
+              <div class="guide-list-item">
+                <span class="guide-item-icon">⛏️</span>
+                <span class="guide-item-text"><strong data-translate="guide_lbl_digging">Digging:</strong> <span data-translate="guide_desc_digging">Equip the Pickaxe (Slot 7) and Left Click on any voxel to excavate caves or carve tunnels.</span></span>
+              </div>
+              <div class="guide-list-item">
+                <span class="guide-item-icon">🪨</span>
+                <span class="guide-item-text"><strong data-translate="guide_lbl_sculpting">Sculpting:</strong> <span data-translate="guide_desc_sculpting">Collect Sand or Stone blocks, select them in your hotbar, and place them to build bridges or repair holes.</span></span>
+              </div>
+              <div class="guide-list-item">
+                <span class="guide-item-icon">🪙</span>
+                <span class="guide-item-text"><strong data-translate="guide_lbl_gold">Mining Gold Ore:</strong> <span data-translate="guide_desc_gold">Hit the glittering gold ore rocks with your Pickaxe to break them. Pick up the chunks to repair the boat!</span></span>
+              </div>
+            </div>
+            <div class="guide-tip-box">
+              <strong data-translate="guide_tip_title">SURVIVAL TIP:</strong>
+              <span data-translate="guide_tip_mining">Digging underground triggers transitions through layers. You will find light soil, clay, and granite deep down.</span>
+            </div>
+          </div>
+          
+          <!-- Tab 4: Craft & Build -->
+          <div class="guide-section" id="sect-crafting">
+            <h3 data-translate="guide_h_crafting">Crafting Station & Construction</h3>
+            <p data-translate="guide_p_crafting">Gather materials to craft tools, gear, survival structures, or bases:</p>
+            <div class="guide-list">
+              <div class="guide-list-item">
+                <span class="guide-item-icon">🎒</span>
+                <span class="guide-item-text"><strong data-translate="guide_lbl_inventory">Open Inventory:</strong> <span data-translate="guide_desc_inventory">Press Tab or click the Backpack icon to view inventory and the Crafting Panel.</span></span>
+              </div>
+              <div class="guide-list-item">
+                <span class="guide-item-icon">🌿</span>
+                <span class="guide-item-text"><strong data-translate="guide_lbl_recipes">Basic Recipes:</strong> <span data-translate="guide_desc_recipes">Craft Ropes from Leaves, Straw Hats for sun protection, and Campfires to cook raw food.</span></span>
+              </div>
+              <div class="guide-list-item">
+                <span class="guide-item-icon">🏠</span>
+                <span class="guide-item-text"><strong data-translate="guide_lbl_building">Base Building:</strong> <span data-translate="guide_desc_building">Craft foundations, walls, doors, and roofs, and place them on the island to build customized shelters!</span></span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Tab 5: Weather & Fauna -->
+          <div class="guide-section" id="sect-weather">
+            <h3 data-translate="guide_h_weather">Atmosphere, Seasons & Wildlife</h3>
+            <p data-translate="guide_p_weather">The island is a living ecosystem with changing weather conditions, seasons, and local wildlife:</p>
+            <div class="guide-list">
+              <div class="guide-list-item">
+                <span class="guide-item-icon">🌧️</span>
+                <span class="guide-item-text"><strong data-translate="guide_lbl_weather">Dynamic Weather:</strong> <span data-translate="guide_desc_weather">Experience rain, snow, heavy clouds, and tropical storms. Storms cause leaf roofs to slowly decay!</span></span>
+              </div>
+              <div class="guide-list-item">
+                <span class="guide-item-icon">❄️</span>
+                <span class="guide-item-text"><strong data-translate="guide_lbl_seasons">Seasons:</strong> <span data-translate="guide_desc_seasons">Seasons affect temperature and weather. In Winter, the freshwater lake freezes completely, allowing you to walk on ice.</span></span>
+              </div>
+              <div class="guide-list-item">
+                <span class="guide-item-icon">🦀</span>
+                <span class="guide-item-text"><strong data-translate="guide_lbl_hunting">Hunting & Cooking:</strong> <span data-translate="guide_desc_hunting">Hunt beach crabs or shallow-water fish using your Spear (Slot 1). Ignite campfires using wood to cook meat!</span></span>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </div>
     </div>
   </div>
 
@@ -543,10 +683,10 @@
   </div>
 
   <!-- Version Tag for Deployment Tracking -->
-  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.090</div>
+  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.091</div>
   <div id="fps-counter" style="position: absolute; bottom: 8px; left: 90px; font-size: 0.75rem; color: rgba(0, 255, 128, 0.75); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">FPS: --</div>
 
   <!-- Main JS entry point as an ES Module -->
-  <script type="module" src="js/game.js?v=0.090"></script>
+  <script type="module" src="js/game.js?v=0.091"></script>
 </body>
 </html>
