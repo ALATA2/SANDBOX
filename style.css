@@ -400,10 +400,11 @@ body, html {
 
 .lang-row {
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 4px;
   background: rgba(0, 0, 0, 0.3);
   padding: 4px;
-  border-radius: 30px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -411,10 +412,10 @@ body, html {
   background: transparent;
   border: none;
   color: rgba(255, 255, 255, 0.5);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  padding: 6px 12px;
-  border-radius: 20px;
+  padding: 5px 8px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -437,7 +438,7 @@ body, html {
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 24px;
   box-shadow: 0 30px 70px rgba(0, 0, 0, 0.7), inset 0 0 40px rgba(255, 255, 255, 0.02);
-  padding: 40px;
+  padding: 30px;
   position: relative;
   overflow: hidden;
 }
@@ -445,8 +446,8 @@ body, html {
 /* Asymmetric Grid */
 .menu-container {
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 48px;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 28px;
   align-items: center;
 }
 
@@ -692,15 +693,15 @@ body, html {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 10px;
-  padding: 12px;
+  padding: 10px 8px;
   color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   transition: all 0.2s ease;
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   letter-spacing: 0.05em;
   box-shadow: 0 4px 10px rgba(0,0,0,0.15);
 }
