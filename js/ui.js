@@ -418,8 +418,8 @@ function checkIsSheltered(pos) {
 }
 
 function downloadManualAsPDF() {
-  const isIt = (localStorage.getItem('game_language') === 'it');
-  const title = isIt ? "Manuale di Sopravvivenza - Archipelago" : "Archipelago - Survival Manual";
+  const langCode = localStorage.getItem('game_language') || 'en';
+  const title = getTranslation('guide_title');
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
   
@@ -504,106 +504,56 @@ function downloadManualAsPDF() {
     </head>
     <body>
       <h1>${title}</h1>
-      <div class="subtitle">Alpha Prototype v0.091 — Official Gameplay & Controls Reference</div>
-  `;
-  
-  if (isIt) {
-    html += `
-      <h2>1. Indicatori di Sopravvivenza (Survival HUD)</h2>
-      <p>La sopravvivenza su Archipelago richiede il monitoraggio di tre indicatori vitali:</p>
+      <div class="subtitle">Alpha Prototype v0.092 — Official Gameplay & Controls Reference (${langCode.toUpperCase()})</div>
+
+      <h2>1. ${getTranslation('tab_survival')}</h2>
+      <p>${getTranslation('guide_p_survival')}</p>
       <ul>
-        <li><strong>Salute (Vita):</strong> Diminuisce a causa di annegamento, fame, freddo intenso o ingestione di cibo crudo e tossico. Si rigenera mangiando carne cotta o uova sode.</li>
-        <li><strong>Energia (Stamina):</strong> Si consuma scattando, saltando e usando attrezzi. Si rigenera stando fermi o camminando.</li>
-        <li><strong>Idratazione:</strong> Diminuisce progressivamente col passare del tempo. Va ripristinata bevendo acqua dolce dal lago vulcanico al centro dell'isola. Bere acqua salata dell'oceano causa danni immediati!</li>
+        <li><strong>${getTranslation('guide_lbl_health')}</strong> ${getTranslation('guide_desc_health')}</li>
+        <li><strong>${getTranslation('guide_lbl_energy')}</strong> ${getTranslation('guide_desc_energy')}</li>
+        <li><strong>${getTranslation('guide_lbl_hydration')}</strong> ${getTranslation('guide_desc_hydration')}</li>
       </ul>
       <div class="tip-box">
-        <strong>CONSIGLIO DI SOPRAVVIVENZA:</strong>
-        Fabbrica sempre gli indumenti (cappello di paglia, gilet, pantaloni d'erba, stivali di legno). Riducono significativamente il consumo passivo di energia e idratazione!
+        <strong>${getTranslation('guide_tip_title')}</strong>
+        ${getTranslation('guide_tip_survival')}
       </div>
 
-      <h2>2. Movimento ed Esplorazione</h2>
-      <p>Esplora l'isola vulcanica e i mari circostanti con i seguenti comandi:</p>
+      <h2>2. ${getTranslation('tab_movement')}</h2>
+      <p>${getTranslation('guide_p_movement')}</p>
       <ul>
-        <li><strong>Movimento base:</strong> Tasti WASD o Frecce direzionali.</li>
-        <li><strong>Corsa veloce (Sprint):</strong> Tieni premuto il tasto Shift. Consuma più energia.</li>
-        <li><strong>Nuoto e Immersione:</strong> Nuota automaticamente entrando in acqua. Tieni premuto Spazio per nuotare verso la superficie. Immergiti per esplorare la barriera corallina!</li>
-        <li><strong>Navigazione con Zattera:</strong> Ripara la barca iniziale per sbloccare l'esplorazione dell'oceano. Costruisci una zattera e naviga per esplorare le altre isole visibili all'orizzonte.</li>
+        <li><strong>${getTranslation('guide_lbl_keys')}</strong> ${getTranslation('guide_desc_keys')}</li>
+        <li><strong>${getTranslation('guide_lbl_sprint')}</strong> ${getTranslation('guide_desc_sprint')}</li>
+        <li><strong>${getTranslation('guide_lbl_swimming')}</strong> ${getTranslation('guide_desc_swimming')}</li>
+        <li><strong>${getTranslation('guide_lbl_raft')}</strong> ${getTranslation('guide_desc_raft')}</li>
       </ul>
 
-      <h2>3. Scavo e Modellazione del Terreno (Terraforming)</h2>
-      <p>Il mondo di gioco è completamente modellabile e distruttibile:</p>
+      <h2>3. ${getTranslation('tab_mining')}</h2>
+      <p>${getTranslation('guide_p_mining')}</p>
       <ul>
-        <li><strong>Scavo di gallerie e grotte:</strong> Equipaggia il Piccone (Slot 7) e clicca col tasto sinistro sul terreno per scavare. Puoi creare tunnel profondi nelle montagne.</li>
-        <li><strong>Costruzione del terreno:</strong> Seleziona blocchi di Sabbia o Pietra nella barra rapida e posizionali col tasto sinistro per creare ponti, scale o chiudere buchi.</li>
-        <li><strong>Estrazione dell'Oro:</strong> Trova le vene di minerale dorato sull'isola, colpiscile col Piccone e raccogli l'oro per riparare la barca e completare l'obiettivo.</li>
-      </ul>
-
-      <h2>4. Stazione di Creazione (Crafting) e Costruzione Basi</h2>
-      <p>Accedi alla creazione per fabbricare equipaggiamenti essenziali:</p>
-      <ul>
-        <li><strong>Inventario e Crafting:</strong> Premi Tab o clicca sullo zaino per aprire il menu. Sulla destra troverai tutte le ricette disponibili.</li>
-        <li><strong>Ricette Fondamentali:</strong> Crea corde (dalle foglie), torce per illuminare la notte, cappelli di paglia protettivi e fuochi da campo.</li>
-        <li><strong>Costruzione Rifugi:</strong> Fabbrica fondamenta, pareti, porte e tetti di legno o di foglie per costruire una base personalizzata e proteggerti dal meteo ostile. Attenzione: i tetti di foglie possono deteriorarsi durante le forti tempeste!</li>
-      </ul>
-
-      <h2>5. Clima, Stagioni e Fauna</h2>
-      <p>L'isola ospita un ecosistema vivo e in costante mutamento:</p>
-      <ul>
-        <li><strong>Meteo Dinamico:</strong> Alternanza di tempo sereno, nuvoloso, pioggia, neve e tempeste tropicali. Le tempeste sferzano gli alberi e riducono drasticamente la visibilità.</li>
-        <li><strong>Ciclo delle Stagioni:</strong> Primavera, Estate, Autunno e Inverno. Ogni stagione influisce sulla temperatura. In inverno, l'acqua del lago interno si congela interamente, permettendo di camminarci sopra! In autunno, le foglie cadono dagli alberi.</li>
-        <li><strong>Caccia e Pesca:</strong> Caccia granchi sulla spiaggia o pesci nelle acque basse usando la lancia (Slot 1). Puoi anche catturare vermi dal terreno. Cuoci la carne cruda accendendo un fuoco da campo per evitare intossicazioni!</li>
-      </ul>
-    `;
-  } else {
-    html += `
-      <h2>1. Survival Indicators (HUD)</h2>
-      <p>Survival on Archipelago requires managing three vital status bars:</p>
-      <ul>
-        <li><strong>Health:</strong> Decreases due to drowning, starvation, freezing, or eating raw food. Restore it by eating cooked meat or boiled eggs.</li>
-        <li><strong>Energy (Stamina):</strong> Consumed by sprinting, jumping, and swinging tools. It regenerates slowly when standing still or walking.</li>
-        <li><strong>Hydration:</strong> Drains continuously. You must drink fresh water from the volcanic lake at the center of the island. Drinking salty ocean water causes immediate damage!</li>
+        <li><strong>${getTranslation('guide_lbl_digging')}</strong> ${getTranslation('guide_desc_digging')}</li>
+        <li><strong>${getTranslation('guide_lbl_sculpting')}</strong> ${getTranslation('guide_desc_sculpting')}</li>
+        <li><strong>${getTranslation('guide_lbl_gold')}</strong> ${getTranslation('guide_desc_gold')}</li>
       </ul>
       <div class="tip-box">
-        <strong>SURVIVAL TIP:</strong>
-        Always craft clothes (straw hat, explorer vest, grass pants, wooden boots) to significantly reduce energy and hydration decay rates!
+        <strong>${getTranslation('guide_tip_title') || "SURVIVAL TIP:"}</strong>
+        ${getTranslation('guide_tip_mining')}
       </div>
 
-      <h2>2. Movement & Exploration</h2>
-      <p>Explore the volcanic island and surrounding seas with these controls:</p>
+      <h2>4. ${getTranslation('tab_crafting')}</h2>
+      <p>${getTranslation('guide_p_crafting')}</p>
       <ul>
-        <li><strong>Basic Movement:</strong> WASD or Arrow keys.</li>
-        <li><strong>Sprinting:</strong> Hold the Shift key to run faster, at the cost of higher energy drain.</li>
-        <li><strong>Swimming & Diving:</strong> Walk into water to swim automatically. Hold Space to swim up. Dive under the surface to explore beautiful coral reefs!</li>
-        <li><strong>Raft Navigation:</strong> Repair the start boat to unlock ocean travel. Craft a rowing raft and sail to discover other islands on the horizon.</li>
+        <li><strong>${getTranslation('guide_lbl_inventory')}</strong> ${getTranslation('guide_desc_inventory')}</li>
+        <li><strong>${getTranslation('guide_lbl_recipes')}</strong> ${getTranslation('guide_desc_recipes')}</li>
+        <li><strong>${getTranslation('guide_lbl_building')}</strong> ${getTranslation('guide_desc_building')}</li>
       </ul>
 
-      <h2>3. Digging & Terraforming</h2>
-      <p>The entire low-poly world is destructible and buildable:</p>
+      <h2>5. ${getTranslation('tab_weather')}</h2>
+      <p>${getTranslation('guide_p_weather')}</p>
       <ul>
-        <li><strong>Carving Caves & Tunnels:</strong> Equip the Pickaxe (Slot 7) and Left Click on any voxel block to excavate and shape the terrain.</li>
-        <li><strong>Placing Blocks:</strong> Equip Sand or Stone blocks in your hotbar and Left Click to build bridges, structures, or fill holes.</li>
-        <li><strong>Gold Mining:</strong> Locate shimmering gold veins, smash them with your Pickaxe, and collect the ore chunks to repair your boat.</li>
+        <li><strong>${getTranslation('guide_lbl_weather')}</strong> ${getTranslation('guide_desc_weather')}</li>
+        <li><strong>${getTranslation('guide_lbl_seasons')}</strong> ${getTranslation('guide_desc_seasons')}</li>
+        <li><strong>${getTranslation('guide_lbl_hunting')}</strong> ${getTranslation('guide_desc_hunting')}</li>
       </ul>
-
-      <h2>4. Crafting & Building</h2>
-      <p>Use collected resources to craft survival gear and construct bases:</p>
-      <ul>
-        <li><strong>Inventory & Crafting:</strong> Press Tab or click the Backpack icon. Fulfill recipes shown on the right-hand panel.</li>
-        <li><strong>Core Recipes:</strong> Craft ropes from leaves, hand torches for night exploration, straw hats for sun protection, and campfires.</li>
-        <li><strong>Base Construction:</strong> Craft wood foundations, walls, doors, and leaf/wood roofs. Build custom houses to shield yourself from weather hazards! Leaf roofs slowly decay and collapse during tropical storms.</li>
-      </ul>
-
-      <h2>5. Weather, Seasons & Wildlife</h2>
-      <p>The island is a simulated ecosystem with atmospheric changes:</p>
-      <ul>
-        <li><strong>Dynamic Weather:</strong> Alternation of Clear, Cloudy, Rain, Snow, and Storm conditions. Storms generate high winds, dense fog, and lightning strikes.</li>
-        <li><strong>Seasonal Progression:</strong> Spring, Summer, Autumn, and Winter cycles. During Winter, the inland freshwater lake freezes completely, allowing you to walk on ice! In Autumn, leaves fall dynamically from the sky.</li>
-        <li><strong>Hunting & Cooking:</strong> Hunt beach crabs and shallow-water fish using your Spear (Slot 1). Ignite campfires using wood and stand near them to cook raw meat. Raw food consumption has health penalties!</li>
-      </ul>
-    `;
-  }
-  
-  html += `
     </body>
     </html>
   `;
