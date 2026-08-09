@@ -43,23 +43,6 @@
   <!-- Blocker screen (Start Menu / Instructions) -->
   <div id="blocker">
     
-    <!-- Top Bar: Sound and Language Selection -->
-    <div class="menu-top-bar">
-      <!-- Mute Toggle -->
-      <button id="mute-toggle" title="Toggle Sound">🔊</button>
-      
-      <!-- Language Selection Pills -->
-      <div class="lang-row">
-        <button class="lang-pill active" data-lang="en">EN</button>
-        <button class="lang-pill" data-lang="ja">日本語</button>
-        <button class="lang-pill" data-lang="es">ES</button>
-        <button class="lang-pill" data-lang="fr">FR</button>
-        <button class="lang-pill" data-lang="de">DE</button>
-        <button class="lang-pill" data-lang="pt">PT</button>
-        <button class="lang-pill" data-lang="it">IT</button>
-      </div>
-    </div>
-
     <!-- Main Asymmetrical Dashboard -->
     <div id="instructions">
       <div class="menu-container">
@@ -97,19 +80,40 @@
             <div class="reactor-ring ring-3"></div>
             <button id="start-button" data-translate="start_btn">START ENGINE</button>
           </div>
-          <button id="editor-button" onclick="window.location.href='./mapEditor/index.html';" style="margin-top: 20px; width: 100%; max-width: 320px; padding: 12px 20px; background: rgba(56, 189, 248, 0.1); border: 1px solid #38bdf8; border-radius: 8px; font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600; color: #38bdf8; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#38bdf8'; this.style.color='#0f172a';" onmouseout="this.style.background='rgba(56, 189, 248, 0.1)'; this.style.color='#38bdf8';">
-            🛠️ MAP EDITOR
-          </button>
-          <button id="guide-button" data-translate="guide_btn" style="margin-top: 12px; width: 100%; max-width: 320px; padding: 12px 20px; background: rgba(168, 85, 247, 0.1); border: 1px solid #a855f7; border-radius: 8px; font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600; color: #c084fc; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#a855f7'; this.style.color='#0f172a';" onmouseout="this.style.background='rgba(168, 85, 247, 0.1)'; this.style.color='#c084fc';">
-            📖 GAME GUIDE & INFO
-          </button>
+          <div style="display: flex; gap: 12px; width: 100%; max-width: 320px; margin-top: 15px;">
+            <button id="editor-button" onclick="window.location.href='./mapEditor/index.html';" style="flex: 1; margin: 0; padding: 12px 10px; background: rgba(56, 189, 248, 0.1); border: 1px solid #38bdf8; border-radius: 8px; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600; color: #38bdf8; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#38bdf8'; this.style.color='#0f172a';" onmouseout="this.style.background='rgba(56, 189, 248, 0.1)'; this.style.color='#38bdf8';">
+              🛠️ EDITOR
+            </button>
+            <button id="guide-button" data-translate="guide_btn" style="flex: 1; margin: 0; padding: 12px 10px; background: rgba(168, 85, 247, 0.1); border: 1px solid #a855f7; border-radius: 8px; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600; color: #c084fc; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#a855f7'; this.style.color='#0f172a';" onmouseout="this.style.background='rgba(168, 85, 247, 0.1)'; this.style.color='#c084fc';">
+              📖 GUIDE
+            </button>
+          </div>
         </div>
         
         <!-- Right Panel: Atmosphere Settings & Commands -->
         <div class="menu-right">
           
-          <!-- Atmosphere Presets Switching -->
+          <!-- System Configuration (Integrated to prevent overlap) -->
           <div class="presets-section">
+            <h2 class="sub-section-title">SYSTEM PROTOCOLS</h2>
+            <div style="display: flex; gap: 12px; align-items: center; width: 100%;">
+              <button id="mute-toggle" title="Toggle Sound" style="margin: 0; flex-shrink: 0; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 50%; width: 40px; height: 40px; color: white; font-size: 1.1rem; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: all 0.2s;">🔊</button>
+              
+              <!-- Language Selection Pills -->
+              <div class="lang-row" style="flex: 1; display: flex; justify-content: space-between; margin: 0; background: rgba(0, 0, 0, 0.3); padding: 4px; border-radius: 30px; border: 1px solid rgba(255, 255, 255, 0.05);">
+                <button class="lang-pill active" data-lang="en">EN</button>
+                <button class="lang-pill" data-lang="ja">日本語</button>
+                <button class="lang-pill" data-lang="es">ES</button>
+                <button class="lang-pill" data-lang="fr">FR</button>
+                <button class="lang-pill" data-lang="de">DE</button>
+                <button class="lang-pill" data-lang="pt">PT</button>
+                <button class="lang-pill" data-lang="it">IT</button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Atmosphere Presets Switching -->
+          <div class="presets-section" style="margin-top: 15px;">
             <h2 class="sub-section-title">ATMOSPHERE CORE PROTOCOLS</h2>
             <div class="presets-grid">
               <button class="preset-btn active" data-preset="sunset">
@@ -154,53 +158,9 @@
             </div>
           </div>
 
-          <!-- Commands Grid -->
-          <h2 data-translate="controls_title" class="sub-section-title">CONTROL TELEMETRY</h2>
-          <div class="controls-grid">
-            <div class="control-card">
-              <div class="key-row">
-                <span class="key-cap">W</span>
-              </div>
-              <div class="key-row">
-                <span class="key-cap">A</span><span class="key-cap">S</span><span class="key-cap">D</span>
-              </div>
-              <span class="control-label" data-translate="ctrl_mv">FPS Movement</span>
-            </div>
-            
-            <div class="control-card">
-              <div class="key-row">
-                <span class="key-cap">MOUSE</span>
-              </div>
-              <span class="control-label" data-translate="ctrl_look">Look Around</span>
-            </div>
-            
-            <div class="control-card">
-              <div class="key-row">
-                <span class="key-cap">LEFT CLICK</span>
-              </div>
-              <span class="control-label" data-translate="ctrl_dig">Dig / Attack</span>
-            </div>
-            
-            <div class="control-card">
-              <div class="key-row">
-                <span class="key-cap">SPACE</span>
-              </div>
-              <span class="control-label" data-translate="ctrl_jump">Jump / Swim Up</span>
-            </div>
-            
-            <div class="control-card">
-              <div class="key-row">
-                <span class="key-cap">E</span>
-              </div>
-              <span class="control-label" data-translate="ctrl_harvest">Harvest Ore / Resource</span>
-            </div>
-            
-            <div class="control-card">
-              <div class="key-row">
-                <span class="key-cap">1</span> - <span class="key-cap">8</span>
-              </div>
-              <span class="control-label" data-translate="ctrl_switch">Switch Tool</span>
-            </div>
+          <!-- Guide Quicklink Banner -->
+          <div class="presets-section" style="margin-top: 18px; padding: 12px 16px; background: rgba(168, 85, 247, 0.05); border: 1px dashed rgba(168, 85, 247, 0.3); border-radius: 12px; text-align: center;">
+            <span id="guide-quicklink-text" data-translate="guide_quicklink" style="font-size: 0.78rem; font-weight: 600; color: #c084fc; line-height: 1.4; display: block;">Press 📖 GUIDE for the full gameplay and controls manual.</span>
           </div>
         </div>
         
