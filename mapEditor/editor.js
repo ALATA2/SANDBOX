@@ -802,7 +802,7 @@ function serializeMapData() {
   });
 
   return {
-    version: "v0.091",
+    version: "v0.093",
     playerSpawn: playerSpawn,
     carvedVoxels: world.carvedVoxels || {},
     objects: objectsMeta,

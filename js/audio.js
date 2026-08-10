@@ -17,6 +17,7 @@ let windLfo = null;
 let ambientNoise = null;
 let waveGain = null;
 let windGain = null;
+let bgMusic = null;
 
 // Initialize Audio Context on first interaction
 function initAudio() {
@@ -445,10 +446,29 @@ export function startAmbientSounds() {
   waveLfo.start(time);
   windLfo.start(time);
   ambientNoise.start(time);
+
+  // Play background music
+  if (!bgMusic) {
+    bgMusic = new Audio('MUSIC/Brano1-Alex-Ciarelli.mp3');
+    bgMusic.loop = true;
+    bgMusic.volume = 0.35; // non-intrusive volume level
+  }
+  
+  if (!isMuted) {
+    bgMusic.play().catch(err => {
+      console.warn("Could not play background music automatically:", err);
+    });
+  }
 }
 
 // Fade out and stop ambient sounds
 export function stopAmbientSounds() {
+  if (bgMusic) {
+    try {
+      bgMusic.pause();
+    } catch(e) {}
+  }
+
   if (!audioCtx || !ambientNoise) return;
 
   const time = audioCtx.currentTime;
