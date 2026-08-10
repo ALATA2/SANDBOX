@@ -719,24 +719,62 @@ const logLines = [
   "GRAVITY_FORCE: 9.8 M/S^2"
 ];
 
-let activeLogs = [
-  "SYSTEM INITIALIZING...",
-  "WELCOME TO 11° CONSOLE",
-  "TARGET LOCATED: ARCHIPELAGO"
-];
+let activeLogs = [];
 
 export function initTerminalLogger() {
   const term = document.getElementById('telemetry-terminal');
   if (!term) return;
-  
-  term.innerHTML = activeLogs.join('<br>');
-  
-  setInterval(() => {
-    const newLine = logLines[Math.floor(Math.random() * logLines.length)];
-    activeLogs.push(newLine);
-    if (activeLogs.length > 4) {
-      activeLogs.shift();
+
+  const bootLines = [
+    "SYS_STATUS: ACTIVE",
+    "SCANNING ISLAND TOPOGRAPHY... DONE",
+    "GOLD ORE VEINS LOCATED: OK",
+    "CARIBBEAN SHORELINE GENERATED",
+    "SATELLITE INTERACTION: ONLINE"
+  ];
+
+  let lineIdx = 0;
+  let charIdx = 0;
+  let currentHTML = "";
+
+  function typeNextChar() {
+    if (lineIdx < bootLines.length) {
+      const line = bootLines[lineIdx];
+      if (charIdx === 0) {
+        if (currentHTML) currentHTML += "<br>";
+        currentHTML += "> ";
+      }
+      currentHTML += line[charIdx];
+      term.innerHTML = currentHTML + '<span class="terminal-cursor">_</span>';
+      charIdx++;
+
+      if (charIdx >= line.length) {
+        activeLogs.push("> " + line);
+        if (activeLogs.length > 4) {
+          activeLogs.shift();
+          currentHTML = activeLogs.join("<br>");
+        }
+        lineIdx++;
+        charIdx = 0;
+        setTimeout(typeNextChar, 350);
+      } else {
+        setTimeout(typeNextChar, 18);
+      }
+    } else {
+      startAmbientLogging();
     }
-    term.innerHTML = activeLogs.join('<br>');
-  }, 1400);
+  }
+
+  function startAmbientLogging() {
+    setInterval(() => {
+      const newLine = logLines[Math.floor(Math.random() * logLines.length)];
+      activeLogs.push("> " + newLine);
+      if (activeLogs.length > 4) {
+        activeLogs.shift();
+      }
+      term.innerHTML = activeLogs.join('<br>') + '<span class="terminal-cursor">_</span>';
+    }, 1600);
+  }
+
+  typeNextChar();
 }

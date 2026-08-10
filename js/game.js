@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { initControls, updateControls, joystickValues, triggerMobileJump } from './controls.js';
 import { initWorld, updateWorld, world, getSurfaceHeightNear, checkInWater, getWaterHeightAt, scrollWorld, loadCustomMap, LAKE_CENTER_X, LAKE_CENTER_Z, ENABLE_ISLANDS } from './world.js';
-import { initPlayer, updatePlayer, triggerToolSwing, player } from './player.js';
+import { initPlayer, updatePlayer, triggerToolSwing, player, syncHotbarCounts } from './player.js';
 import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard, activeDebris } from './interact.js';
 import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute, setSubmergedAudio, startAmbientSounds, stopAmbientSounds, playWoodChop } from './audio.js';
 import { setLanguage, currentLang } from './lang.js';
@@ -24,6 +24,7 @@ export const game = {
   },
   pointerLocked: false,
   isMobile: false,
+  shouldLoadSave: false,
   sunMesh: null,
   sunHaloMesh: null,
   moonMesh: null,
@@ -53,6 +54,7 @@ let underwaterParticles = null;
 
 const blocker = document.getElementById('blocker');
 const startButton = document.getElementById('start-button');
+const continueButton = document.getElementById('continue-button');
 const startContainer = document.getElementById('start-container');
 
 let cameraShake = 0;
@@ -365,6 +367,7 @@ async function init() {
     }
     
     cameraShake = 5.0; // Heavy impact camera shake
+    game.shouldLoadSave = false; // Reset to start new game
     
     const controls = game.controls;
     if (controls) {
@@ -376,6 +379,7 @@ async function init() {
         stopCoreHover();
         
         if (firstStart) {
+          // Reset to default new game state
           if (game.controls && game.controls.getObject) {
             if (world.playerSpawnPoint) {
               game.controls.getObject().position.copy(world.playerSpawnPoint);
@@ -383,6 +387,25 @@ async function init() {
               game.controls.getObject().position.set(240, 25, 240);
             }
           }
+          player.health = 100;
+          player.energy = 100;
+          player.hydration = 100;
+          player.inventory = {
+            ore: 0, stone: 0, wood: 0, leaves: 0, rope: 0,
+            straw_hat: 0, explorer_vest: 0, grass_pants: 0, wooden_boots: 0,
+            raw_fish: 0, raw_crab: 0, cooked_meat: 0, egg: 0, cooked_egg: 0,
+            fishing_rod: 0, campfire: 0, stick: 0, cane: 0, worm: 0, torch: 0, berries: 0,
+            raw_silicon: 0, raw_copper: 0, raw_titanium: 0, copper_ingot: 0, titanium_plate: 0,
+            glass: 0, sharp_stone: 0, plank: 0, stone_block: 0,
+            primitive_spear: 1, primitive_axe: 1, primitive_pickaxe: 1,
+            refined_spear: 0, refined_axe: 0, refined_pickaxe: 0, workbench: 0
+          };
+          game.time = 0;
+          world.carvedVoxels = {};
+          if (typeof scrollWorld === 'function') {
+            scrollWorld(0, 0, true);
+          }
+          syncHotbarCounts();
           firstStart = false;
         }
       } else {
@@ -391,6 +414,44 @@ async function init() {
       }
     }
   });
+
+  if (continueButton) {
+    if (localStorage.getItem('saved_game_state_v0.093')) {
+      continueButton.style.display = 'block';
+    } else {
+      continueButton.style.display = 'none';
+    }
+
+    continueButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playLaunch();
+
+      const menu = document.getElementById('instructions');
+      if (menu) {
+        menu.classList.add('vibrate');
+      }
+
+      cameraShake = 5.0;
+      game.shouldLoadSave = true; // Load saved game state on lock
+
+      const controls = game.controls;
+      if (controls) {
+        if (game.isMobile) {
+          blocker.style.display = 'none';
+          game.pointerLocked = true;
+          stopDrone();
+          stopCoreHover();
+
+          if (firstStart) {
+            loadGameState();
+            firstStart = false;
+          }
+        } else {
+          controls.lock();
+        }
+      }
+    });
+  }
 
   // Reactor Core container mouse events for hover synth riser
   if (startContainer) {
@@ -448,12 +509,37 @@ async function init() {
       cameraShake = 6.0; // Extra screen impact shake when entering world
       
       if (firstStart) {
-        if (game.controls && game.controls.getObject) {
-          if (world.playerSpawnPoint) {
-            game.controls.getObject().position.copy(world.playerSpawnPoint);
-          } else {
-            game.controls.getObject().position.set(240, 25, 240);
+        let loaded = false;
+        if (game.shouldLoadSave) {
+          loaded = loadGameState();
+        }
+        if (!loaded) {
+          if (game.controls && game.controls.getObject) {
+            if (world.playerSpawnPoint) {
+              game.controls.getObject().position.copy(world.playerSpawnPoint);
+            } else {
+              game.controls.getObject().position.set(240, 25, 240);
+            }
           }
+          player.health = 100;
+          player.energy = 100;
+          player.hydration = 100;
+          player.inventory = {
+            ore: 0, stone: 0, wood: 0, leaves: 0, rope: 0,
+            straw_hat: 0, explorer_vest: 0, grass_pants: 0, wooden_boots: 0,
+            raw_fish: 0, raw_crab: 0, cooked_meat: 0, egg: 0, cooked_egg: 0,
+            fishing_rod: 0, campfire: 0, stick: 0, cane: 0, worm: 0, torch: 0, berries: 0,
+            raw_silicon: 0, raw_copper: 0, raw_titanium: 0, copper_ingot: 0, titanium_plate: 0,
+            glass: 0, sharp_stone: 0, plank: 0, stone_block: 0,
+            primitive_spear: 1, primitive_axe: 1, primitive_pickaxe: 1,
+            refined_spear: 0, refined_axe: 0, refined_pickaxe: 0, workbench: 0
+          };
+          game.time = 0;
+          world.carvedVoxels = {};
+          if (typeof scrollWorld === 'function') {
+            scrollWorld(0, 0, true);
+          }
+          syncHotbarCounts();
         }
         firstStart = false;
       }
@@ -631,7 +717,14 @@ async function init() {
   // Initialize mobile controls if mobile device detected
   initMobileControls();
 
-  // 8. Start Game Loop
+  // 8. Start Auto-Save (every 5 seconds during active gameplay)
+  setInterval(() => {
+    if (game.pointerLocked && !game.paused) {
+      saveGameState();
+    }
+  }, 5000);
+
+  // 9. Start Game Loop
   animate();
 }
 
@@ -784,18 +877,18 @@ function animate() {
       updateWorld(delta); // Let the lighthouse beam rotate in the menu
       updateMenuParticles(delta); // Let atmospheric particles float
       
-      const time = Date.now() * 0.00015;
-      const radius = 35;
-      const cx = 32; // Center of island
-      const cz = 32;
+      const time = Date.now() * 0.00007; // Slower, more majestic rotation
+      const radius = 135;
+      const cx = 128; // Center of island
+      const cz = 128;
       
       const pObj = game.controls.getObject();
       pObj.position.x = cx + Math.sin(time) * radius;
       pObj.position.z = cz + Math.cos(time) * radius;
-      pObj.position.y = 10 + Math.sin(time * 0.5) * 3;
+      pObj.position.y = 55 + Math.sin(time * 0.3) * 8; // gentle altitude wave
       
       // Face camera towards the island center
-      const target = new THREE.Vector3(cx, 4, cz);
+      const target = new THREE.Vector3(cx, 16, cz);
       game.camera.lookAt(target);
 
       // Apply camera shake in menu view
@@ -912,6 +1005,77 @@ function renderFeedbacks() {
   // Scroll to bottom
   listEl.scrollTop = listEl.scrollHeight;
 }
+
+export function saveGameState() {
+  if (!game.pointerLocked || game.paused) return; // Only save during active gameplay
+  
+  try {
+    const saveState = {
+      position: {
+        x: game.controls.getObject().position.x,
+        y: game.controls.getObject().position.y,
+        z: game.controls.getObject().position.z
+      },
+      inventory: player.inventory,
+      vitals: {
+        health: player.health,
+        energy: player.energy,
+        hydration: player.hydration
+      },
+      time: game.time,
+      carvedVoxels: world.carvedVoxels || {},
+      timestamp: Date.now()
+    };
+    
+    localStorage.setItem('saved_game_state_v0.093', JSON.stringify(saveState));
+    console.log("Game state auto-saved.");
+  } catch (err) {
+    console.error("Auto-save failed:", err);
+  }
+}
+window.saveGameState = saveGameState;
+
+export function loadGameState() {
+  const data = localStorage.getItem('saved_game_state_v0.093');
+  if (!data) return false;
+  
+  try {
+    const saveState = JSON.parse(data);
+    
+    // 1. Restore Player Position
+    if (game.controls && game.controls.getObject) {
+      const pos = saveState.position;
+      game.controls.getObject().position.set(pos.x, pos.y, pos.z);
+    }
+    
+    // 2. Restore Vitals
+    player.health = saveState.vitals.health;
+    player.energy = saveState.vitals.energy;
+    player.hydration = saveState.vitals.hydration;
+    
+    // 3. Restore Inventory
+    Object.assign(player.inventory, saveState.inventory);
+    syncHotbarCounts();
+    
+    // 4. Restore Game Time
+    game.time = saveState.time;
+    
+    // 5. Restore carved voxels
+    if (saveState.carvedVoxels) {
+      world.carvedVoxels = saveState.carvedVoxels;
+      if (typeof scrollWorld === 'function') {
+        scrollWorld(0, 0, true); // force rebuild chunks/meshes
+      }
+    }
+    
+    console.log("Game state loaded successfully.");
+    return true;
+  } catch (err) {
+    console.error("Failed to load saved game state:", err);
+    return false;
+  }
+}
+window.loadGameState = loadGameState;
 
 window.openFeedbackBoard = function() {
   const modal = document.getElementById('feedback-modal');

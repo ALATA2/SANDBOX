@@ -1018,6 +1018,29 @@ export function updatePlayer(delta) {
     }
   }
 
+  // Check if player died (health <= 0)
+  if (player.health <= 0) {
+    player.health = 100;
+    player.energy = 100;
+    player.hydration = 100;
+
+    // Teleport to spawn point
+    if (game.controls && game.controls.getObject) {
+      if (world.playerSpawnPoint) {
+        game.controls.getObject().position.copy(world.playerSpawnPoint);
+      } else {
+        game.controls.getObject().position.set(240, 25, 240);
+      }
+    }
+
+    showHudMessage(getTranslation('msg_player_died') || "⚠️ YOU DIED! RESPAWNED AT THE BEACH.");
+
+    // Autosave immediately upon respawn so they don't get stuck
+    if (window.saveGameState) {
+      window.saveGameState();
+    }
+  }
+
   // 4. Update HUD UI elements
   updateHUD(depth, temp);
 }
