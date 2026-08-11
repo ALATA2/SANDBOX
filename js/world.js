@@ -29,7 +29,7 @@ export const world = {
   terrainMesh: null,
   waterMesh: null,
   lakeMesh: null, // 3D Mountain Lake Mesh
-  lakeLevel: 32.0, // Dynamic lake water level
+  lakeLevel: 20.0, // Dynamic lake water level
   waterActive: null, // 3D Uint8Array for connected water cells
   waterHeights: null, // 2D Float32Array for dynamic height filling
   waterGroundHeights: null, // Precomputed 2D Float32Array for static height lookup
@@ -98,7 +98,7 @@ export function getWaterHeightAt(vx, vz) {
   const dx = vx - lakeCenterX;
   const dz = vz - lakeCenterZ;
   if (dx*dx + dz*dz < lakeRadius * lakeRadius) {
-    return world.lakeLevel !== undefined ? world.lakeLevel : 32.0;
+    return world.lakeLevel !== undefined ? world.lakeLevel : 20.0;
   }
 
   if (!world.waterHeights) return world.seaLevel;
@@ -229,84 +229,8 @@ const lerp = (a, b, t) => a + t * (b - a);
 
 // Centralized helper to calculate procedural starting island voxel height
 function calculateIslandHeightVoxel(x, z) {
-  if (!ENABLE_ISLANDS) return -20.0;
-  const cx = 80;
-  const cz = 80;
-
-  // 1. Precompute Noise
-  const n1 = fbmNoise2D(x * 0.06, z * 0.06);
-  const n2 = fbmNoise2D(x * 0.18, z * 0.18);
-
-  // --- ISLAND 1: Volcanic Peak (Hawaii Style) ---
-  const hillX = cx - 30;
-  const hillZ = cz - 25;
-  const hillRadius = 45;
-  const dx1 = x - hillX;
-  const dz1 = z - hillZ;
-  const dist1 = Math.sqrt(dx1*dx1 + dz1*dz1);
-  let elev1 = 0;
-  if (dist1 < hillRadius) {
-    const t1 = dist1 / hillRadius;
-    const shape = Math.pow(Math.cos(t1 * Math.PI / 2), 1.6);
-    elev1 = 28.0 * shape; // Taller peak up to 45m
-
-    const lakeRadius = 14;
-    if (dist1 < lakeRadius) {
-      // Crater lake basin
-      const lakeT = dist1 / lakeRadius;
-      const rimHeight = 28.0 * Math.pow(Math.cos((lakeRadius / hillRadius) * Math.PI / 2), 1.6);
-      const lakeBottomHeight = 18.0; // below lake water level Y=32m (20 voxels)
-      elev1 = lakeBottomHeight + (rimHeight - lakeBottomHeight) * lakeT * lakeT;
-    } else {
-      // Outside the crater
-      elev1 += n1 * 4.5;
-    }
-  }
-
-  // --- ISLAND 2: Main Starter Island (Sandy beach & flat base-building plain) ---
-  const dx2 = x - cx;
-  const dz2 = z - cz;
-  const dist2 = Math.sqrt(dx2*dx2 + dz2*dz2);
-  let elev2 = 0;
-  const maxDist2 = 36.0;
-  if (dist2 < maxDist2) {
-    const t2 = dist2 / maxDist2;
-    // Sloping terrain with beautiful coves
-    const angle2 = Math.atan2(dz2, dx2);
-    const coveT = Math.sin(angle2 * 4.0) * 4.0 + Math.cos(angle2 * 2.0) * 2.0;
-    const modifiedDist2 = dist2 + coveT;
-    if (modifiedDist2 < maxDist2) {
-      const activeT = modifiedDist2 / maxDist2;
-      elev2 = 6.8 * Math.pow(Math.cos(activeT * Math.PI / 2), 0.8) + n2 * 1.5;
-    }
-  }
-
-  // --- ISLAND 3: Jagged Granite Cliffs (Maddalena Style) ---
-  const cliffX = cx + 25;
-  const cliffZ = cz + 15;
-  const cliffRadius = 35;
-  const dx3 = x - cliffX;
-  const dz3 = z - cliffZ;
-  const dist3 = Math.sqrt(dx3*dx3 + dz3*dz3);
-  let elev3 = 0;
-  if (dist3 < cliffRadius) {
-    const t3 = dist3 / cliffRadius;
-    const shape3 = Math.pow(Math.cos(t3 * Math.PI / 2), 2.0);
-    elev3 = 16.0 * shape3 + Math.abs(fbmNoise2D(x * 0.14, z * 0.14)) * 6.5;
-  }
-
-  // Combine islands to form the Archipelago
-  let islandHeight = Math.max(elev1, elev2, elev3);
-
-  // Add shallow coral reefs and sandbars linking the islands (Maddalena channels)
-  const reefNoise = fbmNoise2D(x * 0.12, z * 0.12);
-  if (islandHeight < 2.0 && reefNoise > 0.32) {
-    const channelReef = 1.6 + reefNoise * 1.0;
-    islandHeight = Math.max(islandHeight, channelReef);
-  }
-
-  // Safety ceiling check: prevent terrain from reaching sizeY - 1
-  return Math.min(world.sizeY - 2.5, islandHeight);
+  // Completely removed the starting island in the starting sector to start in open ocean!
+  return -20.0;
 }
 
 let localOriginalHeights = null;
@@ -2155,7 +2079,7 @@ function spawnScenery() {
     raftGroup.add(log);
   }
   world.raftMesh = raftGroup;
-  world.raftMesh.visible = false; // Initially invisible (must be constructed)
+  world.raftMesh.visible = game.raftConstructed; // Visible if already constructed
   game.scene.add(raftGroup);
 
   // Raft Blueprint Overlay (Wireframe blue logs)
@@ -2174,6 +2098,7 @@ function spawnScenery() {
     blueprintGroup.add(log);
   }
   world.raftBlueprint = blueprintGroup;
+  world.raftBlueprint.visible = !game.raftConstructed; // Hide if already constructed
   game.scene.add(blueprintGroup);
 
   // 7. Lit Beach Torches - Position scaled by 3
@@ -2185,11 +2110,17 @@ function spawnScenery() {
   ];
   
   torchPositions.forEach(pos => {
-    const torch = createTorch();
-    const ty = getSurfaceHeightNear(pos.x, 15.0, pos.z);
-    torch.position.set(pos.x, ty, pos.z);
-    game.scene.add(torch);
-    world.sceneryMeshes.push({ mesh: torch, type: 'torch' });
+    let ty = getSurfaceHeightNear(pos.x, 15.0, pos.z);
+    const isNearPier = Math.abs(pos.x - pierX) < 2.0;
+    if (isNearPier) {
+      ty = 4.12; // Snap to pier deck height
+    }
+    if (ty > 4.1) {
+      const torch = createTorch();
+      torch.position.set(pos.x, ty, pos.z);
+      game.scene.add(torch);
+      world.sceneryMeshes.push({ mesh: torch, type: 'torch' });
+    }
   });
 
   // 8. Distant Island with a Lighthouse (Relocated and detailed)

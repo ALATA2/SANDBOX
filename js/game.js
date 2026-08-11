@@ -4,7 +4,7 @@ import { initWorld, updateWorld, world, getSurfaceHeightNear, checkInWater, getW
 import { initPlayer, updatePlayer, triggerToolSwing, player, syncHotbarCounts } from './player.js';
 import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard, activeDebris } from './interact.js';
 import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute, setSubmergedAudio, startAmbientSounds, stopAmbientSounds, playWoodChop } from './audio.js';
-import { setLanguage, currentLang } from './lang.js';
+import { setLanguage, currentLang, getTranslation } from './lang.js';
 import { initMenuParticles, initUnderwaterParticles, initRainParticles, updateMenuParticles, updateUnderwaterParticles, updateRainParticles, menuParticles, initSnowParticles, initAutumnLeafParticles } from './particles.js';
 import { updateShadowCamera } from './shadows.js';
 import { updateFaunaAI } from './fauna.js';
@@ -37,10 +37,10 @@ export const game = {
   fishes: [],
   seagulls: [],
   worms: [],
-  raftConstructed: false,
+  raftConstructed: true,
   raftState: {
     active: false,
-    position: new THREE.Vector3(80.0, 4.05, 127.2),
+    position: new THREE.Vector3(127.6, 4.05, 175.2),
     rotationY: 0,
     speed: 0,
     lastSplashTime: 0
@@ -384,7 +384,7 @@ async function init() {
             if (world.playerSpawnPoint) {
               game.controls.getObject().position.copy(world.playerSpawnPoint);
             } else {
-              game.controls.getObject().position.set(128, 25, 128);
+              game.controls.getObject().position.set(129.6, 5.0, 140.0);
             }
           }
           player.health = 100;
@@ -406,6 +406,13 @@ async function init() {
             scrollWorld(0, 0, true);
           }
           syncHotbarCounts();
+          if (game.raftConstructed) {
+            const objTextEl = document.getElementById('objective-text');
+            if (objTextEl) {
+              objTextEl.textContent = getTranslation('obj_sail_explore') || "Sail and explore other islands";
+              objTextEl.style.color = "#ffd700";
+            }
+          }
           firstStart = false;
         }
       } else {
@@ -416,7 +423,7 @@ async function init() {
   });
 
   if (continueButton) {
-    if (localStorage.getItem('saved_game_state_v0.098') || localStorage.getItem('saved_game_state_v0.097') || localStorage.getItem('saved_game_state_v0.096') || localStorage.getItem('saved_game_state_v0.095') || localStorage.getItem('saved_game_state_v0.094') || localStorage.getItem('saved_game_state_v0.093')) {
+    if (localStorage.getItem('saved_game_state_v0.099') || localStorage.getItem('saved_game_state_v0.098') || localStorage.getItem('saved_game_state_v0.097') || localStorage.getItem('saved_game_state_v0.096') || localStorage.getItem('saved_game_state_v0.095') || localStorage.getItem('saved_game_state_v0.094') || localStorage.getItem('saved_game_state_v0.093')) {
       continueButton.style.display = 'block';
     } else {
       continueButton.style.display = 'none';
@@ -518,7 +525,7 @@ async function init() {
             if (world.playerSpawnPoint) {
               game.controls.getObject().position.copy(world.playerSpawnPoint);
             } else {
-              game.controls.getObject().position.set(128, 25, 128);
+              game.controls.getObject().position.set(129.6, 5.0, 140.0);
             }
           }
           player.health = 100;
@@ -540,6 +547,13 @@ async function init() {
             scrollWorld(0, 0, true);
           }
           syncHotbarCounts();
+          if (game.raftConstructed) {
+            const objTextEl = document.getElementById('objective-text');
+            if (objTextEl) {
+              objTextEl.textContent = getTranslation('obj_sail_explore') || "Sail and explore other islands";
+              objTextEl.style.color = "#ffd700";
+            }
+          }
         }
         firstStart = false;
       }
@@ -1027,7 +1041,7 @@ export function saveGameState() {
       timestamp: Date.now()
     };
     
-    localStorage.setItem('saved_game_state_v0.098', JSON.stringify(saveState));
+    localStorage.setItem('saved_game_state_v0.099', JSON.stringify(saveState));
     console.log("Game state auto-saved.");
   } catch (err) {
     console.error("Auto-save failed:", err);
@@ -1036,7 +1050,7 @@ export function saveGameState() {
 window.saveGameState = saveGameState;
 
 export function loadGameState() {
-  const data = localStorage.getItem('saved_game_state_v0.098') || localStorage.getItem('saved_game_state_v0.097') || localStorage.getItem('saved_game_state_v0.096') || localStorage.getItem('saved_game_state_v0.095') || localStorage.getItem('saved_game_state_v0.094') || localStorage.getItem('saved_game_state_v0.093');
+  const data = localStorage.getItem('saved_game_state_v0.099') || localStorage.getItem('saved_game_state_v0.098') || localStorage.getItem('saved_game_state_v0.097') || localStorage.getItem('saved_game_state_v0.096') || localStorage.getItem('saved_game_state_v0.095') || localStorage.getItem('saved_game_state_v0.094') || localStorage.getItem('saved_game_state_v0.093');
   if (!data) return false;
   
   try {
