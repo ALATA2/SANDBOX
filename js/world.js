@@ -1767,23 +1767,7 @@ function spawnScenery() {
   world.waterMesh.position.set((world.gridOffsetX || 0) * spacing, world.seaLevel, (world.gridOffsetZ || 0) * spacing); // Align with voxel grid offset
   game.scene.add(world.waterMesh);
 
-  // 1b. Mountain Lake Plane
-  const lakeGeometry = new THREE.CircleGeometry(24.0, 32);
-  lakeGeometry.rotateX(-Math.PI / 2);
-  const lakeMaterial = new THREE.MeshStandardMaterial({
-    color: 0x00c3df,
-    roughness: 0.15,
-    metalness: 0.1,
-    transparent: true,
-    opacity: 0.85,
-    flatShading: true,
-    side: THREE.DoubleSide,
-    emissive: new THREE.Color(0x041a24)
-  });
-  world.lakeMesh = new THREE.Mesh(lakeGeometry, lakeMaterial);
-  world.lakeMesh.position.set(LAKE_CENTER_X, 32.0, LAKE_CENTER_Z);
-  world.lakeMesh.visible = false; // Hidden since starter island is removed
-  game.scene.add(world.lakeMesh);
+  // 1b. Mountain Lake Plane - Completely removed since starter island is gone
 
   // 2. Low-Poly Trees and Rocks
   // Materials
