@@ -62,7 +62,7 @@ function createPlayerSpawnFlag(opacity = 1.0) {
 
 // Global Editor State
 let scene, camera, renderer, controls;
-let currentToolType = 'pine'; // Default selected object
+let currentToolType = 'select'; // Default selected tool
 let rotationY = 0; // Current placement rotation
 let editorObjects = []; // Array of placed editor object metadata
 let playerSpawnMarker = null; // Single player spawn marker
@@ -335,7 +335,7 @@ function updatePreviewMesh() {
     previewMesh = null;
   }
 
-  if (currentToolType === null) return;
+  if (currentToolType === null || currentToolType === 'select' || currentToolType === 'delete') return;
 
   let geom, mat;
   const opacity = 0.5;
@@ -518,17 +518,19 @@ function spawnObjectInEditor(type, wx, wy, wz) {
 
 // Spawn object in scene
 function placeObject() {
-  if (currentToolType === null) {
-    // Pick up / Move mode
+  if (currentToolType === null || currentToolType === 'select' || currentToolType === 'delete') {
+    // Pick up / Move / Delete mode
     raycaster.setFromCamera(mouse, camera);
     const meshesToTest = [];
     editorObjects.forEach(obj => {
-      obj.mesh.traverse(child => {
-        if (child.isMesh) {
-          child.userData.ownerMeta = obj;
-          meshesToTest.push(child);
-        }
-      });
+      if (obj.mesh) {
+        obj.mesh.traverse(child => {
+          if (child.isMesh) {
+            child.userData.ownerMeta = obj;
+            meshesToTest.push(child);
+          }
+        });
+      }
     });
 
     const intersects = raycaster.intersectObjects(meshesToTest);
@@ -536,18 +538,25 @@ function placeObject() {
       const hitMesh = intersects[0].object;
       const meta = hitMesh.userData.ownerMeta;
       if (meta) {
-        // Pick it up: copy properties
-        currentToolType = meta.type;
-        rotationY = meta.rotationY || 0;
-        
-        // Remove old mesh from scene
-        scene.remove(meta.mesh);
-        if (meta.mesh === playerSpawnMarker) playerSpawnMarker = null;
-        editorObjects = editorObjects.filter(o => o !== meta);
+        if (currentToolType === 'delete') {
+          // Delete mode: remove mesh from scene
+          scene.remove(meta.mesh);
+          if (meta.mesh === playerSpawnMarker) playerSpawnMarker = null;
+          editorObjects = editorObjects.filter(o => o !== meta);
+        } else {
+          // Pick up / Move mode: copy properties
+          currentToolType = meta.type;
+          rotationY = meta.rotationY || 0;
+          
+          // Remove old mesh from scene
+          scene.remove(meta.mesh);
+          if (meta.mesh === playerSpawnMarker) playerSpawnMarker = null;
+          editorObjects = editorObjects.filter(o => o !== meta);
 
-        updatePreviewMesh();
-        updatePreviewPosition();
-        updateSidebarSelection();
+          updatePreviewMesh();
+          updatePreviewPosition();
+          updateSidebarSelection();
+        }
       }
     }
     return;

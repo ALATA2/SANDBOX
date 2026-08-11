@@ -87,7 +87,11 @@ export function initInteraction() {
         }
       }
 
-      const raftPos = new THREE.Vector3(80.0, 4.05, 127.2);
+      const raftPos = new THREE.Vector3(
+        game.raftState ? game.raftState.position.x : 127.6,
+        game.raftState ? game.raftState.position.y : 4.05,
+        game.raftState ? game.raftState.position.z : 175.2
+      );
       const distToRaft = playerPos.distanceTo(raftPos);
       if (distToRaft < 3.5) {
         if (!game.raftConstructed) {
@@ -1126,7 +1130,11 @@ function checkHarvestablePrompt() {
   }
 
   // Check proximity to raft
-  const raftPos = new THREE.Vector3(80.0, 4.05, 127.2);
+  const raftPos = new THREE.Vector3(
+    game.raftState ? game.raftState.position.x : 127.6,
+    game.raftState ? game.raftState.position.y : 4.05,
+    game.raftState ? game.raftState.position.z : 175.2
+  );
   const distToRaft = playerPos.distanceTo(raftPos);
   if (distToRaft < 3.5) {
     let rawPrompt = '';

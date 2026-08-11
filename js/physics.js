@@ -1,4 +1,5 @@
 import { world, getSeabedHeight, LAKE_CENTER_X, LAKE_CENTER_Z } from './world.js';
+import { game } from './game.js';
 
 // Bilinear density interpolation at a specific grid height (y)
 export function getDensity2DInterpolated(gx, y, gz) {
@@ -115,6 +116,26 @@ export function checkCollision(px, py, pz) {
 
 // Height query helper for collision detection (smoothly interpolated, tunnels supported!)
 export function getSurfaceHeightNear(px, py, pz) {
+  // 0a. Check if player is on the wooden pier
+  const pierX = 129.6;
+  if (px >= pierX - 1.4 && px <= pierX + 1.4) {
+    if (pz >= 134.4 && pz <= 182.4) {
+      if (py >= 3.5) {
+        return 4.12;
+      }
+    }
+  }
+
+  // 0b. Check if player is on the raft (while not actively sailing)
+  if (game.raftState) {
+    const rx = game.raftState.position.x;
+    const rz = game.raftState.position.z;
+    const rdist = Math.sqrt((px - rx) * (px - rx) + (pz - rz) * (pz - rz));
+    if (rdist < 1.6 && py >= 3.5) {
+      return 4.12;
+    }
+  }
+
   // Check if near Lighthouse Island
   const ldx = px - 1500;
   const ldz = pz - (-2000);
