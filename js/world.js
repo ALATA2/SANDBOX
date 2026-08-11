@@ -3282,7 +3282,13 @@ export function getSeabedHeight(x, z) {
       if (islandNoise > 0.48) {
         const islandT = (islandNoise - 0.48) / 0.52;
         const peakHeight = 1.0 + islandT * 26.0 + microDetail * 3.5; // Rises up to 30.5m
-        baseHeight = THREE.MathUtils.lerp(baseHeight, peakHeight, Math.sin(islandT * Math.PI / 2));
+        
+        // Suppress island generation in the starting area within 250m of spawn
+        const dStart = Math.sqrt((x - 128.0) * (x - 128.0) + (z - 128.0) * (z - 128.0));
+        const startMask = Math.max(0.0, Math.min(1.0, (dStart - 250.0) / 150.0));
+        const maskedPeakHeight = THREE.MathUtils.lerp(-20.0, peakHeight, startMask);
+        
+        baseHeight = THREE.MathUtils.lerp(baseHeight, maskedPeakHeight, Math.sin(islandT * Math.PI / 2));
       }
     }
   } else {

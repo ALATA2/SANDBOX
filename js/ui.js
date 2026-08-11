@@ -508,7 +508,7 @@ function downloadManualAsPDF() {
     </head>
     <body>
       <h1>${title}</h1>
-      <div class="subtitle">Beta Vertical Slice v0.101 — Official Gameplay & Controls Reference (${langCode.toUpperCase()})</div>
+      <div class="subtitle">Beta Vertical Slice v0.102 — Official Gameplay & Controls Reference (${langCode.toUpperCase()})</div>
 
       <h2>1. ${getTranslation('tab_survival')}</h2>
       <p>${getTranslation('guide_p_survival')}</p>
