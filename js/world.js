@@ -2102,26 +2102,19 @@ function spawnScenery() {
   world.raftBlueprint.visible = !game.raftConstructed; // Hide if already constructed
   game.scene.add(blueprintGroup);
 
-  // 7. Lit Beach Torches - Position scaled by 3
+  // 7. Lit Beach Torches - Symmetrically aligned along the pier sides
   const torchPositions = [
-    { x: (22.0 * 3 + 30.0) * spacing, z: (23.0 * 3 + 30.0) * spacing },
+    { x: pierX - 1.2, z: (19.0 * 3 + 30.0) * spacing },
     { x: pierX + 1.2, z: (19.0 * 3 + 30.0) * spacing },
-    { x: pierX + 1.2, z: (27.5 * 3 + 30.0) * spacing },
-    { x: (12.0 * 3 + 30.0) * spacing, z: (21.0 * 3 + 30.0) * spacing }
+    { x: pierX - 1.2, z: (26.5 * 3 + 30.0) * spacing },
+    { x: pierX + 1.2, z: (26.5 * 3 + 30.0) * spacing }
   ];
   
   torchPositions.forEach(pos => {
-    let ty = getSurfaceHeightNear(pos.x, 15.0, pos.z);
-    const isNearPier = Math.abs(pos.x - pierX) < 2.0;
-    if (isNearPier) {
-      ty = 4.12; // Snap to pier deck height
-    }
-    if (ty > 4.1) {
-      const torch = createTorch();
-      torch.position.set(pos.x, ty, pos.z);
-      game.scene.add(torch);
-      world.sceneryMeshes.push({ mesh: torch, type: 'torch' });
-    }
+    const torch = createTorch();
+    torch.position.set(pos.x, 4.12, pos.z); // Snap directly to pier deck height
+    game.scene.add(torch);
+    world.sceneryMeshes.push({ mesh: torch, type: 'torch' });
   });
 
   // 8. Distant Island with a Lighthouse (Relocated and detailed)
@@ -2455,11 +2448,11 @@ function spawnScenery() {
 
 // Spawns a 3D wooden bulletin feedback board on the island - Position scaled by 3
 function spawnFeedbackBoard() {
-  const wx = 66.0;
-  const wz = 66.0;
-  const wy = getSurfaceHeightNear(wx, 15, wz);
-  
-  if (wy <= 4.1) return; // Suppress spawning if underwater
+  const spacing = world.spacing;
+  const pierX = (51.0 + 30.0) * spacing;
+  const wx = pierX - 1.2;
+  const wz = 142.0;
+  const wy = 4.12;
 
   const boardGroup = new THREE.Group();
   boardGroup.name = "feedback_board";
@@ -3322,16 +3315,7 @@ export function getSeabedHeight(x, z) {
   const noiseScale = (1.0 - wStart) * (1.0 - wLight) * (1.0 - wVolc);
   height += floorNoise * noiseScale;
   
-  // Add a custom emerging non-diggable seabed reef peak at (centerCoord + 44.0, centerCoord)
-  const reefDx = x - (centerCoord + 44.0);
-  const reefDz = z - centerCoord;
-  const reefDist = Math.sqrt(reefDx*reefDx + reefDz*reefDz);
-  if (reefDist < 30.0) {
-    const t = 1.0 - reefDist / 30.0;
-    const smoothT = Math.cos(t * Math.PI / 2);
-    const reefHeight = 8.0 * smoothT;
-    height = Math.max(height, reefHeight);
-  }
+  
   
   return height;
 }
