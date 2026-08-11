@@ -230,7 +230,7 @@ const lerp = (a, b, t) => a + t * (b - a);
 // Centralized helper to calculate procedural starting island voxel height
 function calculateIslandHeightVoxel(x, z) {
   // Completely removed the starting island in the starting sector to start in open ocean!
-  return -20.0;
+  return -50.0;
 }
 
 let localOriginalHeights = null;
@@ -2458,6 +2458,8 @@ function spawnFeedbackBoard() {
   const wx = 66.0;
   const wz = 66.0;
   const wy = getSurfaceHeightNear(wx, 15, wz);
+  
+  if (wy <= 4.1) return; // Suppress spawning if underwater
 
   const boardGroup = new THREE.Group();
   boardGroup.name = "feedback_board";
