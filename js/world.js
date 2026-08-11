@@ -1782,6 +1782,7 @@ function spawnScenery() {
   });
   world.lakeMesh = new THREE.Mesh(lakeGeometry, lakeMaterial);
   world.lakeMesh.position.set(LAKE_CENTER_X, 32.0, LAKE_CENTER_Z);
+  world.lakeMesh.visible = false; // Hidden since starter island is removed
   game.scene.add(world.lakeMesh);
 
   // 2. Low-Poly Trees and Rocks
