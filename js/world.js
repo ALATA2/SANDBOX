@@ -11,7 +11,7 @@ import { updateFoliageWind } from './wind.js';
 export const LAKE_CENTER_X = 89.6;
 export const LAKE_CENTER_Z = 89.6;
 
-export const ENABLE_ISLANDS = false;
+export const ENABLE_ISLANDS = true;
 
 // World Configuration
 export const world = {
@@ -233,97 +233,76 @@ function calculateIslandHeightVoxel(x, z) {
   const cx = 150;
   const cz = 150;
 
-  const dx = x - cx;
-  const dz = z - cz;
-  const dist = Math.sqrt(dx*dx + dz*dz);
-  
-  // 1. Organic shape: Add wavy noise to the distance to break straight borders and make shores natural
-  const angle = Math.atan2(dz, dx);
-  const wave = Math.sin(angle * 5.5) * 3.5 + Math.cos(angle * 3.0) * 2.5;
-  const modifiedDist = dist + wave;
+  // 1. Precompute Noise
+  const n1 = fbmNoise2D(x * 0.06, z * 0.06);
+  const n2 = fbmNoise2D(x * 0.18, z * 0.18);
 
-  const maxDist = 120 * 0.44; // Restored to original island radius scale (approx 53 voxels)
-  const radialFactor = Math.max(0, 1.0 - modifiedDist / maxDist);
-  
-  // Base land height using noise
-  const noiseVal = fbmNoise2D(x * 0.1, z * 0.1);
-  let islandHeight = (noiseVal * 8.0 + 2.0) * Math.pow(radialFactor, 1.2);
+  // --- ISLAND 1: Volcanic Peak (Hawaii Style) ---
+  const hillX = cx - 30;
+  const hillZ = cz - 25;
+  const hillRadius = 45;
+  const dx1 = x - hillX;
+  const dz1 = z - hillZ;
+  const dist1 = Math.sqrt(dx1*dx1 + dz1*dz1);
+  let elev1 = 0;
+  if (dist1 < hillRadius) {
+    const t1 = dist1 / hillRadius;
+    const shape = Math.pow(Math.cos(t1 * Math.PI / 2), 1.6);
+    elev1 = 28.0 * shape; // Taller peak up to 45m
 
-  // 2. CARVE THE BAY (opens to the east)
-  // Smoothly taper the land height towards the east to create a natural, open sandy bay without sharp leftover horns
-  if (dx > 0) {
-    const angleLimit = Math.PI / 2.8; // Approx 64 degrees
-    const absAngle = Math.abs(angle);
-    if (absAngle < angleLimit) {
-      const t = absAngle / angleLimit;
-      const smoothT = Math.sin(t * Math.PI / 2); // 0 at center (due east), 1 at borders
-      
-      // Interpolate the island height towards a shallow bay floor height (1.2 voxels)
-      islandHeight = lerp(1.2, islandHeight, smoothT);
-    }
-  }
-
-  // 3. VOLCANIC CONE (Extinct Volcano - taller, with a elevated lake)
-  const hillX = cx - 34;
-  const hillZ = cz - 34;
-  const hillRadius = 42;
-  const hillDx = x - hillX;
-  const hillDz = z - hillZ;
-  const hillDist = Math.sqrt(hillDx*hillDx + hillDz*hillDz);
-
-  if (hillDist < hillRadius) {
-    const lakeRadius = 15;
-    const t = hillDist / hillRadius;
-    
-    // Doubled summit elevation: +36.0 voxels (rises higher, up to 57.6m)
-    const hillElevation = 36.0 * Math.cos(t * Math.PI / 2);
-
-    if (hillDist < lakeRadius) {
-      // Elevated lake basin: crater down to 18.0 voxel height (28.8m)
-      const lakeT = hillDist / lakeRadius;
-      const rimHeight = islandHeight + 36.0 * Math.cos((lakeRadius / hillRadius) * Math.PI / 2);
-      const lakeBottomHeight = 18.0; 
-      
-      const lakeProfile = lakeBottomHeight + (rimHeight - lakeBottomHeight) * lakeT * lakeT;
-      islandHeight = lakeProfile;
+    const lakeRadius = 14;
+    if (dist1 < lakeRadius) {
+      // Crater lake basin
+      const lakeT = dist1 / lakeRadius;
+      const rimHeight = 28.0 * Math.pow(Math.cos((lakeRadius / hillRadius) * Math.PI / 2), 1.6);
+      const lakeBottomHeight = 18.0; // below lake water level Y=32m (20 voxels)
+      elev1 = lakeBottomHeight + (rimHeight - lakeBottomHeight) * lakeT * lakeT;
     } else {
-      // Outside the lake basin, on the hill slope
-      islandHeight += hillElevation;
+      // Outside the crater
+      elev1 += n1 * 4.5;
     }
   }
 
-  // 5. FERTILE PLAIN (to smooth out the straight 90° edge on the south-west/west side)
-  const plainX = cx - 40;
-  const plainZ = cz - 5;
-  const plainRadius = 25;
-  const plainDx = x - plainX;
-  const plainDz = z - plainZ;
-  const plainDist = Math.sqrt(plainDx*plainDx + plainDz*plainDz);
-  if (plainDist < plainRadius) {
-    const t = plainDist / plainRadius;
-    const smoothT = Math.cos(t * Math.PI / 2); // 1 at center, 0 at boundary
-    // A soft plain of height ~3.5 voxels (5.6m) sloping down gently to sea/seabed
-    const plainHeight = 1.2 + (3.5 - 1.2) * smoothT;
-    islandHeight = Math.max(islandHeight, plainHeight);
+  // --- ISLAND 2: Main Starter Island (Sandy beach & flat base-building plain) ---
+  const dx2 = x - cx;
+  const dz2 = z - cz;
+  const dist2 = Math.sqrt(dx2*dx2 + dz2*dz2);
+  let elev2 = 0;
+  const maxDist2 = 36.0;
+  if (dist2 < maxDist2) {
+    const t2 = dist2 / maxDist2;
+    // Sloping terrain with beautiful coves
+    const angle2 = Math.atan2(dz2, dx2);
+    const coveT = Math.sin(angle2 * 4.0) * 4.0 + Math.cos(angle2 * 2.0) * 2.0;
+    const modifiedDist2 = dist2 + coveT;
+    if (modifiedDist2 < maxDist2) {
+      const activeT = modifiedDist2 / maxDist2;
+      elev2 = 6.8 * Math.pow(Math.cos(activeT * Math.PI / 2), 0.8) + n2 * 1.5;
+    }
   }
 
-  // 4. CORAL ATOLL RING (Chain of small islets surrounding the main island)
-  // Distance from center: around 53 voxels (~85m)
-  const atollCenterDist = 53.0;
-  const atollWidth = 5.5;
-  const distToAtoll = Math.abs(modifiedDist - atollCenterDist);
-  if (distToAtoll < atollWidth) {
-    const atollFactor = 1.0 - distToAtoll / atollWidth;
-    const atollNoise = fbmNoise2D(x * 0.18, z * 0.18);
-    if (atollNoise > 0.42) {
-      // Islets rising slightly above water level (water level is y=2.5 voxels, so 4.0m)
-      const isletHeight = 2.8 + atollNoise * 1.5;
-      islandHeight = Math.max(islandHeight, isletHeight * atollFactor);
-    } else if (atollNoise > 0.28) {
-      // Shallow reef under the water
-      const reefHeight = 1.8 + atollNoise * 0.8;
-      islandHeight = Math.max(islandHeight, reefHeight * atollFactor);
-    }
+  // --- ISLAND 3: Jagged Granite Cliffs (Maddalena Style) ---
+  const cliffX = cx + 25;
+  const cliffZ = cz + 15;
+  const cliffRadius = 35;
+  const dx3 = x - cliffX;
+  const dz3 = z - cliffZ;
+  const dist3 = Math.sqrt(dx3*dx3 + dz3*dz3);
+  let elev3 = 0;
+  if (dist3 < cliffRadius) {
+    const t3 = dist3 / cliffRadius;
+    const shape3 = Math.pow(Math.cos(t3 * Math.PI / 2), 2.0);
+    elev3 = 16.0 * shape3 + Math.abs(fbmNoise2D(x * 0.14, z * 0.14)) * 6.5;
+  }
+
+  // Combine islands to form the Archipelago
+  let islandHeight = Math.max(elev1, elev2, elev3);
+
+  // Add shallow coral reefs and sandbars linking the islands (Maddalena channels)
+  const reefNoise = fbmNoise2D(x * 0.12, z * 0.12);
+  if (islandHeight < 2.0 && reefNoise > 0.32) {
+    const channelReef = 1.6 + reefNoise * 1.0;
+    islandHeight = Math.max(islandHeight, channelReef);
   }
 
   // Safety ceiling check: prevent terrain from reaching sizeY - 1
@@ -2218,7 +2197,7 @@ function spawnScenery() {
   distIslandGroup.position.set(1500, -5, -2000); // Expanded and relocated
   
   // Base mountain
-  const mtGeom = new THREE.ConeGeometry(90, 180, 5);
+  const mtGeom = new THREE.ConeGeometry(90, 180, 24);
   const mtMaterial = new THREE.MeshStandardMaterial({ color: 0x5a5040, roughness: 0.9, flatShading: true });
   const mountain = new THREE.Mesh(mtGeom, mtMaterial);
   mountain.position.y = 80;
@@ -2319,7 +2298,7 @@ function spawnScenery() {
   volcIslandGroup.position.set(-1800, -5, 1500); // Relocated in opposite quadrant
   
   // Volcano cone base
-  const volcBaseGeom = new THREE.ConeGeometry(120, 95, 5);
+  const volcBaseGeom = new THREE.ConeGeometry(120, 95, 24);
   const volcBaseMat = new THREE.MeshStandardMaterial({ color: 0x2b2825, roughness: 0.95, flatShading: true });
   const volcBase = new THREE.Mesh(volcBaseGeom, volcBaseMat);
   volcBase.position.y = 40;
@@ -2328,7 +2307,7 @@ function spawnScenery() {
   volcIslandGroup.add(volcBase);
 
   // Red Glowing Lava Lake inside crater
-  const lavaGeom = new THREE.CylinderGeometry(20, 20, 2, 5);
+  const lavaGeom = new THREE.CylinderGeometry(20, 20, 2, 24);
   const lavaMat = new THREE.MeshStandardMaterial({
     color: 0xff3300,
     roughness: 0.8,
