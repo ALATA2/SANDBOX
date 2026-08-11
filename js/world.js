@@ -3260,80 +3260,37 @@ export function getSeabedHeight(x, z) {
   const gx = x / spacing;
   const gz = z / spacing;
 
-  if (!ENABLE_ISLANDS) {
-    // Natural irregular seabed similar to Mediterranean/real oceans
-    const macroNoise = fbmNoise2D(x * 0.00015, z * 0.00015) / 1.75; // Normalize to approx [0, 1]
-    const shelfNoise = fbmNoise2D(x * 0.0005, z * 0.0005) / 1.75;   // Normalize to approx [0, 1]
-    const ridgeNoise = fbmNoise2D(x * 0.002, z * 0.002) / 1.75;     // Normalize to approx [0, 1]
-    
-    // Base depth is around -55m, macroNoise creates basins ranging from -75m to -20m
-    let baseHeight = -55.0 + macroNoise * 35.0; 
-    
-    // Continental shelf: if shelfNoise is high, we transition to a shallow shelf (-15m to -25m)
-    if (shelfNoise > 0.4) {
-      const t = (shelfNoise - 0.4) / 0.6;
-      const smoothT = Math.sin(t * Math.PI / 2); // smooth transition
-      baseHeight = THREE.MathUtils.lerp(baseHeight, -20.0 + ridgeNoise * 10.0, smoothT);
-
-      // Random Archipelago: if shelfNoise is very high, spawn beautiful islands
-      if (shelfNoise > 0.55) {
-        const islandNoise = fbmNoise2D(x * 0.008, z * 0.008) / 1.75;
-        const microDetail = fbmNoise2D(x * 0.035, z * 0.035) / 1.75;
-        if (islandNoise > 0.48) {
-          const islandT = (islandNoise - 0.48) / 0.52;
-          const peakHeight = 1.0 + islandT * 26.0 + microDetail * 3.5; // Rises up to 30.5m
-          baseHeight = THREE.MathUtils.lerp(baseHeight, peakHeight, Math.sin(islandT * Math.PI / 2));
-        }
-      }
-    } else {
-      // Add detailed ridges and trenches in the deep areas
-      baseHeight += ridgeNoise * 15.0 - 7.5;
-    }
-
-    // Guarantee a beautiful procedurally generated starting island right at the origin area (under the clouds)
-    const centerCoord = 128.0; // Center of starting 300x300 grid window
-    const distToCenter = Math.sqrt((x - centerCoord) * (x - centerCoord) + (z - centerCoord) * (z - centerCoord));
-    const startingIslandRadius = 150.0;
-
-    if (distToCenter < startingIslandRadius) {
-      const t = distToCenter / startingIslandRadius;
-      const smoothT = Math.cos(t * Math.PI) * 0.5 + 0.5; // Cosine bell curve
-
-      const islandNoise = fbmNoise2D(x * 0.015, z * 0.015) / 1.75;
-      const detailNoise = fbmNoise2D(x * 0.05, z * 0.05) / 1.75;
-
-      // Hilly island peaking at ~18m above sea level (sea level is 4.0m)
-      const baseIslandHeight = -2.0 + islandNoise * 20.0 + detailNoise * 3.0; 
-
-      baseHeight = THREE.MathUtils.lerp(baseHeight, baseIslandHeight, smoothT);
-    }
-    
-    return baseHeight;
-  }
-
-  let height = -70.0;
-  const centerCoord = 128.0;
-
-  // 1. If inside the starting island grid area, get the exact voxel island height
-  if (gx >= 0 && gx < 300 && gz >= 0 && gz < 300) {
-    const islandH = calculateIslandHeightVoxel(gx, gz) * spacing;
-    height = islandH;
-  } else {
-    // 2. Outside the starting island grid, slope down smoothly to -70m
-    const dStart = Math.sqrt((x - centerCoord) * (x - centerCoord) + (z - centerCoord) * (z - centerCoord));
-    const islandRadius = 84.48;
-    const transitionWidth = 120.0;
-    if (dStart < islandRadius + transitionWidth) {
-      const t = (dStart - islandRadius) / transitionWidth;
-      const smoothT = Math.cos(t * Math.PI) * 0.5 + 0.5; // 1 to 0
-      height = -70.0 + (0.0 - (-70.0)) * smoothT;
-    }
-  }
-
-  // 3. Distance to Lighthouse Island
-  const dLight = Math.sqrt((x - 1500) * (x - 1500) + (z - (-2000)) * (z - (-2000)));
+  // Natural irregular seabed similar to Mediterranean/real oceans
+  const macroNoise = fbmNoise2D(x * 0.00015, z * 0.00015) / 1.75; // Normalize to approx [0, 1]
+  const shelfNoise = fbmNoise2D(x * 0.0005, z * 0.0005) / 1.75;   // Normalize to approx [0, 1]
+  const ridgeNoise = fbmNoise2D(x * 0.002, z * 0.002) / 1.75;     // Normalize to approx [0, 1]
   
-  // 4. Distance to Volcanic Island
+  // Base depth is around -55m, macroNoise creates basins ranging from -75m to -20m
+  let baseHeight = -55.0 + macroNoise * 35.0; 
+  
+  // Continental shelf: if shelfNoise is high, we transition to a shallow shelf (-15m to -25m)
+  if (shelfNoise > 0.4) {
+    const t = (shelfNoise - 0.4) / 0.6;
+    const smoothT = Math.sin(t * Math.PI / 2); // smooth transition
+    baseHeight = THREE.MathUtils.lerp(baseHeight, -20.0 + ridgeNoise * 10.0, smoothT);
+
+    // Random Archipelago: if shelfNoise is very high, spawn beautiful islands
+    if (shelfNoise > 0.55) {
+      const islandNoise = fbmNoise2D(x * 0.008, z * 0.008) / 1.75;
+      const microDetail = fbmNoise2D(x * 0.035, z * 0.035) / 1.75;
+      if (islandNoise > 0.48) {
+        const islandT = (islandNoise - 0.48) / 0.52;
+        const peakHeight = 1.0 + islandT * 26.0 + microDetail * 3.5; // Rises up to 30.5m
+        baseHeight = THREE.MathUtils.lerp(baseHeight, peakHeight, Math.sin(islandT * Math.PI / 2));
+      }
+    }
+  } else {
+    // Add detailed ridges and trenches in the deep areas
+    baseHeight += ridgeNoise * 15.0 - 7.5;
+  }
+
+  // Blending distant islands (Lighthouse and Volcanic)
+  const dLight = Math.sqrt((x - 1500) * (x - 1500) + (z - (-2000)) * (z - (-2000)));
   const dVolc = Math.sqrt((x - (-1800)) * (x - (-1800)) + (z - 1500) * (z - 1500));
   
   const wLight = Math.exp(-Math.pow(dLight / 400.0, 2));
@@ -3343,10 +3300,12 @@ export function getSeabedHeight(x, z) {
   const hVolc = -5.0; // Matches volcano base Y=-5
   
   // Total blended height
+  let height = baseHeight;
   height = THREE.MathUtils.lerp(height, hLight, wLight);
   height = THREE.MathUtils.lerp(height, hVolc, wVolc);
   
   // Add procedural ocean floor ridges and valleys outside the starting island area
+  const centerCoord = 128.0;
   const dStart = Math.sqrt((x - centerCoord) * (x - centerCoord) + (z - centerCoord) * (z - centerCoord));
   const wStart = Math.max(0, Math.min(1.0, 1.0 - (dStart / 150.0)));
   const floorNoise = fbmNoise2D(x * 0.001, z * 0.001) * 20.0 - 10.0;
