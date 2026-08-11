@@ -398,63 +398,18 @@ function getVertexColorForDepth(vx, vy, vz) {
   const depth = Math.max(0, physicalDepth * (3.0 / spacing) + (world.currentVirtualDepth || 0));
 
   // 1. Calculate surface biome color based on absolute altitude (vy) using scaled layers
-  let surfaceColor = [0.55, 0.72, 0.20]; // Default tropical grass green
+  let surfaceColor = [0.87, 0.70, 0.55]; // Sandy peach-gold from v0.041
   
   if (vy <= 4.0) {
     if (!ENABLE_ISLANDS && vy < -5.0) {
       // Deep seabed (Dark teal/grey marine color)
       const t = Math.min(1.0, (-5.0 - vy) / 45.0); // 0 at -5m, 1 at -50m
       surfaceColor = [
-        0.94 + t * (0.20 - 0.94),
-        0.82 + t * (0.32 - 0.82),
-        0.66 + t * (0.35 - 0.66)
+        0.87 + t * (0.20 - 0.87),
+        0.70 + t * (0.32 - 0.70),
+        0.55 + t * (0.35 - 0.55)
       ];
-    } else {
-      surfaceColor = [0.94, 0.82, 0.66]; // Sandy seabed (bright warm gold)
     }
-  } else if (vy <= 4.3) {
-    // Sand beach (Peach gold sand)
-    surfaceColor = [0.94, 0.82, 0.66];
-  } else if (vy <= 5.6) {
-    // Transition from beach sand to bright tropical grass
-    const t = (vy - 4.3) / (5.6 - 4.3);
-    surfaceColor = [
-      0.94 + t * (0.55 - 0.94),
-      0.82 + t * (0.72 - 0.82),
-      0.66 + t * (0.20 - 0.66)
-    ];
-  } else if (vy <= 16.3) {
-    // Grass/Meadow (Lush Caribbean grass green)
-    const t = (vy - 5.6) / (16.3 - 5.6);
-    surfaceColor = [
-      0.55 + t * (0.32 - 0.55),
-      0.72 + t * (0.65 - 0.72),
-      0.20 + t * (0.12 - 0.20)
-    ];
-  } else if (vy <= 21.7) {
-    // Forest / Tropical jungle (Deep tropical green)
-    const t = (vy - 16.3) / (21.7 - 16.3);
-    surfaceColor = [
-      0.32 + t * (0.20 - 0.32),
-      0.65 + t * (0.45 - 0.65),
-      0.12 + t * (0.08 - 0.12)
-    ];
-  } else if (vy <= 330.0) {
-    // Rocky slopes (Bare warm granite grey rock)
-    const t = (vy - 21.7) / (330.0 - 21.7);
-    surfaceColor = [
-      0.32 + t * (0.45 - 0.32),
-      0.30 + t * (0.42 - 0.30),
-      0.28 + t * (0.40 - 0.28)
-    ];
-  } else {
-    // Transition to Snow Peak (above Y=330.0)
-    const t = Math.min(1.0, (vy - 330.0) / 10.0);
-    surfaceColor = [
-      0.45 + t * (0.98 - 0.45),
-      0.48 + t * (0.98 - 0.48),
-      0.48 + t * (1.0 - 0.48)
-    ];
   }
 
   // 2. Calculate mining depth color (underground layers)
