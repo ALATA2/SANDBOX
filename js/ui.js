@@ -150,6 +150,10 @@ export function renderInventoryUI() {
       // Exploration Map at Workbench
       { id: 'worn_map', name: 'Worn Map', icon: '🗺️', cost: { leaves: 4, charcoal: 1 }, costText: '4 Leaves, 1 Charcoal', labelKey: 'inv.worn_map', descKey: 'recipe.worn_map', station: 'workbench' },
 
+      // Tier 3: Agriculture
+      { id: 'planted_bush', name: 'Planted Berry Bush', icon: '🌱', cost: { berries: 3 }, costText: '3 Berries', labelKey: 'inv.planted_bush', descKey: 'recipe.planted_bush', station: 'none' },
+      { id: 'planted_cane', name: 'Planted Bamboo Cane', icon: '🎋', cost: { cane: 2, rope: 1 }, costText: '2 Cane, 1 Rope', labelKey: 'inv.planted_cane', descKey: 'recipe.planted_cane', station: 'none' },
+
       // Tier 4: Lab Table Crafts
       { id: 'spectrometer', name: 'Spectrometer', icon: '🔬', cost: { copper_ingot: 2, glass: 1 }, costText: '2 Copper Ingots, 1 Glass', labelKey: 'inv.spectrometer', descKey: 'recipe.spectrometer', station: 'lab' },
       { id: 'chemical_analyzer', name: 'Chemical Analyzer', icon: '🧪', cost: { spectrometer: 1, rope: 2 }, costText: '1 Spectrometer, 2 Ropes', labelKey: 'inv.chemical_analyzer', descKey: 'recipe.chemical_analyzer', station: 'lab' },
@@ -162,7 +166,7 @@ export function renderInventoryUI() {
       raw_copper: '🥉', raw_titanium: '⚙️', copper_ingot: '🥉', titanium_plate: '⚙️',
       glass: '🥛', spectrometer: '🔬', explorer_vest: '🦺', charcoal: '🌑',
       foundation: '🪵', wall: '🪵', primitive_roof: '🍃', wood_roof: '🪵',
-      door: '🚪', worn_map: '🗺️'
+      door: '🚪', worn_map: '🗺️', berries: '🍓', planted_bush: '🌱', planted_cane: '🎋'
     };
 
     recipes.forEach(recipe => {
@@ -512,6 +516,7 @@ function downloadManualAsPDF() {
         <li><strong>${getTranslation('guide_lbl_health')}</strong> ${getTranslation('guide_desc_health')}</li>
         <li><strong>${getTranslation('guide_lbl_energy')}</strong> ${getTranslation('guide_desc_energy')}</li>
         <li><strong>${getTranslation('guide_lbl_hydration')}</strong> ${getTranslation('guide_desc_hydration')}</li>
+        <li><strong>${getTranslation('guide_lbl_fishing')}</strong> ${getTranslation('guide_desc_fishing')}</li>
       </ul>
       <div class="tip-box">
         <strong>${getTranslation('guide_tip_title')}</strong>
@@ -533,6 +538,7 @@ function downloadManualAsPDF() {
         <li><strong>${getTranslation('guide_lbl_digging')}</strong> ${getTranslation('guide_desc_digging')}</li>
         <li><strong>${getTranslation('guide_lbl_sculpting')}</strong> ${getTranslation('guide_desc_sculpting')}</li>
         <li><strong>${getTranslation('guide_lbl_gold')}</strong> ${getTranslation('guide_desc_gold')}</li>
+        <li><strong>${getTranslation('guide_lbl_smelting')}</strong> ${getTranslation('guide_desc_smelting')}</li>
       </ul>
       <div class="tip-box">
         <strong>${getTranslation('guide_tip_title') || "SURVIVAL TIP:"}</strong>
@@ -545,6 +551,8 @@ function downloadManualAsPDF() {
         <li><strong>${getTranslation('guide_lbl_inventory')}</strong> ${getTranslation('guide_desc_inventory')}</li>
         <li><strong>${getTranslation('guide_lbl_recipes')}</strong> ${getTranslation('guide_desc_recipes')}</li>
         <li><strong>${getTranslation('guide_lbl_building')}</strong> ${getTranslation('guide_desc_building')}</li>
+        <li><strong>${getTranslation('guide_lbl_farming')}</strong> ${getTranslation('guide_desc_farming')}</li>
+        <li><strong>${getTranslation('guide_lbl_canes')}</strong> ${getTranslation('guide_desc_canes')}</li>
       </ul>
 
       <h2>5. ${getTranslation('tab_weather')}</h2>

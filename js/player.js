@@ -1089,7 +1089,8 @@ export function equipItem(itemId) {
   }
 
   const isStructure = itemId === 'campfire' || itemId === 'workbench' || itemId === 'furnace' || itemId === 'lab_table' ||
-                      itemId === 'foundation' || itemId === 'wall' || itemId === 'primitive_roof' || itemId === 'wood_roof' || itemId === 'door';
+                      itemId === 'foundation' || itemId === 'wall' || itemId === 'primitive_roof' || itemId === 'wood_roof' || itemId === 'door' ||
+                      itemId === 'planted_bush' || itemId === 'planted_cane';
   if (isStructure) {
     toggleInventory(); // close inventory
     import('./interact.js').then(module => {

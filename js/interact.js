@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { game } from './game.js';
-import { world, deformTerrainLowPoly, getSurfaceHeightNear, createCampfireMesh, getVertexVirtualDepth, getWaterHeightAt, createFoundationMesh, createWallMesh, createRoofMesh, createDoorMesh, LAKE_CENTER_X, LAKE_CENTER_Z } from './world.js';
+import { world, deformTerrainLowPoly, getSurfaceHeightNear, createCampfireMesh, createWorkbenchMesh, createFurnaceMesh, createLabTableMesh, getVertexVirtualDepth, getWaterHeightAt, createFoundationMesh, createWallMesh, createRoofMesh, createDoorMesh, createBerryBushMesh, createCanePlant, LAKE_CENTER_X, LAKE_CENTER_Z } from './world.js';
 import { player, showHudMessage, selectSlot, syncHotbarCounts, renderInventoryUI, cancelFishing, getActiveAxe, getActivePickaxe, getActiveSpear } from './player.js';
 import { getTranslation, currentLang } from './lang.js';
 import { playWoodChop, playSelect, playSizzling, playDrink, playSpark, playRowingSplash } from './audio.js';
@@ -1631,6 +1631,26 @@ export function startStructurePlacement(type) {
     structureHologram = createRoofMesh(true, false);
   } else if (type === 'door') {
     structureHologram = createDoorMesh(true);
+  } else if (type === 'planted_bush') {
+    structureHologram = createBerryBushMesh();
+    structureHologram.traverse(child => {
+      if (child.isMesh) {
+        child.material = child.material.clone();
+        child.material.transparent = true;
+        child.material.opacity = 0.45;
+        child.material.color.setHex(0x00ff88);
+      }
+    });
+  } else if (type === 'planted_cane') {
+    structureHologram = createCanePlant();
+    structureHologram.traverse(child => {
+      if (child.isMesh) {
+        child.material = child.material.clone();
+        child.material.transparent = true;
+        child.material.opacity = 0.45;
+        child.material.color.setHex(0x00ff88);
+      }
+    });
   }
 
   if (structureHologram) {
@@ -1676,6 +1696,32 @@ function placeStructure() {
       position: realMesh.position.clone(),
       mesh: realMesh
     });
+  } else if (type === 'planted_bush' || type === 'planted_cane') {
+    if (type === 'planted_bush') {
+      realMesh = createBerryBushMesh();
+      realMesh.userData.hasBerries = false;
+      realMesh.userData.regrowTimer = 60.0;
+      if (realMesh.userData.berriesList) {
+        realMesh.userData.berriesList.forEach(berry => {
+          berry.visible = false;
+        });
+      }
+      realMesh.position.copy(structureHologram.position);
+      realMesh.rotation.copy(structureHologram.rotation);
+      game.scene.add(realMesh);
+      world.berryBushes.push(realMesh);
+    } else if (type === 'planted_cane') {
+      realMesh = createCanePlant();
+      realMesh.userData = {
+        health: 3,
+        broken: false
+      };
+      realMesh.position.copy(structureHologram.position);
+      realMesh.rotation.copy(structureHologram.rotation);
+      game.scene.add(realMesh);
+      world.canes.push(realMesh);
+      world.sceneryMeshes.push({ mesh: realMesh, type: 'cane' });
+    }
   } else {
     // Modular Building blocks (foundation, wall, primitive_roof, wood_roof, door)
     if (type === 'foundation') {

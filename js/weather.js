@@ -115,15 +115,15 @@ export let currentPreset = 'sunset';
 
 export const presets = {
   sunset: {
-    bg: 0xaaccff, // Soft blue-cyan horizon fog for bright daylight
-    gradBottom: 0xaaccff, // Horizon color
-    fogDensity: 0.0007, // Clear sky for long range visibility
-    ambient: 0x64b5f6, // Bright blue sky ambient light
-    ambientIntensity: 1.3,
-    sun: 0xffffff, // Pure white daylight sun
-    sunIntensity: 3.6,
+    bg: 0xffa089, // Warm peachy pink
+    gradBottom: 0xffa88f,
+    fogDensity: 0.0011, // Clearer sky for long distance view
+    ambient: 0x4a3466, // Soft purple ambient
+    ambientIntensity: 1.2,
+    sun: 0xffb366, // Golden sun light
+    sunIntensity: 3.2,
     sunPos: new THREE.Vector3(-120, 5, -50),
-    sunMeshColor: 0xffffff // White sun mesh
+    sunMeshColor: 0xfff0d0 // Peach-gold sun mesh
   },
   nebula: {
     bg: 0x070312,
@@ -160,24 +160,24 @@ export const presets = {
 export const presetCycles = {
   sunset: {
     day: {
-      bg: 0xaaccff, // Soft blue-cyan horizon fog
-      gradTop: 0x2563eb, // Vibrant saturated sky blue top
-      gradBottom: 0xaaccff, // Light blue horizon bottom
-      ambient: 0x64b5f6, // Blue sky ambient light
-      ambientIntensity: 1.3,
-      sun: 0xffffff, // Pure white sun light
-      sunIntensity: 3.6,
-      fogDensity: 0.0007
+      bg: 0xffa88f, // Warm pink-peach fog
+      gradTop: 0x322260, // Deep purple-indigo sky top
+      gradBottom: 0xff8a65, // Vibrant peachy orange sky bottom
+      ambient: 0x4d3265, // Warm purple ambient
+      ambientIntensity: 1.0,
+      sun: 0xffb570, // Golden-peach sun light
+      sunIntensity: 3.5,
+      fogDensity: 0.0011
     },
     twilight: {
-      bg: 0xff8a65, // Warm peach sunset horizon fog
-      gradTop: 0x322260, // Deep purple sunset top
-      gradBottom: 0xff8a65, // Warm peach sunset horizon bottom
-      ambient: 0x4a3466, // Soft purple sunset ambient
-      ambientIntensity: 0.9,
-      sun: 0xff9e59, // Golden peach sun light
-      sunIntensity: 2.8,
-      fogDensity: 0.0011
+      bg: 0xff7b60, // Peachy twilight fog
+      gradTop: 0x221245, // Deep violet twilight sky top
+      gradBottom: 0xff6f45, // Warm orange-red twilight sky bottom
+      ambient: 0x3a1f4d, // Violet ambient
+      ambientIntensity: 0.7,
+      sun: 0xff5a2b, // Glowing orange sun light
+      sunIntensity: 2.0,
+      fogDensity: 0.0015
     },
     night: {
       bg: 0x070312,
