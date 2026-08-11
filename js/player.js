@@ -1029,7 +1029,7 @@ export function updatePlayer(delta) {
       if (world.playerSpawnPoint) {
         game.controls.getObject().position.copy(world.playerSpawnPoint);
       } else {
-        game.controls.getObject().position.set(240, 25, 240);
+        game.controls.getObject().position.set(128, 25, 128);
       }
     }
 

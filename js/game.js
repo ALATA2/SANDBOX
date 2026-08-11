@@ -384,7 +384,7 @@ async function init() {
             if (world.playerSpawnPoint) {
               game.controls.getObject().position.copy(world.playerSpawnPoint);
             } else {
-              game.controls.getObject().position.set(240, 25, 240);
+              game.controls.getObject().position.set(128, 25, 128);
             }
           }
           player.health = 100;
@@ -416,7 +416,7 @@ async function init() {
   });
 
   if (continueButton) {
-    if (localStorage.getItem('saved_game_state_v0.097') || localStorage.getItem('saved_game_state_v0.096') || localStorage.getItem('saved_game_state_v0.095') || localStorage.getItem('saved_game_state_v0.094') || localStorage.getItem('saved_game_state_v0.093')) {
+    if (localStorage.getItem('saved_game_state_v0.098') || localStorage.getItem('saved_game_state_v0.097') || localStorage.getItem('saved_game_state_v0.096') || localStorage.getItem('saved_game_state_v0.095') || localStorage.getItem('saved_game_state_v0.094') || localStorage.getItem('saved_game_state_v0.093')) {
       continueButton.style.display = 'block';
     } else {
       continueButton.style.display = 'none';
@@ -518,7 +518,7 @@ async function init() {
             if (world.playerSpawnPoint) {
               game.controls.getObject().position.copy(world.playerSpawnPoint);
             } else {
-              game.controls.getObject().position.set(240, 25, 240);
+              game.controls.getObject().position.set(128, 25, 128);
             }
           }
           player.health = 100;
@@ -1027,7 +1027,7 @@ export function saveGameState() {
       timestamp: Date.now()
     };
     
-    localStorage.setItem('saved_game_state_v0.097', JSON.stringify(saveState));
+    localStorage.setItem('saved_game_state_v0.098', JSON.stringify(saveState));
     console.log("Game state auto-saved.");
   } catch (err) {
     console.error("Auto-save failed:", err);
@@ -1036,7 +1036,7 @@ export function saveGameState() {
 window.saveGameState = saveGameState;
 
 export function loadGameState() {
-  const data = localStorage.getItem('saved_game_state_v0.097') || localStorage.getItem('saved_game_state_v0.096') || localStorage.getItem('saved_game_state_v0.095') || localStorage.getItem('saved_game_state_v0.094') || localStorage.getItem('saved_game_state_v0.093');
+  const data = localStorage.getItem('saved_game_state_v0.098') || localStorage.getItem('saved_game_state_v0.097') || localStorage.getItem('saved_game_state_v0.096') || localStorage.getItem('saved_game_state_v0.095') || localStorage.getItem('saved_game_state_v0.094') || localStorage.getItem('saved_game_state_v0.093');
   if (!data) return false;
   
   try {

@@ -8,8 +8,8 @@ import { updateFoliageWind } from './wind.js';
 // Lake center coordinates (dynamic based on sizeX/sizeZ, scaled to 170x170 grid center)
 // Volcano is centered at cx - 45, cz - 45 = (85 - 45, 85 - 45) = (40, 40) voxels.
 // 40 * 1.6 = 64.0 meters.
-export const LAKE_CENTER_X = 89.6;
-export const LAKE_CENTER_Z = 89.6;
+export const LAKE_CENTER_X = 80.0;
+export const LAKE_CENTER_Z = 88.0;
 
 export const ENABLE_ISLANDS = true;
 
@@ -230,8 +230,8 @@ const lerp = (a, b, t) => a + t * (b - a);
 // Centralized helper to calculate procedural starting island voxel height
 function calculateIslandHeightVoxel(x, z) {
   if (!ENABLE_ISLANDS) return -20.0;
-  const cx = 150;
-  const cz = 150;
+  const cx = 80;
+  const cz = 80;
 
   // 1. Precompute Noise
   const n1 = fbmNoise2D(x * 0.06, z * 0.06);
@@ -560,7 +560,7 @@ export function getOrGenerateDensity(x, y, z, virtualDepth) {
   if (world.currentVirtualDepth === 0) {
     const y = 15 - (virtualDepth / 3);
     if (y > 0) {
-      const islandHeight = calculateIslandHeightVoxel(x, z);
+      const islandHeight = calculateIslandHeightVoxel(x + (world.gridOffsetX || 0), z + (world.gridOffsetZ || 0));
       let dens = islandHeight - y;
 
       // Central tunnel
@@ -1735,9 +1735,9 @@ function spawnClouds() {
     });
     
     // Position cloud high in the sky
-    const cx = Math.random() * 400 - 200 + 240;
+    const cx = Math.random() * 400 - 200 + 128;
     const cy = Math.random() * 20 + 55; // 55 to 75 meters high
-    const cz = Math.random() * 400 - 200 + 240;
+    const cz = Math.random() * 400 - 200 + 128;
     
     cloudGroup.position.set(cx, cy, cz);
     game.scene.add(cloudGroup);
@@ -1748,7 +1748,7 @@ function spawnClouds() {
 // Helper to determine if a point is close to any potential islands to optimize water mesh generation
 function isNearAnyIsland(vx, vz) {
   // Center starting island
-  const distToCenter = Math.sqrt((vx - 240.0) * (vx - 240.0) + (vz - 240.0) * (vz - 240.0));
+  const distToCenter = Math.sqrt((vx - 128.0) * (vx - 128.0) + (vz - 128.0) * (vz - 128.0));
   if (distToCenter < 280.0) return true;
   
   if (ENABLE_ISLANDS) {
@@ -3360,7 +3360,7 @@ export function getSeabedHeight(x, z) {
     }
 
     // Guarantee a beautiful procedurally generated starting island right at the origin area (under the clouds)
-    const centerCoord = 240.0; // Center of starting 300x300 grid window
+    const centerCoord = 128.0; // Center of starting 300x300 grid window
     const distToCenter = Math.sqrt((x - centerCoord) * (x - centerCoord) + (z - centerCoord) * (z - centerCoord));
     const startingIslandRadius = 150.0;
 
@@ -3381,7 +3381,7 @@ export function getSeabedHeight(x, z) {
   }
 
   let height = -70.0;
-  const centerCoord = 240.0;
+  const centerCoord = 128.0;
 
   // 1. If inside the starting island grid area, get the exact voxel island height
   if (gx >= 0 && gx < 300 && gz >= 0 && gz < 300) {
