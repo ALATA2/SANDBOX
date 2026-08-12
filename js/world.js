@@ -91,16 +91,6 @@ export function isVertexActive(gx, gz) {
 }
 
 export function getWaterHeightAt(vx, vz) {
-  // Check if near mountain lake: center at dynamic coordinates, radius = 24.0
-  const lakeCenterX = LAKE_CENTER_X;
-  const lakeCenterZ = LAKE_CENTER_Z;
-  const lakeRadius = 24.0;
-  const dx = vx - lakeCenterX;
-  const dz = vz - lakeCenterZ;
-  if (dx*dx + dz*dz < lakeRadius * lakeRadius) {
-    return world.lakeLevel !== undefined ? world.lakeLevel : 20.0;
-  }
-
   if (!world.waterHeights) return world.seaLevel;
   const spacing = world.spacing;
   const gx = Math.round(vx / spacing);
