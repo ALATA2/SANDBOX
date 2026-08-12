@@ -48,11 +48,29 @@ export function updateOceanWaves(delta, wasSubmerged) {
   const h01 = Math.sin(absLeft * 0.12 + time * 1.6) * 0.18 + Math.cos(absTop * 0.12 + time * 1.2) * 0.18;
   const h11 = Math.sin(absRight * 0.12 + time * 1.6) * 0.18 + Math.cos(absTop * 0.12 + time * 1.2) * 0.18;
   
+  const relSeaLevel = (world.seaLevel !== undefined ? world.seaLevel : 4.0) - 4.0;
+
   for (let i = 0; i < count; i++) {
     const i3 = i * 3;
     const vx = posArray[i3];
     const vz = posArray[i3 + 2]; // Read world Z directly (geometry is not rotated)
     
+    // Convert local vertex to absolute coordinate to check distance culling
+    const absVx = vx + absLeft;
+    const absVz = vz + absBottom;
+
+    // Fast distance culling: if far from player and not close to grid boundary (within 12m), keep flat and skip calculations
+    if (playerPos) {
+      const dx = absVx - playerPos.x;
+      const dz = absVz - playerPos.z;
+      if (dx * dx + dz * dz > 4900) { // 70 meters squared
+        if (vx >= 12.0 && vx <= 244.0 && vz >= 12.0 && vz <= 244.0) {
+          posArray[i3 + 1] = relSeaLevel;
+          continue;
+        }
+      }
+    }
+
     const baseHeight = getWaterHeightAt(vx, vz);
     
     // Stitch boundary vertices: do NOT cull vertices near the boundary (within 12m) to prevent cracks!
@@ -66,20 +84,6 @@ export function updateOceanWaves(delta, wasSubmerged) {
       const dMin = Math.min(distToLeft, distToRight, distToBottom, distToTop);
       if (dMin < 12.0) {
         isBoundary = true;
-      }
-    }
-    
-    // Convert local vertex to absolute coordinate to check distance culling
-    const absVx = vx + absLeft;
-    const absVz = vz + absBottom;
-
-    // Distance culling check (70m limit squared = 4900): only apply to interior (non-boundary) vertices
-    if (!isBoundary && playerPos) {
-      const dx = absVx - playerPos.x;
-      const dz = absVz - playerPos.z;
-      if (dx * dx + dz * dz > 4900) {
-        posArray[i3 + 1] = baseHeight - 4.0;
-        continue;
       }
     }
     
