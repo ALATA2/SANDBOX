@@ -1552,7 +1552,7 @@ export function createPineTree() {
 }
 
 // Helper to create a lit beach torch on a post
-function createTorch() {
+export function createTorch() {
   const torchGroup = new THREE.Group();
   const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9, flatShading: true });
   const metalMaterial = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5, metalness: 0.8 });
@@ -2431,12 +2431,12 @@ function spawnScenery() {
 }
 
 // Spawns a 3D wooden bulletin feedback board on the island - Position scaled by 3
-function spawnFeedbackBoard() {
+export function spawnFeedbackBoard(customX, customY, customZ, customRotY) {
   const spacing = world.spacing;
   const pierX = (51.0 + 30.0) * spacing;
-  const wx = pierX - 1.2;
-  const wz = 142.0;
-  const wy = 4.12;
+  const wx = customX !== undefined ? customX : (pierX - 1.2);
+  const wz = customZ !== undefined ? customZ : 142.0;
+  const wy = customY !== undefined ? customY : 4.12;
 
   const boardGroup = new THREE.Group();
   boardGroup.name = "feedback_board";
@@ -2544,22 +2544,24 @@ function spawnFeedbackBoard() {
   });
 
   boardGroup.position.set(wx, wy, wz);
-  boardGroup.rotation.y = Math.PI / 4; // Face the starting spawn point
+  boardGroup.rotation.y = customRotY !== undefined ? customRotY : (Math.PI / 4); // Face the starting spawn point
 
   game.scene.add(boardGroup);
   world.feedbackBoard = boardGroup;
 
-  spawnGeologicalTotem(wx, wy, wz);
+  if (customX === undefined) {
+    spawnGeologicalTotem(wx, wy, wz);
+  }
 }
 
 // Spawns a scaled low-poly geological Totem showing game depth strata layers
-function spawnGeologicalTotem(bx, by, bz) {
+export function spawnGeologicalTotem(bx, by, bz, customX, customY, customZ, customRotY) {
   // Place totem 2.5m to the left of the board (from viewer's perspective looking at it)
   const angle = Math.PI / 4;
   const offsetDistance = -2.5;
-  const tx = bx + offsetDistance * Math.cos(angle);
-  const tz = bz - offsetDistance * Math.sin(angle);
-  const ty = by;
+  const tx = customX !== undefined ? customX : (bx + offsetDistance * Math.cos(angle));
+  const tz = customZ !== undefined ? customZ : (bz - offsetDistance * Math.sin(angle));
+  const ty = customY !== undefined ? customY : by;
 
   const totemGroup = new THREE.Group();
   totemGroup.name = "geological_totem";
@@ -2632,7 +2634,7 @@ function spawnGeologicalTotem(bx, by, bz) {
   totemGroup.add(capMesh);
 
   totemGroup.position.set(tx, ty, tz);
-  totemGroup.rotation.y = angle;
+  totemGroup.rotation.y = customRotY !== undefined ? customRotY : angle;
 
   game.scene.add(totemGroup);
   world.geologicalTotem = totemGroup;
@@ -3710,6 +3712,15 @@ export function clearAllDynamicObjects() {
     });
     world.sceneryMeshes = [];
   }
+
+  if (world.feedbackBoard) {
+    game.scene.remove(world.feedbackBoard);
+    world.feedbackBoard = null;
+  }
+  if (world.geologicalTotem) {
+    game.scene.remove(world.geologicalTotem);
+    world.geologicalTotem = null;
+  }
   
   // 2. Remove trees
   if (world.trees) {
@@ -3871,6 +3882,13 @@ export function loadCustomMap(mapData) {
       } else if (obj.type === 'starfish') {
         mesh = createStarfishMesh();
         world.sceneryMeshes.push({ mesh, type: 'starfish' });
+      } else if (obj.type === 'bacheca') {
+        spawnFeedbackBoard(obj.x, obj.y, obj.z, obj.rotationY);
+      } else if (obj.type === 'totem') {
+        spawnGeologicalTotem(0, 0, 0, obj.x, obj.y, obj.z, obj.rotationY);
+      } else if (obj.type === 'torch') {
+        mesh = createTorch();
+        world.sceneryMeshes.push({ mesh, type: 'torch' });
       }
 
       if (mesh) {

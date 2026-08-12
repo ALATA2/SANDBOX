@@ -18,6 +18,9 @@ import {
   createCanePlant, 
   createFlowerMesh, 
   createStarfishMesh,
+  createTorch,
+  spawnFeedbackBoard,
+  spawnGeologicalTotem,
   smoothNoise2D,
   fbmNoise2D
 } from '../js/world.js';
@@ -67,6 +70,7 @@ let rotationY = 0; // Current placement rotation
 let editorObjects = []; // Array of placed editor object metadata
 let playerSpawnMarker = null; // Single player spawn marker
 let previewMesh = null; // Ghost preview mesh
+let movingObject = null; // Currently selected object metadata being dragged/moved
 
 // Sculpting Brush State
 
@@ -189,6 +193,43 @@ function initEditor() {
     } catch(e) {
       console.warn("No valid saved map to auto-load.");
     }
+  } else {
+    // Register default spawned scenery objects (Bacheca, Totem, Torches, Trees) into editorObjects so they are editable
+    if (world.feedbackBoard) {
+      editorObjects.push({
+        type: 'bacheca',
+        x: world.feedbackBoard.position.x,
+        y: world.feedbackBoard.position.y,
+        z: world.feedbackBoard.position.z,
+        rotationY: world.feedbackBoard.rotation.y,
+        scale: 1.0,
+        mesh: world.feedbackBoard
+      });
+    }
+    if (world.geologicalTotem) {
+      editorObjects.push({
+        type: 'totem',
+        x: world.geologicalTotem.position.x,
+        y: world.geologicalTotem.position.y,
+        z: world.geologicalTotem.position.z,
+        rotationY: world.geologicalTotem.rotation.y,
+        scale: 1.0,
+        mesh: world.geologicalTotem
+      });
+    }
+    world.sceneryMeshes.forEach(item => {
+      if (item.mesh && item.type !== 'instanced_rock') {
+        editorObjects.push({
+          type: item.type,
+          x: item.mesh.position.x,
+          y: item.mesh.position.y,
+          z: item.mesh.position.z,
+          rotationY: item.mesh.rotation.y,
+          scale: 1.0,
+          mesh: item.mesh
+        });
+      }
+    });
   }
 
   // Animation Loop
@@ -330,6 +371,8 @@ function updatePreviewMesh() {
     selectPanel.style.display = (currentToolType === 'extrude') ? 'flex' : 'none';
   }
 
+  if (currentToolType === 'moving') return; // Keep the dragged mesh!
+
   if (previewMesh) {
     scene.remove(previewMesh);
     previewMesh = null;
@@ -439,15 +482,20 @@ function updatePreviewPosition() {
     
     // Offset the mesh height depending on the type
     let offset = 0;
-    if (currentToolType === 'palm') offset = -0.1;
-    else if (currentToolType === 'ore') offset = -0.2;
-    else if (currentToolType === 'player_spawn') offset = 0.9;
-    else if (currentToolType === 'spawn_rooster') offset = 0.3;
-    else if (currentToolType === 'spawn_hen') offset = 0.25;
-    else if (currentToolType === 'spawn_crab') offset = 0.075;
-    else if (currentToolType === 'spawn_fish') offset = 0.1;
-    else if (currentToolType === 'spawn_seagull') offset = 0.3;
-    else if (currentToolType === 'sculpt_up' || currentToolType === 'sculpt_down' || currentToolType === 'erase_area' || currentToolType === 'generate_island' || currentToolType === 'extrude') offset = 0.2;
+    let type = currentToolType;
+    if (type === 'moving' && movingObject) {
+      type = movingObject.type;
+    }
+    
+    if (type === 'palm') offset = -0.1;
+    else if (type === 'ore') offset = -0.2;
+    else if (type === 'player_spawn') offset = 0.9;
+    else if (type === 'spawn_rooster') offset = 0.3;
+    else if (type === 'spawn_hen') offset = 0.25;
+    else if (type === 'spawn_crab') offset = 0.075;
+    else if (type === 'spawn_fish') offset = 0.1;
+    else if (type === 'spawn_seagull') offset = 0.3;
+    else if (type === 'sculpt_up' || type === 'sculpt_down' || type === 'erase_area' || type === 'generate_island' || type === 'extrude') offset = 0.2;
 
     previewMesh.position.set(hitPoint.x, hitPoint.y + offset, hitPoint.z);
     previewMesh.rotation.y = rotationY;
@@ -460,7 +508,8 @@ function updatePreviewPosition() {
 function updateSidebarSelection() {
   const gridItems = document.querySelectorAll('.grid-item');
   gridItems.forEach(item => {
-    if (item.getAttribute('data-type') === currentToolType) {
+    const type = item.getAttribute('data-type');
+    if (type === currentToolType || (currentToolType === 'moving' && type === 'select')) {
       item.classList.add('active');
     } else {
       item.classList.remove('active');
@@ -518,6 +567,45 @@ function spawnObjectInEditor(type, wx, wy, wz) {
 
 // Spawn object in scene
 function placeObject() {
+  if (currentToolType === 'moving') {
+    // We are placing the object we were dragging!
+    if (movingObject && previewMesh) {
+      const intersect = getTerrainIntersection();
+      if (intersect) {
+        const hitPoint = intersect.point;
+        
+        let offset = 0;
+        const type = movingObject.type;
+        if (type === 'palm') offset = -0.1;
+        else if (type === 'ore') offset = -0.2;
+        else if (type === 'player_spawn') offset = 0.9;
+        else if (type === 'spawn_rooster') offset = 0.3;
+        else if (type === 'spawn_hen') offset = 0.25;
+        else if (type === 'spawn_crab') offset = 0.075;
+        else if (type === 'spawn_fish') offset = 0.1;
+        else if (type === 'spawn_seagull') offset = 0.3;
+
+        movingObject.mesh.position.set(hitPoint.x, hitPoint.y + offset, hitPoint.z);
+        movingObject.mesh.rotation.y = rotationY;
+        
+        // Update coordinates in metadata
+        movingObject.x = hitPoint.x;
+        movingObject.y = hitPoint.y + offset;
+        movingObject.z = hitPoint.z;
+        movingObject.rotationY = rotationY;
+
+        // Put back in editorObjects
+        editorObjects.push(movingObject);
+      }
+      
+      movingObject = null;
+      previewMesh = null;
+      currentToolType = 'select';
+      updateSidebarSelection();
+    }
+    return;
+  }
+
   if (currentToolType === null || currentToolType === 'select' || currentToolType === 'delete') {
     // Pick up / Move / Delete mode
     raycaster.setFromCamera(mouse, camera);
@@ -544,16 +632,15 @@ function placeObject() {
           if (meta.mesh === playerSpawnMarker) playerSpawnMarker = null;
           editorObjects = editorObjects.filter(o => o !== meta);
         } else {
-          // Pick up / Move mode: copy properties
-          currentToolType = meta.type;
+          // Pick up / Move mode: drag the exact mesh!
+          movingObject = meta;
+          previewMesh = meta.mesh;
           rotationY = meta.rotationY || 0;
           
-          // Remove old mesh from scene
-          scene.remove(meta.mesh);
-          if (meta.mesh === playerSpawnMarker) playerSpawnMarker = null;
+          // Temporarily remove from editorObjects list so it is not self-intersected
           editorObjects = editorObjects.filter(o => o !== meta);
-
-          updatePreviewMesh();
+          
+          currentToolType = 'moving';
           updatePreviewPosition();
           updateSidebarSelection();
         }
@@ -888,6 +975,14 @@ function importMapJSON(mapData) {
         const mat = new THREE.MeshBasicMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.8 });
         visualMesh = new THREE.Mesh(geom, mat);
         offset = 0.3;
+      } else if (obj.type === 'bacheca') {
+        spawnFeedbackBoard(obj.x, obj.y, obj.z, obj.rotationY);
+        visualMesh = world.feedbackBoard;
+      } else if (obj.type === 'totem') {
+        spawnGeologicalTotem(0, 0, 0, obj.x, obj.y, obj.z, obj.rotationY);
+        visualMesh = world.geologicalTotem;
+      } else if (obj.type === 'torch') {
+        visualMesh = createTorch();
       }
 
       if (visualMesh) {
