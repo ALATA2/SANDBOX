@@ -26,8 +26,12 @@ export function updateWaterHeights(delta) {
   }
 }
 
+let waveFrameCount = 0;
 export function updateOceanWaves(delta, wasSubmerged) {
   if (!world.waterMesh || game.paused || wasSubmerged) return;
+
+  waveFrameCount++;
+  if (waveFrameCount % 2 !== 0) return; // Run at 30Hz instead of 60Hz to halve CPU/GPU data transfer overhead!
 
   const time = game.time;
   const positionAttribute = world.waterMesh.geometry.attributes.position;

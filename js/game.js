@@ -293,7 +293,7 @@ async function init() {
   initInteraction();
 
   // Check if we have custom map loaded from localStorage
-  const customMapStr = localStorage.getItem('custom_map_data_v0.109');
+  const customMapStr = localStorage.getItem('custom_map_data_v0.110');
   let loadedCustom = false;
   if (customMapStr) {
     try {
@@ -423,7 +423,7 @@ async function init() {
   });
 
   if (continueButton) {
-    if (localStorage.getItem('saved_game_state_v0.109')) {
+    if (localStorage.getItem('saved_game_state_v0.110')) {
       continueButton.style.display = 'block';
     } else {
       continueButton.style.display = 'none';
@@ -1041,7 +1041,7 @@ export function saveGameState() {
       timestamp: Date.now()
     };
     
-    localStorage.setItem('saved_game_state_v0.109', JSON.stringify(saveState));
+    localStorage.setItem('saved_game_state_v0.110', JSON.stringify(saveState));
     console.log("Game state auto-saved.");
   } catch (err) {
     console.error("Auto-save failed:", err);
@@ -1050,7 +1050,7 @@ export function saveGameState() {
 window.saveGameState = saveGameState;
 
 export function loadGameState() {
-  const data = localStorage.getItem('saved_game_state_v0.109');
+  const data = localStorage.getItem('saved_game_state_v0.110');
   if (!data) return false;
   
   try {

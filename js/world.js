@@ -1209,13 +1209,14 @@ export function buildWaterGeometry() {
   const cellCountZ = WATER_CELLS_Z;
 
   function addQuad(x1, z1, x2, z2, ix, iz, isOuter) {
+    const resStep = isOuter ? 1 : 2;
     const verts = [
       { x: x1, z: z1, gx: ix, gz: iz },
-      { x: x1, z: z2, gx: ix, gz: iz + 1 },
-      { x: x2, z: z1, gx: ix + 1, gz: iz },
-      { x: x2, z: z1, gx: ix + 1, gz: iz },
-      { x: x1, z: z2, gx: ix, gz: iz + 1 },
-      { x: x2, z: z2, gx: ix + 1, gz: iz + 1 }
+      { x: x1, z: z2, gx: ix, gz: Math.min(WATER_CELLS_Z, iz + resStep) },
+      { x: x2, z: z1, gx: Math.min(WATER_CELLS_X, ix + resStep), gz: iz },
+      { x: x2, z: z1, gx: Math.min(WATER_CELLS_X, ix + resStep), gz: iz },
+      { x: x1, z: z2, gx: ix, gz: Math.min(WATER_CELLS_Z, iz + resStep) },
+      { x: x2, z: z2, gx: Math.min(WATER_CELLS_X, ix + resStep), gz: Math.min(WATER_CELLS_Z, iz + resStep) }
     ];
 
     for (let i = 0; i < 6; i++) {
@@ -1318,13 +1319,15 @@ export function buildWaterGeometry() {
   addSegmentedSector(startX, -22000, endX, startZ, true);
   addSegmentedSector(endX, -22000, 22000, startZ, true);
 
-  // 2. Inner Ocean cells
-  for (let ix = 0; ix < cellCountX; ix++) {
+  // 2. Inner Ocean cells (Optimized: step of 2 to reduce vertex count by 75%)
+  const innerStep = 2;
+  const innerSpacing = spacing * innerStep;
+  for (let ix = 0; ix < cellCountX; ix += innerStep) {
     const x1 = startX + ix * spacing;
-    const x2 = x1 + spacing;
-    for (let iz = 0; iz < cellCountZ; iz++) {
+    const x2 = Math.min(endX, x1 + innerSpacing);
+    for (let iz = 0; iz < cellCountZ; iz += innerStep) {
       const z1 = startZ + iz * spacing;
-      const z2 = z1 + spacing;
+      const z2 = Math.min(endZ, z1 + innerSpacing);
       
       addQuad(x1, z1, x2, z2, ix, iz, false);
     }
