@@ -160,7 +160,7 @@ async function init() {
   game.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   game.renderer.setSize(window.innerWidth, window.innerHeight);
   game.renderer.setClearColor(0x000000, 0); // Transparent canvas background
-  game.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  game.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   game.renderer.shadowMap.enabled = !game.isMobile;
   game.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   game.renderer.shadowMap.autoUpdate = true; // Continuous shadow updates for smooth frame pacing
@@ -293,7 +293,7 @@ async function init() {
   initInteraction();
 
   // Check if we have custom map loaded from localStorage
-  const customMapStr = localStorage.getItem('custom_map_data_v0.110');
+  const customMapStr = localStorage.getItem('custom_map_data_v0.111');
   let loadedCustom = false;
   if (customMapStr) {
     try {
@@ -423,7 +423,7 @@ async function init() {
   });
 
   if (continueButton) {
-    if (localStorage.getItem('saved_game_state_v0.110')) {
+    if (localStorage.getItem('saved_game_state_v0.111')) {
       continueButton.style.display = 'block';
     } else {
       continueButton.style.display = 'none';
@@ -1041,7 +1041,7 @@ export function saveGameState() {
       timestamp: Date.now()
     };
     
-    localStorage.setItem('saved_game_state_v0.110', JSON.stringify(saveState));
+    localStorage.setItem('saved_game_state_v0.111', JSON.stringify(saveState));
     console.log("Game state auto-saved.");
   } catch (err) {
     console.error("Auto-save failed:", err);
@@ -1050,7 +1050,7 @@ export function saveGameState() {
 window.saveGameState = saveGameState;
 
 export function loadGameState() {
-  const data = localStorage.getItem('saved_game_state_v0.110');
+  const data = localStorage.getItem('saved_game_state_v0.111');
   if (!data) return false;
   
   try {
