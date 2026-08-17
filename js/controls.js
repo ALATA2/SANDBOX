@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { game } from './game.js';
-import { checkInWater, getWaterHeightAt } from './world.js';
+import { world, checkInWater, getWaterHeightAt } from './world.js';
 import { getSurfaceHeightNear, checkCollision } from './physics.js';
 import { player, showHudMessage } from './player.js';
 import { getTranslation } from './lang.js';
