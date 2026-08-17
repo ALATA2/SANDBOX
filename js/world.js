@@ -1381,8 +1381,8 @@ export { getDensity2DInterpolated, getDensityInterpolated, checkCollision, getSu
 export function createPalmTree() {
   const palmGroup = new THREE.Group();
   
-  // 1. Curved Trunk (Hierarchical nesting of segments to prevent gaps and create a smooth bezier-like tilt)
-  const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x735135, roughness: 0.85, flatShading: true }); // Warm bark brown
+  // 1. Curved Trunk (Hierarchical nesting of segments to prevent gaps and create a smooth tilt)
+  const trunkMaterial = getMaterial('palmTrunk', () => new THREE.MeshStandardMaterial({ color: 0x735135, roughness: 0.85, flatShading: true }));
   const segments = 9;
   const segmentHeight = 0.75;
   
@@ -1393,16 +1393,11 @@ export function createPalmTree() {
   let parentNode = palmGroup;
   
   for (let i = 0; i < segments; i++) {
-    const bottomRad = 0.28 - i * 0.015;
-    const topRad = 0.26 - i * 0.015;
-    const geom = new THREE.CylinderGeometry(topRad, bottomRad, segmentHeight, 5); // Pentagonal low-poly cylinder
-    geom.translate(0, segmentHeight / 2, 0); // Pivot at the base
-    
+    const geom = getPalmTrunkGeometry(i);
     const mesh = new THREE.Mesh(geom, trunkMaterial);
     
     if (i === 0) {
       mesh.position.set(0, 0, 0);
-      // Give the base segment a slight tilt
       mesh.rotation.z = tiltAmount / segments;
       mesh.rotation.y = tiltDir;
     } else {
@@ -1419,64 +1414,51 @@ export function createPalmTree() {
   }
   
   // 2. Palm Leaves/Fronds (Drooping branches with side leaflets)
-  const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x2d8a4e, roughness: 0.75, flatShading: true }); // Tropical green
+  const leavesMaterial = getMaterial('palmLeaves', () => new THREE.MeshStandardMaterial({ color: 0x2d8a4e, roughness: 0.75, flatShading: true }));
   const leafCount = 8;
   
   for (let i = 0; i < leafCount; i++) {
     const leafGroup = new THREE.Group();
-    // Position at the very top of the last trunk segment
     leafGroup.position.set(0, segmentHeight * 0.95, 0);
-    // Radial distribution
     leafGroup.rotation.y = (i * Math.PI * 2) / leafCount;
     
-    // Each frond is a drooping chain of 4 box segments
     let leafSegParent = leafGroup;
     const leafSegCount = 4;
     const leafSegLength = 0.65;
     
     for (let j = 0; j < leafSegCount; j++) {
-      const w = 0.38 - j * 0.07; // Main leaf stem width
-      const h = 0.02;
-      const d = leafSegLength;
-      
-      const stemGeom = new THREE.BoxGeometry(w, h, d);
-      stemGeom.translate(0, 0, d / 2); // Pivot at segment base (along Z)
-      
+      const stemGeom = getPalmStemGeometry(j);
       const stemMesh = new THREE.Mesh(stemGeom, leavesMaterial);
       if (j === 0) {
         stemMesh.position.set(0, 0, 0);
-        stemMesh.rotation.x = -0.15; // Point slightly up first, then droop
+        stemMesh.rotation.x = -0.15;
       } else {
-        stemMesh.position.set(0, 0, d * 0.95); // Chain together
-        stemMesh.rotation.x = 0.25 + j * 0.05; // Droop more and more
+        stemMesh.position.set(0, 0, leafSegLength * 0.95);
+        stemMesh.rotation.x = 0.25 + j * 0.05;
       }
       
       stemMesh.castShadow = true;
       stemMesh.receiveShadow = true;
       
-      // Add side leaflets (feathers) to this segment to make it look lush
+      const w = 0.38 - j * 0.07;
       const leafletCount = 3;
       for (let k = 0; k < leafletCount; k++) {
-        const t = (k + 0.5) / leafletCount; // spacing along the stem segment
-        const leafletW = 0.12 - j * 0.02;
-        const leafletL = 0.5 - j * 0.08 - t * 0.1;
-        
-        const leafletGeom = new THREE.BoxGeometry(leafletW, 0.01, leafletL);
-        leafletGeom.translate(0, 0, leafletL / 2);
+        const leafletGeom = getPalmLeafletGeometry(j, k);
+        const t = (k + 0.5) / leafletCount;
         
         // Left leaflet
         const leftLeaflet = new THREE.Mesh(leafletGeom, leavesMaterial);
-        leftLeaflet.position.set(-w / 2, 0, t * d);
-        leftLeaflet.rotation.y = -Math.PI / 3; // angle outwards
-        leftLeaflet.rotation.x = 0.15; // droop
+        leftLeaflet.position.set(-w / 2, 0, t * leafSegLength);
+        leftLeaflet.rotation.y = -Math.PI / 3;
+        leftLeaflet.rotation.x = 0.15;
         leftLeaflet.castShadow = true;
         stemMesh.add(leftLeaflet);
         
         // Right leaflet
         const rightLeaflet = new THREE.Mesh(leafletGeom, leavesMaterial);
-        rightLeaflet.position.set(w / 2, 0, t * d);
-        rightLeaflet.rotation.y = Math.PI / 3; // angle outwards
-        rightLeaflet.rotation.x = 0.15; // droop
+        rightLeaflet.position.set(w / 2, 0, t * leafSegLength);
+        rightLeaflet.rotation.y = Math.PI / 3;
+        rightLeaflet.rotation.x = 0.15;
         rightLeaflet.castShadow = true;
         stemMesh.add(rightLeaflet);
       }
@@ -1495,12 +1477,15 @@ export function createPalmTree() {
 export function createPineTree() {
   const pineGroup = new THREE.Group();
 
-  const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9, flatShading: true }); // Warm brown
+  const trunkMaterial = getMaterial('pineTrunk', () => new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9, flatShading: true }));
   
   // 1. Trunk
   const trunkHeight = 5.6;
-  const trunkGeom = new THREE.CylinderGeometry(0.16, 0.32, trunkHeight, 5); // Pentagonal low-poly cylinder
-  trunkGeom.translate(0, trunkHeight / 2, 0); // Pivot at base
+  const trunkGeom = getGeometry('pineTrunk', () => {
+    const geom = new THREE.CylinderGeometry(0.16, 0.32, trunkHeight, 5);
+    geom.translate(0, trunkHeight / 2, 0); // Pivot at base
+    return geom;
+  });
   const trunk = new THREE.Mesh(trunkGeom, trunkMaterial);
   trunk.castShadow = true;
   trunk.receiveShadow = true;
@@ -1513,15 +1498,17 @@ export function createPineTree() {
   const sphereCount = 5;
   const leafColors = [0x388e3c, 0x4caf50, 0x2e7d32, 0x66bb6a];
   
+  const foliageGeom = getGeometry('dodecahedron1', () => new THREE.DodecahedronGeometry(1.0, 1));
+  
   for (let i = 0; i < sphereCount; i++) {
     const radius = 1.6 + Math.random() * 0.6;
-    const geom = new THREE.DodecahedronGeometry(radius, 1); // Low-poly sphere (detail=1)
-    const mat = new THREE.MeshStandardMaterial({
+    const leafColorsKeys = ['color0', 'color1', 'color2', 'color3'];
+    const mat = getMaterial(`pineLeaf_${leafColorsKeys[i % 4]}`, () => new THREE.MeshStandardMaterial({
       color: leafColors[i % leafColors.length],
       roughness: 0.8,
       flatShading: true
-    });
-    const mesh = new THREE.Mesh(geom, mat);
+    }));
+    const mesh = new THREE.Mesh(foliageGeom, mat);
     
     // Offset each sphere slightly to form a natural organic crown
     const angle = (i / (sphereCount - 1)) * Math.PI * 2;
@@ -1531,7 +1518,11 @@ export function createPineTree() {
     const oy = (i * 0.45) - 0.4;
     
     mesh.position.set(ox, oy, oz);
-    mesh.scale.set(1.0 + Math.random() * 0.25, 0.95 + Math.random() * 0.2, 1.0 + Math.random() * 0.25);
+    mesh.scale.set(
+      radius * (1.0 + Math.random() * 0.25),
+      radius * (0.95 + Math.random() * 0.2),
+      radius * (1.0 + Math.random() * 0.25)
+    );
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     foliageGroup.add(mesh);
@@ -1547,29 +1538,36 @@ export function createPineTree() {
 // Helper to create a lit beach torch on a post
 export function createTorch() {
   const torchGroup = new THREE.Group();
-  const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9, flatShading: true });
-  const metalMaterial = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5, metalness: 0.8 });
-  const fireMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.1, emissive: 0xff7700 });
+  const woodMaterial = getMaterial('pineTrunk', () => new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9, flatShading: true }));
+  const metalMaterial = getMaterial('metal', () => new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5, metalness: 0.8 }));
+  const fireMaterial = getMaterial('fire', () => new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.1, emissive: 0xff7700 }));
   
   // The pole
-  const poleGeom = new THREE.CylinderGeometry(0.04, 0.04, 1.4, 5);
+  const poleGeom = getGeometry('poleCylinder', () => {
+    const geom = new THREE.CylinderGeometry(0.04, 0.04, 1.4, 5);
+    geom.translate(0, 0.7, 0); // Center translation inside geometry
+    return geom;
+  });
   const pole = new THREE.Mesh(poleGeom, woodMaterial);
-  pole.position.y = 0.7;
   pole.castShadow = true;
   pole.receiveShadow = true;
   torchGroup.add(pole);
   
   // The metal cup/holder
-  const cupGeom = new THREE.CylinderGeometry(0.08, 0.06, 0.15, 5);
+  const cupGeom = getGeometry('cupCylinder', () => {
+    const geom = new THREE.CylinderGeometry(0.08, 0.06, 0.15, 5);
+    geom.translate(0, 1.45, 0);
+    return geom;
+  });
   const cup = new THREE.Mesh(cupGeom, metalMaterial);
-  cup.position.y = 1.45;
   cup.castShadow = true;
   torchGroup.add(cup);
   
   // The fire flame (yellow low-poly octahedron)
-  const flameGeom = new THREE.OctahedronGeometry(0.12);
+  const flameGeom = getGeometry('octahedron', () => new THREE.OctahedronGeometry(1.0));
   const flame = new THREE.Mesh(flameGeom, fireMaterial);
   flame.position.y = 1.6;
+  flame.scale.set(0.12, 0.12, 0.12);
   torchGroup.add(flame);
   
   // Add a warm point light
@@ -3554,9 +3552,93 @@ export function checkIsSheltered(pos) {
 }
 
 // Map Editor 3D Helper Instantiators
+// Scenery Assets Cache
+const geometryCache = {
+  dodecahedron0: null,
+  dodecahedron1: null,
+  pineTrunk: null,
+  poleCylinder: null,
+  cupCylinder: null,
+  octahedron: null,
+  palmTrunk: [],
+  palmStem: [],
+  palmLeaflet: []
+};
+
+const materialCache = {
+  landRock: null,
+  marineRock: null,
+  gold: null,
+  bush: null,
+  berry: null,
+  palmTrunk: null,
+  palmLeaves: null,
+  pineTrunk: null,
+  pineLeaf_color0: null,
+  pineLeaf_color1: null,
+  pineLeaf_color2: null,
+  pineLeaf_color3: null,
+  metal: null,
+  fire: null
+};
+
+function getMaterial(key, creator) {
+  if (!materialCache[key]) {
+    materialCache[key] = creator();
+  }
+  return materialCache[key];
+}
+
+function getGeometry(key, creator) {
+  if (!geometryCache[key]) {
+    geometryCache[key] = creator();
+  }
+  return geometryCache[key];
+}
+
+function getPalmTrunkGeometry(i) {
+  if (!geometryCache.palmTrunk[i]) {
+    const bottomRad = 0.28 - i * 0.015;
+    const topRad = 0.26 - i * 0.015;
+    const segmentHeight = 0.75;
+    const geom = new THREE.CylinderGeometry(topRad, bottomRad, segmentHeight, 5);
+    geom.translate(0, segmentHeight / 2, 0);
+    geometryCache.palmTrunk[i] = geom;
+  }
+  return geometryCache.palmTrunk[i];
+}
+
+function getPalmStemGeometry(j) {
+  if (!geometryCache.palmStem[j]) {
+    const w = 0.38 - j * 0.07;
+    const h = 0.02;
+    const d = 0.65;
+    const geom = new THREE.BoxGeometry(w, h, d);
+    geom.translate(0, 0, d / 2);
+    geometryCache.palmStem[j] = geom;
+  }
+  return geometryCache.palmStem[j];
+}
+
+function getPalmLeafletGeometry(j, k) {
+  if (!geometryCache.palmLeaflet[j]) {
+    geometryCache.palmLeaflet[j] = [];
+  }
+  if (!geometryCache.palmLeaflet[j][k]) {
+    const leafletW = 0.12 - j * 0.02;
+    const t = (k + 0.5) / 3.0;
+    const leafletL = 0.5 - j * 0.08 - t * 0.1;
+    const geom = new THREE.BoxGeometry(leafletW, 0.01, leafletL);
+    geom.translate(0, 0, leafletL / 2);
+    geometryCache.palmLeaflet[j][k] = geom;
+  }
+  return geometryCache.palmLeaflet[j][k];
+}
+
+// Map Editor 3D Helper Instantiators
 export function createLandRockMesh() {
-  const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x7a8b8b, roughness: 0.9, flatShading: true });
-  const rockGeom = new THREE.DodecahedronGeometry(1.0, 0);
+  const rockMaterial = getMaterial('landRock', () => new THREE.MeshStandardMaterial({ color: 0x7a8b8b, roughness: 0.9, flatShading: true }));
+  const rockGeom = getGeometry('dodecahedron0', () => new THREE.DodecahedronGeometry(1.0, 0));
   const rock = new THREE.Mesh(rockGeom, rockMaterial);
   rock.castShadow = true;
   rock.receiveShadow = true;
@@ -3564,12 +3646,12 @@ export function createLandRockMesh() {
 }
 
 export function createMarineRockMesh() {
-  const marineRockMaterial = new THREE.MeshStandardMaterial({ 
+  const marineRockMaterial = getMaterial('marineRock', () => new THREE.MeshStandardMaterial({ 
     color: 0x5a6363,
     roughness: 0.6,
     flatShading: true 
-  });
-  const rockGeom = new THREE.DodecahedronGeometry(1.0, 0);
+  }));
+  const rockGeom = getGeometry('dodecahedron0', () => new THREE.DodecahedronGeometry(1.0, 0));
   const rock = new THREE.Mesh(rockGeom, marineRockMaterial);
   rock.castShadow = true;
   rock.receiveShadow = true;
@@ -3577,23 +3659,24 @@ export function createMarineRockMesh() {
 }
 
 export function createOreDepositMesh() {
-  const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x7a8b8b, roughness: 0.9, flatShading: true });
-  const goldMaterial = new THREE.MeshStandardMaterial({
+  const rockMaterial = getMaterial('landRock', () => new THREE.MeshStandardMaterial({ color: 0x7a8b8b, roughness: 0.9, flatShading: true }));
+  const goldMaterial = getMaterial('gold', () => new THREE.MeshStandardMaterial({
     color: 0xffd700,
     roughness: 0.2,
     metalness: 0.9,
     emissive: 0xffd700,
     emissiveIntensity: 0.15,
     flatShading: true
-  });
+  }));
   const oreGroup = new THREE.Group();
-  const baseRockGeom = new THREE.DodecahedronGeometry(1.4, 0);
+  const baseRockGeom = getGeometry('dodecahedron0', () => new THREE.DodecahedronGeometry(1.0, 0));
   const baseRock = new THREE.Mesh(baseRockGeom, rockMaterial);
+  baseRock.scale.set(1.4, 1.4, 1.4);
   baseRock.castShadow = true;
   baseRock.receiveShadow = true;
   oreGroup.add(baseRock);
 
-  const cryGeom = new THREE.DodecahedronGeometry(0.5, 0);
+  const cryGeom = getGeometry('dodecahedron0', () => new THREE.DodecahedronGeometry(1.0, 0));
   const cryPositions = [
     new THREE.Vector3(0.8, 0.6, 0.2),
     new THREE.Vector3(-0.6, 0.8, -0.4),
@@ -3604,7 +3687,7 @@ export function createOreDepositMesh() {
   cryPositions.forEach((pos) => {
     const cry = new THREE.Mesh(cryGeom, goldMaterial);
     cry.position.copy(pos);
-    cry.scale.set(0.8, 1.4, 0.8);
+    cry.scale.set(0.4, 0.7, 0.4);
     cry.rotation.set(0.2, 0.3, 0.5);
     cry.castShadow = true;
     oreGroup.add(cry);
@@ -3614,22 +3697,24 @@ export function createOreDepositMesh() {
 
 export function createBerryBushMesh() {
   const bushGroup = new THREE.Group();
-  const bushGeom = new THREE.DodecahedronGeometry(0.6, 1);
-  const bushMaterial = new THREE.MeshStandardMaterial({ color: 0x1f5f38, roughness: 0.9, flatShading: true });
+  const bushGeom = getGeometry('dodecahedron1', () => new THREE.DodecahedronGeometry(1.0, 1));
+  const bushMaterial = getMaterial('bush', () => new THREE.MeshStandardMaterial({ color: 0x1f5f38, roughness: 0.9, flatShading: true }));
   const bushMesh = new THREE.Mesh(bushGeom, bushMaterial);
+  bushMesh.scale.set(0.6, 0.6, 0.6);
   bushMesh.castShadow = true;
   bushMesh.receiveShadow = true;
   bushGroup.add(bushMesh);
   
-  const puffGeom = new THREE.DodecahedronGeometry(0.35, 0);
+  const puffGeom = getGeometry('dodecahedron0', () => new THREE.DodecahedronGeometry(1.0, 0));
   const puff = new THREE.Mesh(puffGeom, bushMaterial);
   puff.position.set(0.15, 0.15, -0.1);
+  puff.scale.set(0.35, 0.35, 0.35);
   puff.castShadow = true;
   puff.receiveShadow = true;
   bushGroup.add(puff);
 
-  const berryGeom = new THREE.DodecahedronGeometry(0.06, 0);
-  const berryMaterial = new THREE.MeshStandardMaterial({ color: 0xee2222, roughness: 0.5, flatShading: true });
+  const berryGeom = getGeometry('dodecahedron0', () => new THREE.DodecahedronGeometry(1.0, 0));
+  const berryMaterial = getMaterial('berry', () => new THREE.MeshStandardMaterial({ color: 0xee2222, roughness: 0.5, flatShading: true }));
   
   const berryPositions = [
     new THREE.Vector3(0.4, 0.2, 0.3),
@@ -3642,6 +3727,7 @@ export function createBerryBushMesh() {
   berryPositions.forEach(pos => {
     const berry = new THREE.Mesh(berryGeom, berryMaterial);
     berry.position.copy(pos);
+    berry.scale.set(0.06, 0.06, 0.06);
     berry.castShadow = true;
     bushGroup.add(berry);
     berriesList.push(berry);
