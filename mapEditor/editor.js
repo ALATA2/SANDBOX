@@ -186,7 +186,7 @@ function initEditor() {
   }
 
   // Load existing map from localStorage if there is one
-  const existingMap = localStorage.getItem('custom_map_data_v0.113');
+  const existingMap = localStorage.getItem('custom_map_data_v0.114');
   if (existingMap) {
     try {
       importMapJSON(JSON.parse(existingMap));
@@ -910,7 +910,7 @@ function serializeMapData() {
 // Play Test the Map
 function playTestMap() {
   const mapData = serializeMapData();
-  localStorage.setItem('custom_map_data_v0.113', JSON.stringify(mapData));
+  localStorage.setItem('custom_map_data_v0.114', JSON.stringify(mapData));
   window.location.href = '../index.html'; // Load main game
 }
 
@@ -1062,7 +1062,7 @@ function importMapJSON(mapData) {
 
 // Reset map to default state
 function resetMap() {
-  localStorage.removeItem('custom_map_data_v0.113');
+  localStorage.removeItem('custom_map_data_v0.114');
   location.reload(); // Reload page to load fresh default virgin map
 }
 

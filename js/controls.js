@@ -124,21 +124,21 @@ export function updateControls(delta) {
     const rs = game.raftState;
     
     // W/S: Accelerate / Decelerate
-    const accelerate = moveForward ? 1.0 : (moveBackward ? -0.5 : 0.0);
-    // A/D: Rotate (steer)
-    const rotate = moveLeft ? 1.0 : (moveRight ? -1.0 : 0.0);
+    const accelerate = moveForward ? 1.0 : (moveBackward ? -0.4 : 0.0);
+    // A/D: Rotate (steer) - inverted so A steers left and D steers right
+    const rotate = moveLeft ? -1.0 : (moveRight ? 1.0 : 0.0);
     
-    // Apply steering rotation
-    rs.rotationY += rotate * 1.8 * delta;
+    // Apply steering rotation (smoothly scaled down from 1.8 to 0.9 to prevent chaotic spinning)
+    rs.rotationY += rotate * 0.9 * delta;
     
-    // Target speed: max forward 12 m/s, max backward -5 m/s
-    const targetSpeed = accelerate * 12.0;
+    // Target speed: max forward 5.0 m/s, max backward -2.0 m/s (down from chaotic 12.0 m/s)
+    const targetSpeed = accelerate * 5.0;
     
     // Smoothly adjust speed towards target
     if (rs.speed < targetSpeed) {
-      rs.speed = Math.min(targetSpeed, rs.speed + 6.0 * delta);
+      rs.speed = Math.min(targetSpeed, rs.speed + 3.0 * delta);
     } else if (rs.speed > targetSpeed) {
-      rs.speed = Math.max(targetSpeed, rs.speed - 10.0 * delta);
+      rs.speed = Math.max(targetSpeed, rs.speed - 5.0 * delta);
     }
     
     // Rowing sound: periodic splash sound when moving
