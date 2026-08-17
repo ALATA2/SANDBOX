@@ -44,6 +44,14 @@ export function initControls() {
 
   // Keyboard Event Handlers
   const onKeyDown = function (event) {
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+      if (event.key === 'Escape') {
+        if (typeof window.closeFeedbackBoard === 'function') {
+          window.closeFeedbackBoard();
+        }
+      }
+      return;
+    }
     switch (event.code) {
       case 'ArrowUp':
       case 'KeyW':
@@ -80,6 +88,9 @@ export function initControls() {
   };
 
   const onKeyUp = function (event) {
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+      return;
+    }
     switch (event.code) {
       case 'ArrowUp':
       case 'KeyW':

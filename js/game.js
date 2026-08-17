@@ -293,7 +293,7 @@ async function init() {
   initInteraction();
 
   // Check if we have custom map loaded from localStorage
-  const customMapStr = localStorage.getItem('custom_map_data_v0.114');
+  const customMapStr = localStorage.getItem('custom_map_data_v0.115');
   let loadedCustom = false;
   if (customMapStr) {
     try {
@@ -423,7 +423,7 @@ async function init() {
   });
 
   if (continueButton) {
-    if (localStorage.getItem('saved_game_state_v0.114')) {
+    if (localStorage.getItem('saved_game_state_v0.115')) {
       continueButton.style.display = 'block';
     } else {
       continueButton.style.display = 'none';
@@ -630,6 +630,17 @@ async function init() {
 
   // Key listener for Pause (P)
   document.addEventListener('keydown', (e) => {
+    // If typing in any input/textarea, ignore normal gameplay keys, but allow Escape to close the feedback board
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+      if (e.key === 'Escape') {
+        const feedbackModal = document.getElementById('feedback-modal');
+        if (feedbackModal && feedbackModal.style.display === 'flex') {
+          closeFeedbackBoard();
+        }
+      }
+      return;
+    }
+    
     if (e.code === 'KeyP') {
       if (game.pointerLocked) {
         togglePause();
@@ -1041,7 +1052,7 @@ export function saveGameState() {
       timestamp: Date.now()
     };
     
-    localStorage.setItem('saved_game_state_v0.114', JSON.stringify(saveState));
+    localStorage.setItem('saved_game_state_v0.115', JSON.stringify(saveState));
     console.log("Game state auto-saved.");
   } catch (err) {
     console.error("Auto-save failed:", err);
@@ -1050,7 +1061,7 @@ export function saveGameState() {
 window.saveGameState = saveGameState;
 
 export function loadGameState() {
-  const data = localStorage.getItem('saved_game_state_v0.114');
+  const data = localStorage.getItem('saved_game_state_v0.115');
   if (!data) return false;
   
   try {
@@ -1125,6 +1136,7 @@ function closeFeedbackBoard() {
     game.controls.lock();
   }
 }
+window.closeFeedbackBoard = closeFeedbackBoard;
 
 // Mobile Controls Integration
 let touchLookId = null;

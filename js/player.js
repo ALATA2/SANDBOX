@@ -228,6 +228,9 @@ export function initPlayer() {
 
   // 5. Setup Keyboard listener for slot swapping (1-8 keys) and inventory toggle
   document.addEventListener('keydown', (e) => {
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+      return;
+    }
     if (e.key >= '1' && e.key <= '8') {
       const idx = parseInt(e.key) - 1;
       if (player.selectedSlot === idx) {

@@ -31,6 +31,10 @@ export function initInteraction() {
 
   // Listen for the "E" harvest key and Escape / R for structure placement
   document.addEventListener('keydown', (e) => {
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+      return;
+    }
+
     if (game.isPlacingStructure) {
       if (e.key === 'Escape') {
         cancelStructurePlacement();
