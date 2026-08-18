@@ -5,6 +5,7 @@ import { world, checkInWater, getWaterHeightAt } from './world.js';
 import { getSurfaceHeightNear, checkCollision } from './physics.js';
 import { player, showHudMessage } from './player.js';
 import { getTranslation } from './lang.js';
+import { getWaveHeightAt } from './water.js';
 
 // Movement state variables
 export let moveForward = false;
@@ -169,8 +170,16 @@ export function updateControls(delta) {
     rs.position.z += Math.cos(rs.rotationY) * rs.speed * delta;
     
     // Snap raft Y to water height (bobs on waves!)
-    const waterY = getWaterHeightAt(rs.position.x, rs.position.z);
-    rs.position.y = waterY;
+    const baseWaterY = getWaterHeightAt(rs.position.x, rs.position.z);
+    let waveY = 0;
+    if (baseWaterY <= (world.seaLevel !== undefined ? world.seaLevel : 4.0) + 0.1) {
+      const absLeft = (world.gridOffsetX || 0) * 1.6;
+      const absBottom = (world.gridOffsetZ || 0) * 1.6;
+      const absX = rs.position.x + absLeft;
+      const absZ = rs.position.z + absBottom;
+      waveY = getWaveHeightAt(absX, absZ, game.time);
+    }
+    rs.position.y = baseWaterY + waveY;
     
     // Snap player coordinate positions to raft center
     const playerObj = game.controls.getObject();
@@ -183,6 +192,25 @@ export function updateControls(delta) {
       world.raftMesh.rotation.y = rs.rotationY;
     }
     return;
+  } else if (game.raftState) {
+    // Bob empty raft on waves
+    const rs = game.raftState;
+    const baseWaterY = getWaterHeightAt(rs.position.x, rs.position.z);
+    let waveY = 0;
+    if (baseWaterY <= (world.seaLevel !== undefined ? world.seaLevel : 4.0) + 0.1) {
+      const absLeft = (world.gridOffsetX || 0) * 1.6;
+      const absBottom = (world.gridOffsetZ || 0) * 1.6;
+      const absX = rs.position.x + absLeft;
+      const absZ = rs.position.z + absBottom;
+      waveY = getWaveHeightAt(absX, absZ, game.time);
+    }
+    rs.position.y = baseWaterY + waveY;
+    
+    if (world.raftMesh) {
+      world.raftMesh.position.copy(rs.position);
+      world.raftMesh.rotation.y = rs.rotationY;
+    }
+  }
   }
 
   const playerObj = game.controls.getObject();
@@ -198,7 +226,15 @@ export function updateControls(delta) {
   // Apply gravity / buoyancy force
   if (inWater) {
     const baseWaterHeight = getWaterHeightAt(position.x, position.z);
-    const waterSurfaceY = baseWaterHeight + 1.0; // Water level + eye height offset to keep head above water
+    let waveY = 0;
+    if (baseWaterHeight <= (world.seaLevel !== undefined ? world.seaLevel : 4.0) + 0.1) {
+      const absLeft = (world.gridOffsetX || 0) * 1.6;
+      const absBottom = (world.gridOffsetZ || 0) * 1.6;
+      const absX = position.x + absLeft;
+      const absZ = position.z + absBottom;
+      waveY = getWaveHeightAt(absX, absZ, game.time);
+    }
+    const waterSurfaceY = baseWaterHeight + waveY + 1.0; // Water level + waves + eye height offset to keep head above water
     const isMovingForward = game.isMobile ? (direction.z > 0.1) : moveForward;
     
     // Dive is triggered by C or ControlLeft (Shift is now reserved for sprinting in water!)
