@@ -28,12 +28,10 @@ export function updateWaterHeights(delta) {
 
 export function getWaveHeightAt(absX, absZ, time) {
   // Layer 1: Large ocean swell (diagonal swell)
-  const swell = Math.sin(absX * 0.05 + absZ * 0.04 + time * 1.1) * 0.22;
+  const swell = Math.sin(absX * 0.05 + absZ * 0.04 + time * 1.1) * 0.25;
   // Layer 2: Medium crossing chop
-  const chop = Math.cos(absX * -0.12 + absZ * 0.10 + time * 1.8) * 0.10;
-  // Layer 3: Small wind ripple
-  const ripple = Math.sin(absX * 0.25 - absZ * 0.35 + time * 2.8) * 0.03;
-  return swell + chop + ripple;
+  const chop = Math.cos(absX * -0.10 + absZ * 0.08 + time * 1.6) * 0.12;
+  return swell + chop;
 }
 
 let waveFrameCount = 0;
@@ -77,7 +75,7 @@ export function updateOceanWaves(delta, wasSubmerged) {
     if (playerPos) {
       const dx = absVx - playerPos.x;
       const dz = absVz - playerPos.z;
-      if (dx * dx + dz * dz > 4900) { // 70 meters squared
+      if (dx * dx + dz * dz > 3600) { // 60 meters squared
         if (vx >= 12.0 && vx <= 244.0 && vz >= 12.0 && vz <= 244.0) {
           posArray[i3 + 1] = relSeaLevel;
           continue;
