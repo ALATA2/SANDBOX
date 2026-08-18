@@ -211,7 +211,6 @@ export function updateControls(delta) {
       world.raftMesh.rotation.y = rs.rotationY;
     }
   }
-  }
 
   const playerObj = game.controls.getObject();
   const position = playerObj.position;
