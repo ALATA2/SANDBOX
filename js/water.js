@@ -26,14 +26,6 @@ export function updateWaterHeights(delta) {
   }
 }
 
-export function getWaveHeightAt(absX, absZ, time) {
-  // Layer 1: Large ocean swell (diagonal swell)
-  const swell = Math.sin(absX * 0.05 + absZ * 0.04 + time * 1.1) * 0.25;
-  // Layer 2: Medium crossing chop
-  const chop = Math.cos(absX * -0.10 + absZ * 0.08 + time * 1.6) * 0.12;
-  return swell + chop;
-}
-
 let waveFrameCount = 0;
 export function updateOceanWaves(delta, wasSubmerged) {
   if (!world.waterMesh || game.paused || wasSubmerged) return;
@@ -55,10 +47,10 @@ export function updateOceanWaves(delta, wasSubmerged) {
   const absBottom = (world.gridOffsetZ || 0) * 1.6;
   const absTop = absBottom + 256.0;
 
-  const h00 = getWaveHeightAt(absLeft, absBottom, time);
-  const h10 = getWaveHeightAt(absRight, absBottom, time);
-  const h01 = getWaveHeightAt(absLeft, absTop, time);
-  const h11 = getWaveHeightAt(absRight, absTop, time);
+  const h00 = Math.sin(absLeft * 0.12 + time * 1.6) * 0.18 + Math.cos(absBottom * 0.12 + time * 1.2) * 0.18;
+  const h10 = Math.sin(absRight * 0.12 + time * 1.6) * 0.18 + Math.cos(absBottom * 0.12 + time * 1.2) * 0.18;
+  const h01 = Math.sin(absLeft * 0.12 + time * 1.6) * 0.18 + Math.cos(absTop * 0.12 + time * 1.2) * 0.18;
+  const h11 = Math.sin(absRight * 0.12 + time * 1.6) * 0.18 + Math.cos(absTop * 0.12 + time * 1.2) * 0.18;
   
   const relSeaLevel = (world.seaLevel !== undefined ? world.seaLevel : 4.0) - 4.0;
 
@@ -75,7 +67,7 @@ export function updateOceanWaves(delta, wasSubmerged) {
     if (playerPos) {
       const dx = absVx - playerPos.x;
       const dz = absVz - playerPos.z;
-      if (dx * dx + dz * dz > 3600) { // 60 meters squared
+      if (dx * dx + dz * dz > 4900) { // 70 meters squared
         if (vx >= 12.0 && vx <= 244.0 && vz >= 12.0 && vz <= 244.0) {
           posArray[i3 + 1] = relSeaLevel;
           continue;
@@ -108,7 +100,8 @@ export function updateOceanWaves(delta, wasSubmerged) {
     let yVal = relativeBaseHeight; // Local Y is height relative to the mesh position of Y=4.0
     
     // Calculate deep water wave using absolute coordinates for coherent waves across shifts
-    const deepWave = getWaveHeightAt(absVx, absVz, time);
+    const deepWave = Math.sin(absVx * 0.12 + time * 1.6) * 0.18 + 
+                     Math.cos(absVz * 0.12 + time * 1.2) * 0.18;
     
     let localWave = deepWave;
     if (currentDepth < 2.0) {

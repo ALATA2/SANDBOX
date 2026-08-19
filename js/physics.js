@@ -131,8 +131,8 @@ export function getSurfaceHeightNear(px, py, pz) {
     const rx = game.raftState.position.x;
     const rz = game.raftState.position.z;
     const rdist = Math.sqrt((px - rx) * (px - rx) + (pz - rz) * (pz - rz));
-    if (rdist < 1.6 && py >= game.raftState.position.y - 0.6) {
-      return game.raftState.position.y + 0.07;
+    if (rdist < 1.6 && py >= 3.5) {
+      return 4.12;
     }
   }
 
