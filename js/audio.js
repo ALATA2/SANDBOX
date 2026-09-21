@@ -18,6 +18,72 @@ let ambientNoise = null;
 let waveGain = null;
 let windGain = null;
 let bgMusic = null;
+let isMusicOn = localStorage.getItem('game_music_on') !== 'false'; // default true
+
+export function getMusicOn() {
+  return isMusicOn;
+}
+
+export function setMusicOn(enabled) {
+  isMusicOn = !!enabled;
+  localStorage.setItem('game_music_on', isMusicOn ? 'true' : 'false');
+  if (bgMusic) {
+    if (isMusicOn && !isMuted) {
+      bgMusic.play().catch(err => {
+        console.warn("Could not resume bgMusic:", err);
+      });
+    } else {
+      try {
+        bgMusic.pause();
+      } catch(e) {}
+    }
+  } else if (isMusicOn && !isMuted) {
+    const blocker = document.getElementById('blocker');
+    if (!blocker || blocker.style.display === 'none') {
+      startAmbientSounds();
+    }
+  }
+  updateMusicUI();
+}
+
+export function toggleMusic() {
+  setMusicOn(!isMusicOn);
+  return isMusicOn;
+}
+
+export function updateMusicUI() {
+  const elements = [
+    { icon: document.getElementById('hud-music-icon'), label: document.getElementById('hud-music-label'), btn: document.getElementById('hud-music-btn') },
+    { icon: document.getElementById('pause-music-icon'), label: document.getElementById('pause-music-label'), btn: document.getElementById('pause-music-btn') },
+    { icon: document.getElementById('menu-music-icon'), label: document.getElementById('menu-music-label'), btn: document.getElementById('menu-music-btn') }
+  ];
+
+  elements.forEach(({ icon, label, btn }) => {
+    if (icon) icon.textContent = isMusicOn ? '🎵' : '🔇';
+    if (label) {
+      label.textContent = isMusicOn ? 'MUSIC: ON' : 'MUSIC: OFF';
+    }
+    if (btn) {
+      if (isMusicOn) {
+        btn.classList.remove('music-off');
+        btn.classList.add('music-on');
+        btn.style.color = '#ffd700';
+        btn.style.borderColor = 'rgba(255, 215, 0, 0.4)';
+        btn.style.background = 'rgba(0, 0, 0, 0.45)';
+      } else {
+        btn.classList.remove('music-on');
+        btn.classList.add('music-off');
+        btn.style.color = '#94a3b8';
+        btn.style.borderColor = 'rgba(148, 163, 184, 0.25)';
+        btn.style.background = 'rgba(0, 0, 0, 0.3)';
+      }
+    }
+  });
+}
+window.toggleMusic = toggleMusic;
+window.setMusicOn = setMusicOn;
+window.getMusicOn = getMusicOn;
+window.updateMusicUI = updateMusicUI;
 
 // Initialize Audio Context on first interaction
 function initAudio() {
@@ -31,6 +97,8 @@ function initAudio() {
   masterFilter.frequency.setValueAtTime(20000, audioCtx.currentTime); // default fully open
   masterFilter.Q.setValueAtTime(1.0, audioCtx.currentTime);
   masterFilter.connect(audioCtx.destination);
+  
+  updateMusicUI();
 }
 
 export function setMute(muted) {
@@ -454,7 +522,7 @@ export function startAmbientSounds() {
   }
   bgMusic.volume = 0.20; // non troppo forte come volume, giusto ambientale
   
-  if (!isMuted) {
+  if (!isMuted && isMusicOn) {
     bgMusic.play().catch(err => {
       console.warn("Could not play background music automatically:", err);
     });

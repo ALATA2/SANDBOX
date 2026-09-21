@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { initControls, updateControls, joystickValues, triggerMobileJump } from './controls.js';
 import { initWorld, updateWorld, world, getSurfaceHeightNear, checkInWater, getWaterHeightAt, scrollWorld, loadCustomMap, LAKE_CENTER_X, LAKE_CENTER_Z, ENABLE_ISLANDS } from './world.js';
-import { initPlayer, updatePlayer, triggerToolSwing, player, syncHotbarCounts } from './player.js';
+import { initPlayer, updatePlayer, triggerToolSwing, player, syncHotbarCounts, showHudMessage } from './player.js';
 import { initInteraction, updateInteraction, harvestClosestDebris, nearFeedbackBoard, activeDebris } from './interact.js';
-import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute, setSubmergedAudio, startAmbientSounds, stopAmbientSounds, playWoodChop } from './audio.js';
+import { startDrone, stopDrone, playHover, playSelect, playLaunch, startCoreHover, stopCoreHover, getMuted, setMute, setSubmergedAudio, startAmbientSounds, stopAmbientSounds, playWoodChop, getMusicOn, setMusicOn, toggleMusic, updateMusicUI } from './audio.js';
 import { setLanguage, currentLang, getTranslation } from './lang.js';
 import { initMenuParticles, initUnderwaterParticles, initRainParticles, updateMenuParticles, updateUnderwaterParticles, updateRainParticles, menuParticles, initSnowParticles, initAutumnLeafParticles } from './particles.js';
 import { updateShadowCamera } from './shadows.js';
@@ -293,7 +293,7 @@ async function init() {
   initInteraction();
 
   // Check if we have custom map loaded from localStorage
-  const customMapStr = localStorage.getItem('custom_map_data_v0.120');
+  const customMapStr = localStorage.getItem('custom_map_data_v0.121');
   let loadedCustom = false;
   if (customMapStr) {
     try {
@@ -423,7 +423,7 @@ async function init() {
   });
 
   if (continueButton) {
-    if (localStorage.getItem('saved_game_state_v0.120')) {
+    if (localStorage.getItem('saved_game_state_v0.121')) {
       continueButton.style.display = 'block';
     } else {
       continueButton.style.display = 'none';
@@ -646,6 +646,11 @@ async function init() {
         togglePause();
       }
     }
+    
+    if (e.code === 'KeyM') {
+      const newState = toggleMusic();
+      showHudMessage(newState ? '🎵 Music: ON' : '🔇 Music: OFF');
+    }
   });
 
   // Mobile pause button support
@@ -671,6 +676,23 @@ async function init() {
       }
     });
   }
+
+  // Music Toggle Buttons Binding (HUD, Pause, Menu)
+  const bindMusicButton = (btnId) => {
+    const btn = document.getElementById(btnId);
+    if (btn) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const newState = toggleMusic();
+        showHudMessage(newState ? '🎵 Music: ON' : '🔇 Music: OFF');
+        playSelect();
+      });
+    }
+  };
+  bindMusicButton('hud-music-btn');
+  bindMusicButton('pause-music-btn');
+  bindMusicButton('menu-music-btn');
+  updateMusicUI();
 
   // Language selection pills UI bindings
   const langPills = document.querySelectorAll('.lang-pill');
@@ -1052,7 +1074,7 @@ export function saveGameState() {
       timestamp: Date.now()
     };
     
-    localStorage.setItem('saved_game_state_v0.120', JSON.stringify(saveState));
+    localStorage.setItem('saved_game_state_v0.121', JSON.stringify(saveState));
     console.log("Game state auto-saved.");
   } catch (err) {
     console.error("Auto-save failed:", err);
@@ -1061,7 +1083,7 @@ export function saveGameState() {
 window.saveGameState = saveGameState;
 
 export function loadGameState() {
-  const data = localStorage.getItem('saved_game_state_v0.120');
+  const data = localStorage.getItem('saved_game_state_v0.121');
   if (!data) return false;
   
   try {

@@ -398,6 +398,23 @@ body, html {
   box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
 }
 
+#hud-music-btn:hover, #pause-music-btn:hover, #menu-music-btn:hover {
+  transform: scale(1.04);
+  background: rgba(255, 215, 0, 0.25) !important;
+  border-color: var(--accent-gold) !important;
+}
+
+.music-off {
+  color: #94a3b8 !important;
+  border-color: rgba(148, 163, 184, 0.25) !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+}
+
+.music-on {
+  color: #ffd700 !important;
+  border-color: rgba(255, 215, 0, 0.4) !important;
+}
+
 .lang-row {
   display: flex;
   flex-wrap: wrap;

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ARCHIPELAGO - Low-Poly Survival Prototype</title>
-  <link rel="stylesheet" href="style.css?v=0.120">
+  <link rel="stylesheet" href="style.css?v=0.121">
   
   <!-- Import maps polyfill if needed -->
   <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
@@ -15,22 +15,22 @@
       "imports": {
         "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
         "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/",
-        "./js/controls.js": "./js/controls.js?v=0.120",
-        "./js/world.js": "./js/world.js?v=0.120",
-        "./js/player.js": "./js/player.js?v=0.120",
-        "./js/interact.js": "./js/interact.js?v=0.120",
-        "./js/audio.js": "./js/audio.js?v=0.120",
-        "./js/lang.js": "./js/lang.js?v=0.120",
-        "./js/chemistry.js": "./js/chemistry.js?v=0.120",
-        "./js/game.js": "./js/game.js?v=0.120",
-        "./js/physics.js": "./js/physics.js?v=0.120",
-        "./js/wind.js": "./js/wind.js?v=0.120",
-        "./js/particles.js": "./js/particles.js?v=0.120",
-        "./js/shadows.js": "./js/shadows.js?v=0.120",
-        "./js/fauna.js": "./js/fauna.js?v=0.120",
-        "./js/water.js": "./js/water.js?v=0.120",
-        "./js/weather.js": "./js/weather.js?v=0.120",
-        "./js/ui.js": "./js/ui.js?v=0.120"
+        "./js/controls.js": "./js/controls.js?v=0.121",
+        "./js/world.js": "./js/world.js?v=0.121",
+        "./js/player.js": "./js/player.js?v=0.121",
+        "./js/interact.js": "./js/interact.js?v=0.121",
+        "./js/audio.js": "./js/audio.js?v=0.121",
+        "./js/lang.js": "./js/lang.js?v=0.121",
+        "./js/chemistry.js": "./js/chemistry.js?v=0.121",
+        "./js/game.js": "./js/game.js?v=0.121",
+        "./js/physics.js": "./js/physics.js?v=0.121",
+        "./js/wind.js": "./js/wind.js?v=0.121",
+        "./js/particles.js": "./js/particles.js?v=0.121",
+        "./js/shadows.js": "./js/shadows.js?v=0.121",
+        "./js/fauna.js": "./js/fauna.js?v=0.121",
+        "./js/water.js": "./js/water.js?v=0.121",
+        "./js/weather.js": "./js/weather.js?v=0.121",
+        "./js/ui.js": "./js/ui.js?v=0.121"
       }
     }
   </script>
@@ -60,7 +60,7 @@
             <div class="logo-container">
               <img src="assets/logo.png" alt="11° Logo" class="logo-img">
             </div>
-             <div class="menu-badge" data-translate="beta_badge">BETA VERTICAL SLICE v0.120</div>
+             <div class="menu-badge" data-translate="beta_badge">BETA VERTICAL SLICE v0.121</div>
           </div>
           
           <!-- Title (With glow effect) -->
@@ -104,8 +104,11 @@
           <!-- System Configuration (Integrated to prevent overlap) -->
           <div class="presets-section">
             <h2 class="sub-section-title">SYSTEM PROTOCOLS</h2>
-            <div style="display: flex; gap: 12px; align-items: center; width: 100%;">
+            <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
               <button id="mute-toggle" title="Toggle Sound" style="margin: 0; flex-shrink: 0; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 50%; width: 40px; height: 40px; color: white; font-size: 1.1rem; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: all 0.2s;">🔊</button>
+              <button id="menu-music-btn" title="Toggle Music (M)" style="margin: 0; flex-shrink: 0; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 215, 0, 0.4); border-radius: 20px; padding: 0 12px; height: 40px; color: #ffd700; font-family: monospace; font-size: 0.8rem; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; transition: all 0.2s;">
+                <span id="menu-music-icon">🎵</span> <span id="menu-music-label">MUSIC: ON</span>
+              </button>
               
               <!-- Language Selection Pills -->
               <div class="lang-row" style="flex: 1; display: flex; justify-content: space-between; margin: 0; background: rgba(0, 0, 0, 0.3); padding: 4px; border-radius: 30px; border: 1px solid rgba(255, 255, 255, 0.05);">
@@ -362,9 +365,15 @@
         </div>
       </div>
       
-      <div id="distance-panel">
-        <div class="label-small" data-translate="hud_distance">DISTANCE</div>
-        <div class="value-large" id="distance-value">1810 m</div>
+      <div id="hud-top-right-group" style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+        <div id="distance-panel">
+          <div class="label-small" data-translate="hud_distance">DISTANCE</div>
+          <div class="value-large" id="distance-value">1810 m</div>
+        </div>
+        <button id="hud-music-btn" title="Toggle Music (M)" style="pointer-events: auto; margin: 0; padding: 5px 12px; background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 215, 0, 0.4); border-radius: 20px; font-family: monospace; font-size: 0.8rem; font-weight: bold; color: #ffd700; cursor: pointer; display: flex; align-items: center; gap: 6px; backdrop-filter: blur(4px); transition: all 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.5);">
+          <span id="hud-music-icon">🎵</span>
+          <span id="hud-music-label">MUSIC: ON</span>
+        </button>
       </div>
     </div>
 
@@ -504,7 +513,12 @@
   <div id="pause-overlay" style="display: none;">
     <div class="pause-box">
       <h1 style="color: var(--accent-gold); text-shadow: 0 0 15px rgba(230,184,0,0.4); margin: 0 0 10px 0; font-size: 1.8rem; letter-spacing: 0.15em;">GIOCO IN PAUSA</h1>
-      <p style="color: #ccc; margin: 0; font-size: 0.9rem; letter-spacing: 0.05em;">PREMI <span style="color: var(--accent-gold); font-weight: bold;">P</span> PER RIPRENDERE</p>
+      <p style="color: #ccc; margin: 0 0 15px 0; font-size: 0.9rem; letter-spacing: 0.05em;">PREMI <span style="color: var(--accent-gold); font-weight: bold;">P</span> PER RIPRENDERE</p>
+      <div>
+        <button id="pause-music-btn" title="Toggle Music (M)" style="background: rgba(255, 215, 0, 0.15); border: 1px solid #ffd700; border-radius: 8px; color: #ffd700; padding: 10px 22px; font-family: monospace; font-size: 0.95rem; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s;">
+          <span id="pause-music-icon">🎵</span> <span id="pause-music-label">MUSIC: ON</span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -667,10 +681,10 @@
   </div>
 
   <!-- Version Tag for Deployment Tracking -->
-  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.120</div>
+  <div id="version-tag" style="position: absolute; bottom: 8px; left: 8px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">v0.121</div>
   <div id="fps-counter" style="position: absolute; bottom: 8px; left: 90px; font-size: 0.75rem; color: rgba(0, 255, 128, 0.75); font-weight: 600; letter-spacing: 0.05em; z-index: 1000; pointer-events: none; font-family: monospace;">FPS: --</div>
 
   <!-- Main JS entry point as an ES Module -->
-  <script type="module" src="js/game.js?v=0.120"></script>
+  <script type="module" src="js/game.js?v=0.121"></script>
 </body>
 </html>
