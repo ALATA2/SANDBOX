@@ -449,10 +449,10 @@ export function startAmbientSounds() {
 
   // Play background music
   if (!bgMusic) {
-    bgMusic = new Audio('MUSIC/Brano1-Alex-Ciarelli.mp3');
+    bgMusic = new Audio(encodeURI('MUSIC/Cryworld1-Daniele - Remix 2026.mp3'));
     bgMusic.loop = true;
-    bgMusic.volume = 0.35; // non-intrusive volume level
   }
+  bgMusic.volume = 0.20; // non troppo forte come volume, giusto ambientale
   
   if (!isMuted) {
     bgMusic.play().catch(err => {
